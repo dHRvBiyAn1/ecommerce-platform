@@ -6,7 +6,7 @@ services:
     container_name: ecommerce-postgres
     environment:
       POSTGRES_DB: ecommerce
-      POSTGRES_USER: root
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: root
     ports:
       - "5433:5432"
