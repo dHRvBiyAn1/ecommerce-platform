@@ -38,7 +38,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client
-          until pg_isready -h localhost -p 5432 -U root; do sleep 1; done
+          until pg_isready -h localhost -p 5432 -U postgres; do sleep 1; done
         env:
           PGPASSWORD: root
 
@@ -56,6 +56,10 @@ jobs:
 
       - name: Build user-service
         working-directory: ./services/user-service
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/ecommerce
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: root
         run: mvn clean verify
 
       # In the future, add similar steps for other services
