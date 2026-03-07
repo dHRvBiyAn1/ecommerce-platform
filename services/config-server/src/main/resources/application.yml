@@ -1,0 +1,22 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+  cloud:
+    config:
+      server:
+        git:
+          uri: file://${user.home}/config-repo  # or a remote git repo
+          # For local development, you can use a local directory.
+          # We'll create a simple config-repo later.
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://discovery-server:8761/eureka/
+    fetchRegistry: true
+    registerWithEureka: true
+  instance:
+    prefer-ip-address: true

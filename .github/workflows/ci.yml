@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Build hello-world service
+        working-directory: ./services/hello-world
+        run: mvn clean verify
+      # In the future, add similar steps for other services
+      - name: Build and test frontend
+        working-directory: ./frontend
+        run: |
+          npm install
+          npm run test:ci  # placeholder; you'll add tests later
