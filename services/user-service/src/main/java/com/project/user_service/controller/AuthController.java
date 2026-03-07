@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import java.util.UUID;
 
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,13 +26,13 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<UserProfileDto> register(@Valid @RequestBody RegisterRequest request) {
         UserProfileDto user = authService.register(request);
-        return ResponseEntity.ok(user);
+        return new ResponseEntity<>(user, HttpStatus.CREATED);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<JwtResponse> login(@Valid @RequestBody LoginRequest request) {
         // Returns access token in body and sets refresh token as HTTP-only cookie
         JwtResponse response = authService.login(request);
         ResponseCookie refreshTokenCookie = ResponseCookie.from("refreshToken", response.getRefreshToken())
@@ -46,10 +47,8 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<?> refresh(@CookieValue("refreshToken") String refreshToken) {
-        // Validate refresh token and issue new access token
-        JwtResponse response = authService.refreshAccessToken(refreshToken);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<JwtResponse> refresh(@CookieValue("refreshToken") String refreshToken) {
+        return new ResponseEntity<>(authService.refreshAccessToken(refreshToken), HttpStatus.OK);
     }
 
     @PostMapping("/logout")
@@ -68,14 +67,12 @@ public class AuthController {
 
     @GetMapping("/profile")
     public ResponseEntity<UserProfileDto> getProfile(@RequestAttribute("userId") UUID userId) {
-        // userId would be set by API Gateway after JWT validation
-        UserProfileDto profile = authService.getProfile(userId);
-        return ResponseEntity.ok(profile);
+        return new ResponseEntity<>(authService.getProfile(userId), HttpStatus.OK);
     }
 
     @GetMapping("/verify-email")
-    public ResponseEntity<?> verifyEmail(@RequestParam("token") String token) {
+    public ResponseEntity<String> verifyEmail(@RequestParam("token") String token) {
         authService.verifyEmail(token);
-        return ResponseEntity.ok("Email verified successfully");
+        return new ResponseEntity<>("Email verified successfully", HttpStatus.OK);
     }
 }
