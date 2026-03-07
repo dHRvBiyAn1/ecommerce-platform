@@ -18,9 +18,9 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Build hello-world service
-        working-directory: ./services/hello-world
-        run: mvn clean verify
+      # - name: Build hello-world service
+      #   working-directory: ./services/hello-world
+      #   run: mvn clean verify
 
       - name: Build config-server
         working-directory: ./services/config-server
@@ -28,6 +28,10 @@ jobs:
 
       - name: Build discovery-server
         working-directory: ./services/discovery-server
+        run: mvn clean verify
+
+      - name: Build user-service
+        working-directory: ./services/user-service
         run: mvn clean verify
 
       # In the future, add similar steps for other services
