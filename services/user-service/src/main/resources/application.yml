@@ -1,0 +1,27 @@
+server:
+  port: 8081
+  
+spring:
+  application:
+    name: user-service
+  datasource:
+    url: jdbc:postgresql://postgres:5433/ecommerce
+    username: root
+    password: root
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        "[format_sql]": true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+jwt:
+  secret: ${JWT_SECRET:mySecretKeyWithAtLeast32CharactersLongForHS512!}
+  access-token-expiration: 900000      # 15 minutes in milliseconds
+  refresh-token-expiration: 604800000  # 7 days in milliseconds
+
+logging:
+  level:
+    '[com.project]': DEBUG
