@@ -9,6 +9,22 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: ecommerce
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: root
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - uses: actions/checkout@v3
 
@@ -18,9 +34,17 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Build hello-world service
-        working-directory: ./services/hello-world
-        run: mvn clean verify
+      - name: Wait for Postgres
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          until pg_isready -h localhost -p 5432 -U postgres; do sleep 1; done
+        env:
+          PGPASSWORD: root
+
+      # - name: Build hello-world service
+      #   working-directory: ./services/hello-world
+      #   run: mvn clean verify
 
       - name: Build config-server
         working-directory: ./services/config-server
@@ -28,6 +52,14 @@ jobs:
 
       - name: Build discovery-server
         working-directory: ./services/discovery-server
+        run: mvn clean verify
+
+      - name: Build user-service
+        working-directory: ./services/user-service
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/ecommerce
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: root
         run: mvn clean verify
 
       # In the future, add similar steps for other services
