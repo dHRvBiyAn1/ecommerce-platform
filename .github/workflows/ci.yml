@@ -13,6 +13,7 @@ jobs:
       config-server: ${{ steps.filter.outputs.config-server }}
       discovery-server: ${{ steps.filter.outputs.discovery-server }}
       user-service: ${{ steps.filter.outputs.user-service }}
+      product-service: ${{ steps.filter.outputs.product-service }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - name: Checkout repository
@@ -29,6 +30,8 @@ jobs:
               - 'services/discovery-server/**'
             user-service:
               - 'services/user-service/**'
+            product-service:
+              - 'services/product-service/**'
             frontend:
               - 'frontend/ecommerce-app/**'
 
@@ -103,6 +106,45 @@ jobs:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/ecommerce
           SPRING_DATASOURCE_USERNAME: postgres
           SPRING_DATASOURCE_PASSWORD: root
+        run: mvn clean verify
+  
+  build-product-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.product-service == 'true'
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:6
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: root
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd="mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      - name: Wait for MongoDB
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mongodb-clients
+          until mongosh --host localhost --eval "db.adminCommand('ping')"; do sleep 2; done
+
+      - name: Build product-service
+        working-directory: ./services/product-service
+        env:
+          SPRING_DATA_MONGODB_URI: mongodb://localhost:27017/ecommerce
         run: mvn clean verify
 
   build-frontend:

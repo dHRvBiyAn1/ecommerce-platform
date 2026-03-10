@@ -121,6 +121,25 @@ services:
     networks:
       - ecommerce-network
 
+  product-service:
+    build:
+      context: ../services/product-service
+      dockerfile: Dockerfile
+    container_name: ecommerce-product-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+      - kafka
+      - config-server
+      - discovery-server
+    networks:
+      - ecommerce-network
+
 volumes:
   postgres_data:
   mongo_data:
