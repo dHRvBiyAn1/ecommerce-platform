@@ -15,6 +15,8 @@ import com.project.user_service.dtos.LoginRequest;
 import com.project.user_service.dtos.RegisterRequest;
 import com.project.user_service.dtos.UserProfileDto;
 import com.project.user_service.enums.Role;
+import com.project.user_service.exception.DuplicateResourceException;
+import com.project.user_service.exception.ResourceNotFoundException;
 import com.project.user_service.model.User;
 import com.project.user_service.repository.UserRepository;
 import com.project.user_service.security.JwtService;
@@ -40,7 +42,7 @@ public class AuthServiceImpl implements AuthService {
     public UserProfileDto register(RegisterRequest request) {
         // Check if user already exists
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new RuntimeException("Email already registered");
+            throw new DuplicateResourceException("Email already registered");
         }
 
         // Determine role (default CUSTOMER)
@@ -99,13 +101,13 @@ public class AuthServiceImpl implements AuthService {
 
     public UserProfileDto getProfile(UUID userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
         return mapToDto(user);
     }
 
     public void verifyEmail(String token) {
         User user = userRepository.findByEmailVerificationToken(token)
-                .orElseThrow(() -> new RuntimeException("Invalid verification token"));
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired verification token"));
         user.setEmailVerified(true);
         user.setEmailVerificationToken(null);
         userRepository.save(user);

@@ -1,26 +1,30 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
 import { AuthService } from '../auth.service';
+import { InputComponent } from '../../shared/components/input.component';
+import { ButtonComponent } from '../../shared/components/button.component';
+import { ToastService } from '../../shared/toast/toast.service';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, InputComponent, ButtonComponent],
   templateUrl: './register.html',
   styleUrl: './register.css',
 })
 export class Register {
   registerForm: FormGroup;
-  error = '';
-  success = false;
   loading = false;
+  success = false;
 
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef,
+    private toastService: ToastService
   ) {
     this.registerForm = this.fb.group({
       firstName: ['', [Validators.required]],
@@ -38,19 +42,18 @@ export class Register {
     }
 
     this.loading = true;
-    this.error = '';
-
     this.authService.register(this.registerForm.value).subscribe({
       next: () => {
         this.loading = false;
         this.success = true;
+        this.toastService.success('Registration successful. Please verify your email.');
+        this.cdr.detectChanges();
       },
       error: (err) => {
         this.loading = false;
-        this.error =
-          err?.error?.message ||
-          err?.error ||
-          'Registration failed. Please try again.';
+        const msg = err?.error?.message || err?.error?.error || 'Registration failed. Please try again.';
+        this.toastService.error(msg);
+        this.cdr.detectChanges();
       },
     });
   }

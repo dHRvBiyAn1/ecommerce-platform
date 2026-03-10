@@ -1,0 +1,135 @@
+.sidebar {
+  width: 280px;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  background: var(--color-bg, #0f0f1a);
+  border-right: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  overflow-y: auto;
+}
+
+.sidebar-header {
+  padding: 24px;
+  display: flex;
+  align-items: center;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-icon {
+  width: 32px;
+  height: 32px;
+  background: var(--color-primary, #6366f1);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.brand-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.brand h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text, #f1f5f9);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.sidebar-nav {
+  padding: 0 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-dimmed, #64748b);
+  padding: 0 12px;
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm, 8px);
+  color: var(--color-text-muted, #94a3b8);
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all var(--transition-fast, 150ms);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  background: var(--color-surface, rgba(255, 255, 255, 0.04));
+  color: var(--color-text, #f1f5f9);
+}
+
+.nav-item.active {
+  background: rgba(99, 102, 241, 0.1); /* Primary light fade */
+  color: var(--color-primary-light, #818cf8);
+}
+
+.nav-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.nav-item span:not(.badge) {
+  flex-grow: 1;
+}
+
+.chevron {
+  width: 16px;
+  height: 16px;
+  opacity: 0.5;
+}
+
+.nav-subitem {
+  padding: 8px 12px 8px 44px;
+  font-size: 0.9rem;
+  color: var(--color-text-dimmed, #64748b);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.nav-subitem:hover {
+  color: var(--color-text-muted, #94a3b8);
+}
+
+.nav-subitem.active {
+  color: var(--color-primary-light, #818cf8);
+}
+
+.badge.new {
+  background: rgba(52, 211, 153, 0.15); /* Success fade */
+  color: var(--color-success, #34d399);
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}

@@ -72,6 +72,18 @@ export class AuthService {
     return this.loggedIn.asObservable();
   }
 
+  getUserRole(): string | null {
+    if (!this.accessToken) return null;
+    try {
+      const payload = this.accessToken.split('.')[1];
+      const decoded = JSON.parse(atob(payload));
+      // Backend typically puts this in 'roles' or 'role' depending on configuration
+      return decoded.roles || decoded.role || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   private checkTokenOnInit() {
     // Optionally try to refresh token on app start
     this.refreshToken().subscribe({

@@ -2,14 +2,72 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ '**' ]
   pull_request:
-    branches: [ main ]
+    branches: [ '**' ]
 
 jobs:
-  build-and-test:
+  detect-changes:
     runs-on: ubuntu-latest
+    outputs:
+      config-server: ${{ steps.filter.outputs.config-server }}
+      discovery-server: ${{ steps.filter.outputs.discovery-server }}
+      user-service: ${{ steps.filter.outputs.user-service }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
+      - name: Detect changed services
+        id: filter
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            config-server:
+              - 'services/config-server/**'
+            discovery-server:
+              - 'services/discovery-server/**'
+            user-service:
+              - 'services/user-service/**'
+            frontend:
+              - 'frontend/ecommerce-app/**'
+
+  build-config-server:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.config-server == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - name: Build config-server
+        working-directory: ./services/config-server
+        run: mvn clean verify
+
+  build-discovery-server:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.discovery-server == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - name: Build discovery-server
+        working-directory: ./services/discovery-server
+        run: mvn clean verify
+
+  build-user-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.user-service == 'true'
+    runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:15-alpine
@@ -24,16 +82,14 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
-
     steps:
       - uses: actions/checkout@v3
-
-      - name: Set up JDK 17
+      - name: Setup Java
         uses: actions/setup-java@v3
         with:
-          java-version: '17'
-          distribution: 'temurin'
-
+          distribution: temurin
+          java-version: 17
+          cache: maven
       - name: Wait for Postgres
         run: |
           sudo apt-get update
@@ -41,19 +97,6 @@ jobs:
           until pg_isready -h localhost -p 5432 -U postgres; do sleep 1; done
         env:
           PGPASSWORD: root
-
-      # - name: Build hello-world service
-      #   working-directory: ./services/hello-world
-      #   run: mvn clean verify
-
-      - name: Build config-server
-        working-directory: ./services/config-server
-        run: mvn clean verify
-
-      - name: Build discovery-server
-        working-directory: ./services/discovery-server
-        run: mvn clean verify
-
       - name: Build user-service
         working-directory: ./services/user-service
         env:
@@ -62,9 +105,28 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: root
         run: mvn clean verify
 
-      # In the future, add similar steps for other services
-      # - name: Build and test frontend
-      #   working-directory: ./frontend
-      #   run: |
-      #     npm install
-      #     npm run test:ci  # placeholder; you'll add tests later
+  build-frontend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: '**/package.json'
+      - name: Install dependencies
+        working-directory: ./frontend/ecommerce-app
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+      - name: Build and Test
+        working-directory: ./frontend/ecommerce-app
+        run: |
+          npm run build
+          # npm test -- --watch=false --browsers=ChromeHeadless

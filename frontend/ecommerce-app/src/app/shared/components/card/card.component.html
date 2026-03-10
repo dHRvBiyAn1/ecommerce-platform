@@ -1,0 +1,13 @@
+<div class="card" [ngClass]="customClass">
+  @if (title) {
+    <div class="card-header">
+      <h3 class="card-title">{{ title }}</h3>
+      <div class="card-actions">
+        <ng-content select="[actions]"></ng-content>
+      </div>
+    </div>
+  }
+  <div class="card-body">
+    <ng-content></ng-content>
+  </div>
+</div>
