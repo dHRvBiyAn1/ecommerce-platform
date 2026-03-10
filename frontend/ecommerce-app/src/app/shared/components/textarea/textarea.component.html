@@ -1,0 +1,21 @@
+<div class="form-group" [class.has-error]="hasError">
+  @if (label) {
+    <label [for]="id">{{ label }}</label>
+  }
+  <div class="textarea-wrapper">
+    <textarea
+      [id]="id"
+      [placeholder]="placeholder"
+      [rows]="rows"
+      [value]="value"
+      [disabled]="disabled"
+      (input)="onInput($event)"
+      (blur)="onTouched()"
+    ></textarea>
+  </div>
+  @if (hasError && errorMessage) {
+    <div class="field-error">
+      {{ errorMessage }}
+    </div>
+  }
+</div>

@@ -1,0 +1,26 @@
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  background: var(--color-bg, #0f0f1a);
+}
+
+.main-content {
+  flex: 1;
+  margin-left: 280px; /* offset sidebar */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.page-content {
+  flex: 1;
+  padding: 32px;
+  overflow-y: auto;
+}
+
+/* Responsive adjustment for later if needed */
+@media (max-width: 1024px) {
+  .main-content {
+    margin-left: 0;
+  }
+}

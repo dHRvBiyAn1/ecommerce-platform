@@ -1,0 +1,134 @@
+.dashboard-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Rows & Spans */
+.top-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.charts-row, .bottom-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+}
+
+.full-row {
+  width: 100%;
+}
+
+@media (max-width: 1200px) {
+  .charts-row, .bottom-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .top-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Common UI adjustments inside dashboard */
+.dots-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-dimmed);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dots-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.dots-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text);
+}
+
+.chart-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-btn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+}
+
+.filter-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text);
+}
+
+.filter-btn.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.date-range {
+  gap: 6px;
+  margin-left: 8px;
+}
+
+.date-range svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Temporary custom table class until fully shared */
+.frontend-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.frontend-table th {
+  text-align: left;
+  padding: 12px 0;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.frontend-table td {
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.frontend-table tr:last-child td {
+  border-bottom: none;
+}
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+.map-placeholder {
+  width: 100%;
+  height: 200px;
+  margin-top: 24px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+}

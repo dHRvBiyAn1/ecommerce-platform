@@ -1,25 +1,29 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
 import { AuthService } from '../auth.service';
+import { InputComponent } from '../../shared/components/input.component';
+import { ButtonComponent } from '../../shared/components/button.component';
+import { ToastService } from '../../shared/toast/toast.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, InputComponent, ButtonComponent],
   templateUrl: './login.html',
   styleUrl: './login.css',
 })
 export class Login {
   loginForm: FormGroup;
-  error = '';
   loading = false;
 
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef,
+    private toastService: ToastService
   ) {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
@@ -34,17 +38,27 @@ export class Login {
     }
 
     this.loading = true;
-    this.error = '';
-
     this.authService.login(this.loginForm.value).subscribe({
       next: () => {
         this.loading = false;
-        this.router.navigate(['/']);
+        this.cdr.detectChanges();
+        
+        const role = this.authService.getUserRole();
+        if (role?.includes('ADMIN')) {
+          this.router.navigate(['/admin']);
+        } else if (role?.includes('SELLER')) {
+          this.router.navigate(['/seller']);
+        } else {
+          this.router.navigate(['/']);
+        }
+        
+        this.toastService.success('Logged in successfully!');
       },
       error: (err) => {
         this.loading = false;
-        this.error =
-          err?.error?.message || 'Invalid email or password. Please try again.';
+        const msg = err?.error?.message || 'Invalid email or password. Please try again.';
+        this.toastService.error(msg);
+        this.cdr.detectChanges();
       },
     });
   }

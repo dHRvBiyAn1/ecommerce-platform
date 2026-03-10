@@ -58,164 +58,118 @@
         <p>Join ShopVerse and start shopping</p>
       </div>
 
-      <!-- Error alert -->
-      @if (error) {
-        <div class="alert alert-error">
-          <svg viewBox="0 0 20 20" fill="currentColor" class="alert-icon">
-            <path
-              fill-rule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-              clip-rule="evenodd"
-            />
-          </svg>
-          <span>{{ error }}</span>
-        </div>
-      }
-
       <!-- Register form -->
       <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="auth-form" novalidate>
-        <!-- Name row -->
         <div class="name-row">
           <!-- First name -->
-          <div
-            class="form-group"
-            [class.has-error]="
-              registerForm.get('firstName')?.invalid && registerForm.get('firstName')?.touched
+          <app-input
+            id="reg-firstname"
+            label="First name"
+            type="text"
+            placeholder="John"
+            autocomplete="given-name"
+            formControlName="firstName"
+            [hasError]="
+              !!(registerForm.get('firstName')?.invalid && registerForm.get('firstName')?.touched)
             "
+            errorMessage="First name is required"
           >
-            <label for="reg-firstname">First name</label>
-            <div class="input-wrapper">
-              <svg class="input-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path
-                  fill-rule="evenodd"
-                  d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-              <input
-                id="reg-firstname"
-                type="text"
-                formControlName="firstName"
-                placeholder="John"
-                autocomplete="given-name"
+            <svg icon viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fill-rule="evenodd"
+                d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                clip-rule="evenodd"
               />
-            </div>
-            @if (
-              registerForm.get('firstName')?.touched &&
-              registerForm.get('firstName')?.errors?.['required']
-            ) {
-              <div class="field-error">First name is required</div>
-            }
-          </div>
+            </svg>
+          </app-input>
 
           <!-- Last name -->
-          <div class="form-group">
-            <label for="reg-lastname">Last name</label>
-            <div class="input-wrapper">
-              <svg class="input-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path
-                  fill-rule="evenodd"
-                  d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-              <input
-                id="reg-lastname"
-                type="text"
-                formControlName="lastName"
-                placeholder="Doe"
-                autocomplete="family-name"
+          <app-input
+            id="reg-lastname"
+            label="Last name"
+            type="text"
+            placeholder="Doe"
+            autocomplete="family-name"
+            formControlName="lastName"
+          >
+            <svg icon viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fill-rule="evenodd"
+                d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                clip-rule="evenodd"
               />
-            </div>
-          </div>
+            </svg>
+          </app-input>
         </div>
 
         <!-- Email field -->
-        <div
-          class="form-group"
-          [class.has-error]="
-            registerForm.get('email')?.invalid && registerForm.get('email')?.touched
+        <app-input
+          id="reg-email"
+          label="Email address"
+          type="email"
+          placeholder="you@example.com"
+          autocomplete="email"
+          formControlName="email"
+          [hasError]="!!(registerForm.get('email')?.invalid && registerForm.get('email')?.touched)"
+          [errorMessage]="
+            registerForm.get('email')?.errors?.['required']
+              ? 'Email is required'
+              : registerForm.get('email')?.errors?.['email']
+                ? 'Please enter a valid email address'
+                : ''
           "
         >
-          <label for="reg-email">Email address</label>
-          <div class="input-wrapper">
-            <svg class="input-icon" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-              <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-            </svg>
-            <input
-              id="reg-email"
-              type="email"
-              formControlName="email"
-              placeholder="you&#64;example.com"
-              autocomplete="email"
-            />
-          </div>
-          @if (registerForm.get('email')?.touched && registerForm.get('email')?.errors) {
-            <div class="field-error">
-              @if (registerForm.get('email')?.errors?.['required']) {
-                Email is required
-              } @else if (registerForm.get('email')?.errors?.['email']) {
-                Please enter a valid email address
-              }
-            </div>
-          }
-        </div>
+          <svg icon viewBox="0 0 20 20" fill="currentColor">
+            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+          </svg>
+        </app-input>
 
         <!-- Password field -->
-        <div
-          class="form-group"
-          [class.has-error]="
-            registerForm.get('password')?.invalid && registerForm.get('password')?.touched
+        <app-input
+          id="reg-password"
+          label="Password"
+          type="password"
+          placeholder="Min. 6 characters"
+          autocomplete="new-password"
+          formControlName="password"
+          [hasError]="
+            !!(registerForm.get('password')?.invalid && registerForm.get('password')?.touched)
+          "
+          [errorMessage]="
+            registerForm.get('password')?.errors?.['required']
+              ? 'Password is required'
+              : registerForm.get('password')?.errors?.['minlength']
+                ? 'Password must be at least 6 characters'
+                : ''
           "
         >
-          <label for="reg-password">Password</label>
-          <div class="input-wrapper">
-            <svg class="input-icon" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fill-rule="evenodd"
-                d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                clip-rule="evenodd"
-              />
-            </svg>
-            <input
-              id="reg-password"
-              type="password"
-              formControlName="password"
-              placeholder="Min. 6 characters"
-              autocomplete="new-password"
+          <svg icon viewBox="0 0 20 20" fill="currentColor">
+            <path
+              fill-rule="evenodd"
+              d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+              clip-rule="evenodd"
             />
-          </div>
-          @if (registerForm.get('password')?.touched && registerForm.get('password')?.errors) {
-            <div class="field-error">
-              @if (registerForm.get('password')?.errors?.['required']) {
-                Password is required
-              } @else if (registerForm.get('password')?.errors?.['minlength']) {
-                Password must be at least 6 characters
-              }
-            </div>
-          }
-        </div>
+          </svg>
+        </app-input>
 
-        <!-- Hidden role (defaults to CUSTOMER) -->
         <input type="hidden" formControlName="role" />
 
         <!-- Submit button -->
-        <button type="submit" class="btn btn-primary" [disabled]="loading">
-          @if (loading) {
-            <span class="spinner"></span>
-            <span>Creating account…</span>
-          } @else {
-            <span>Create Account</span>
-            <svg viewBox="0 0 20 20" fill="currentColor" class="btn-icon">
-              <path
-                fill-rule="evenodd"
-                d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
-                clip-rule="evenodd"
-              />
-            </svg>
-          }
-        </button>
+        <app-button
+          type="submit"
+          text="Create Account"
+          [loading]="loading"
+          loadingText="Creating account…"
+        >
+          <svg icon viewBox="0 0 20 20" fill="currentColor" class="btn-icon">
+            <path
+              fill-rule="evenodd"
+              d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </app-button>
       </form>
 
       <!-- Footer -->
@@ -225,7 +179,6 @@
     }
   </div>
 
-  <!-- Decorative glow orbs -->
   <div class="orb orb-1"></div>
   <div class="orb orb-2"></div>
 </div>

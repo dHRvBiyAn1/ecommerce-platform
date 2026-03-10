@@ -1,0 +1,173 @@
+<app-admin-layout>
+  <div class="page-header">
+    <div class="page-title">
+      <h2>Products List</h2>
+      <p>Track your store's progress to boost your sales.</p>
+    </div>
+
+    <div class="breadcrumb">
+      <span>Dashboard</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="9 18 15 12 9 6"></polyline>
+      </svg>
+      <span class="active">Products</span>
+    </div>
+  </div>
+
+  <app-card>
+    <!-- Tool Bar -->
+    <div actions class="table-toolbar">
+      <button class="btn btn-outline">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Export
+      </button>
+      <button class="btn btn-primary" routerLink="/admin/add-product">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        Add Product
+      </button>
+    </div>
+
+    <!-- Table Header Actions (Filter / Search) -->
+    <div class="table-actions">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" placeholder="Search..." />
+      </div>
+      <button class="btn btn-outline filter-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+        </svg>
+        Filter
+      </button>
+    </div>
+
+    <!-- Data Table -->
+    <div class="table-responsive">
+      <table class="grid-table">
+        <thead>
+          <tr>
+            <th class="w-checkbox"><input type="checkbox" /></th>
+            <th>
+              Products
+              <svg
+                class="sort-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="12" y1="19" x2="12" y2="5"></line>
+                <polyline points="5 12 12 5 19 12"></polyline>
+              </svg>
+            </th>
+            <th>
+              Category
+              <svg
+                class="sort-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <polyline points="19 12 12 19 5 12"></polyline>
+              </svg>
+            </th>
+            <th>
+              Brand
+              <svg
+                class="sort-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <polyline points="19 12 12 19 5 12"></polyline>
+              </svg>
+            </th>
+            <th>
+              Price
+              <svg
+                class="sort-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <polyline points="19 12 12 19 5 12"></polyline>
+              </svg>
+            </th>
+            <th>Stock</th>
+            <th>Created At</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (prod of products; track prod.id) {
+            <tr>
+              <td><input type="checkbox" /></td>
+              <td>
+                <div class="product-cell">
+                  <div class="product-img"></div>
+                  <span class="product-name">{{ prod.name }}</span>
+                </div>
+              </td>
+              <td class="text-muted">{{ prod.category }}</td>
+              <td class="text-muted">{{ prod.brand }}</td>
+              <td class="font-medium">{{ prod.price | currency: 'USD' }}</td>
+              <td>
+                <app-badge [variant]="prod.inStock ? 'success' : 'error'">
+                  {{ prod.inStock ? 'In Stock' : 'Out of Stock' }}
+                </app-badge>
+              </td>
+              <td class="text-muted">{{ prod.createdAt }}</td>
+              <td class="actions-cell">
+                <button class="dots-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="1"></circle>
+                    <circle cx="19" cy="12" r="1"></circle>
+                    <circle cx="5" cy="12" r="1"></circle>
+                  </svg>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination">
+      <div class="page-info">Showing 1 to {{ products.length }} of 20</div>
+      <div class="page-controls">
+        <button class="page-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+        </button>
+        <button class="page-btn active">1</button>
+        <button class="page-btn">2</button>
+        <button class="page-btn">3</button>
+        <button class="page-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </app-card>
+</app-admin-layout>
