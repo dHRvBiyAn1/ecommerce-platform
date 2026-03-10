@@ -87,6 +87,8 @@ services:
       - "8888:8888"
     environment:
       SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - discovery-server
     networks:
       - ecommerce-network
 
