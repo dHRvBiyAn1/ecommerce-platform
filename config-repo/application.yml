@@ -1,1 +1,26 @@
-info.foo: bar
+server:
+  error:
+    include-message: always
+
+spring:
+  jackson:
+    serialization:
+      indent_output: true
+
+logging:
+  level:
+    root: INFO
+    com.project: DEBUG
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://discovery-server:8761/eureka/
+    registerWithEureka: true
+    fetchRegistry: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
