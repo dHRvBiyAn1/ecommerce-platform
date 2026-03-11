@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [ '**' ]
 
+# ✅ Add permissions at workflow level
+permissions:
+  contents: read
+  checks: write        # required for mikepenz/action-junit-report
+  actions: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # ✅ opt into Node.js 24 now
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
@@ -39,6 +48,9 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.config-server == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     steps:
       - uses: actions/checkout@v4
       - name: Setup Java
@@ -51,7 +63,7 @@ jobs:
         working-directory: ./services/config-server
         run: mvn clean verify
       - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v4
+        uses: mikepenz/action-junit-report@v5
         if: always()
         with:
           report_paths: '**/target/surefire-reports/TEST-*.xml'
@@ -60,6 +72,9 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.discovery-server == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     steps:
       - uses: actions/checkout@v4
       - name: Setup Java
@@ -72,7 +87,7 @@ jobs:
         working-directory: ./services/discovery-server
         run: mvn clean verify
       - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v4
+        uses: mikepenz/action-junit-report@v5
         if: always()
         with:
           report_paths: '**/target/surefire-reports/TEST-*.xml'
@@ -81,6 +96,9 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.user-service == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     services:
       postgres:
         image: postgres:15-alpine
@@ -119,9 +137,11 @@ jobs:
           SPRING_CONFIG_IMPORT: "optional:configserver:"
           SPRING_CLOUD_CONFIG_ENABLED: "false"
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_ACCESS_TOKEN_EXPIRATION: 900000
+          JWT_REFRESH_TOKEN_EXPIRATION: 604800000
         run: mvn clean verify
       - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v4
+        uses: mikepenz/action-junit-report@v5
         if: always()
         with:
           report_paths: '**/target/surefire-reports/TEST-*.xml'
@@ -130,6 +150,9 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.product-service == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     services:
       mongodb:
         image: mongo:6
@@ -167,7 +190,7 @@ jobs:
           SPRING_CLOUD_CONFIG_ENABLED: "false"
         run: mvn clean verify
       - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v4
+        uses: mikepenz/action-junit-report@v5
         if: always()
         with:
           report_paths: '**/target/surefire-reports/TEST-*.xml'
@@ -176,6 +199,8 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js

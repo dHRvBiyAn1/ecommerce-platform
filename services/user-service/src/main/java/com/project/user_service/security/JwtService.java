@@ -17,13 +17,13 @@ import java.util.function.Function;
 @Slf4j
 public class JwtService {
 
-    @Value("${jwt.secret}")
+    @Value("${jwt.secret:mySecretKeyWithAtLeast32CharactersLongForHS512!}")
     private String secret;
 
-    @Value("${jwt.access-token-expiration}")
+    @Value("${jwt.access-token-expiration:900000}")
     private long accessTokenExpiration;
 
-    @Value("${jwt.refresh-token-expiration}")
+    @Value("${jwt.refresh-token-expiration:604800000}")
     private long refreshTokenExpiration;
 
     private Key getSigningKey() {
@@ -83,6 +83,6 @@ public class JwtService {
 
     public Long getAccessTokenExpiration() {
         return accessTokenExpiration;
-    }    
+    }
 
 }
