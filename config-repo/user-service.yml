@@ -1,10 +1,7 @@
 server:
   port: 8081
-  
-spring:
-  application:
-    name: user-service
 
+spring:
   datasource:
     url: jdbc:postgresql://postgres:5432/ecommerce
     username: postgres
@@ -19,5 +16,5 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET:mySecretKeyWithAtLeast32CharactersLongForHS512!}
-  access-token-expiration: 900000      # 15 minutes in milliseconds
-  refresh-token-expiration: 604800000  # 7 days in milliseconds
+  access-token-expiration: 900000
+  refresh-token-expiration: 604800000
