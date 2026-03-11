@@ -3,7 +3,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: ecommerce-postgres
+    container_name: postgres
     environment:
       POSTGRES_DB: ecommerce
       POSTGRES_USER: postgres
@@ -14,10 +14,15 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - ecommerce-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   mongodb:
     image: mongo:6.0
-    container_name: ecommerce-mongodb
+    container_name: mongodb
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: root
@@ -27,18 +32,29 @@ services:
       - mongo_data:/data/db
     networks:
       - ecommerce-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   redis:
     image: redis:7-alpine
-    container_name: ecommerce-redis
+    container_name: redis
     ports:
       - "6379:6379"
     networks:
       - ecommerce-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
-    container_name: ecommerce-zookeeper
+    container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -46,80 +62,100 @@ services:
       - "2181:2181"
     networks:
       - ecommerce-network
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   kafka:
     image: confluentinc/cp-kafka:7.4.0
-    container_name: ecommerce-kafka
+    container_name: kafka
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     ports:
-      - "9092:9092"
+      - "9092:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
     networks:
       - ecommerce-network
-
-  # hello-world:
-  #   build:
-  #     context: ../services/hello-world
-  #     dockerfile: Dockerfile
-  #   container_name: ecommerce-hello-world
-  #   ports:
-  #     - "8081:8080"
-  #   environment:
-  #     SPRING_PROFILES_ACTIVE: docker
-  #   depends_on:
-  #     - postgres
-  #     - mongodb
-  #     - redis
-  #     - kafka
-  config-server:
-    build:
-      context: ../services/config-server
-      dockerfile: Dockerfile
-    container_name: ecommerce-config-server
-    ports:
-      - "8888:8888"
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-    depends_on:
-      - discovery-server
-    networks:
-      - ecommerce-network
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   discovery-server:
     build:
       context: ../services/discovery-server
       dockerfile: Dockerfile
-    container_name: ecommerce-discovery-server
+    container_name: discovery-server
     ports:
       - "8761:8761"
     environment:
       SPRING_PROFILES_ACTIVE: docker
     networks:
       - ecommerce-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  config-server:
+    build:
+      context: ../services/config-server
+      dockerfile: Dockerfile
+    container_name: config-server
+    ports:
+      - "8888:8888"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+    networks:
+      - ecommerce-network
+    volumes:
+      - ../config-repo:/config-repo
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   user-service:
     build:
       context: ../services/user-service
       dockerfile: Dockerfile
-    container_name: ecommerce-user-service
+    container_name: user-service
     ports:
       - "8081:8081"
     environment:
       SPRING_PROFILES_ACTIVE: docker
     depends_on:
-      - postgres
-      - mongodb
-      - redis
-      - kafka
-      - config-server
-      - discovery-server
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
     networks:
       - ecommerce-network
 
@@ -127,18 +163,22 @@ services:
     build:
       context: ../services/product-service
       dockerfile: Dockerfile
-    container_name: ecommerce-product-service
+    container_name: product-service
     ports:
       - "8082:8082"
     environment:
       SPRING_PROFILES_ACTIVE: docker
     depends_on:
-      - postgres
-      - mongodb
-      - redis
-      - kafka
-      - config-server
-      - discovery-server
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
     networks:
       - ecommerce-network
 
