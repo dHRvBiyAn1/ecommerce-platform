@@ -22,9 +22,7 @@ export class Register {
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private router: Router,
-    private cdr: ChangeDetectorRef,
-    private toastService: ToastService
+    private toastService: ToastService,
   ) {
     this.registerForm = this.fb.group({
       firstName: ['', [Validators.required]],
@@ -47,13 +45,14 @@ export class Register {
         this.loading = false;
         this.success = true;
         this.toastService.success('Registration successful. Please verify your email.');
-        this.cdr.detectChanges();
+        // ← removed cdr.detectChanges()
       },
       error: (err) => {
         this.loading = false;
-        const msg = err?.error?.message || err?.error?.error || 'Registration failed. Please try again.';
+        const msg =
+          err?.error?.message || err?.error?.error || 'Registration failed. Please try again.';
         this.toastService.error(msg);
-        this.cdr.detectChanges();
+        // ← removed cdr.detectChanges()
       },
     });
   }
