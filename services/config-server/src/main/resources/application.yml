@@ -6,14 +6,13 @@ spring:
     name: config-server
   cloud:
     config:
+      enabled: false
       server:
         git:
           uri: https://github.com/dHRvBiyAn1/ecommerce-platform.git
           default-label: feature/product-service
           search-paths: config-repo
           clone-on-start: true
-      # ✅ This is the critical fix — disable client behavior
-      enabled: false
     
   # ✅ Also disable bootstrap config fetching entirely
   config:
