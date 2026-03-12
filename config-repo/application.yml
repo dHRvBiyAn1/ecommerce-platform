@@ -26,4 +26,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,env
+logging:
+  level:
+    '[com.project]': DEBUG

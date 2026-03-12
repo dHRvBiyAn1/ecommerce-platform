@@ -3,16 +3,3 @@ spring:
     name: user-service
   config:
     import: optional:configserver:http://config-server:8888
-
-eureka:
-  client:
-    serviceUrl:
-      defaultZone: http://discovery-server:8761/eureka/
-    fetchRegistry: true
-    registerWithEureka: true
-  instance:
-    prefer-ip-address: true
-
-logging:
-  level:
-    '[com.project]': DEBUG

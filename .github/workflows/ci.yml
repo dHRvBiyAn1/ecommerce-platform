@@ -186,8 +186,9 @@ jobs:
         working-directory: ./services/product-service
         env:
           SPRING_DATA_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
-          SPRING_CONFIG_IMPORT: "optional:configserver:"
-          SPRING_CLOUD_CONFIG_ENABLED: "false"
+          SPRING_CONFIG_IMPORT: "optional:configserver:"   # ← already had this
+          SPRING_CLOUD_CONFIG_ENABLED: "false"             # ← already had this
+          SPRING_APPLICATION_NAME: product-service         # ← ADD: ensures correct config is fetched
         run: mvn clean verify
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v5
