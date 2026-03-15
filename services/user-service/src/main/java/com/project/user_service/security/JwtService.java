@@ -2,12 +2,14 @@ package com.project.user_service.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
+import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,17 +19,33 @@ import java.util.function.Function;
 @Slf4j
 public class JwtService {
 
-    @Value("${jwt.secret}")
+    @Value("${jwt.secret:XzQh5zfZM4WJGak5UiUvo+TVqFJ+RhF45e/rgE/zuMt41+1j49oQI+T0SW49Ya/OpoCLDD+kIOrOsKSb/2dRHw==}")
     private String secret;
 
-    @Value("${jwt.access-token-expiration}")
+    @Value("${jwt.access-token-expiration:900000}")
     private long accessTokenExpiration;
 
-    @Value("${jwt.refresh-token-expiration}")
+    @Value("${jwt.refresh-token-expiration:604800000}")
     private long refreshTokenExpiration;
 
+    @PostConstruct
+    public void validateSecretKey() {
+        try {
+            byte[] keyBytes = Base64.getDecoder().decode(secret);
+            if (keyBytes.length < 64) {
+                throw new IllegalStateException(
+                        "JWT secret must be at least 64 bytes (512 bits) for HS512. " +
+                                "Current size: " + keyBytes.length * 8 + " bits");
+            }
+            log.info("JWT secret key validated successfully ({} bits)", keyBytes.length * 8);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("JWT secret is not valid Base64", e);
+        }
+    }
+
     private Key getSigningKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes());
+        byte[] keyBytes = Base64.getDecoder().decode(secret);
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 
     public String extractUsername(String token) {
@@ -83,6 +101,6 @@ public class JwtService {
 
     public Long getAccessTokenExpiration() {
         return accessTokenExpiration;
-    }    
+    }
 
 }

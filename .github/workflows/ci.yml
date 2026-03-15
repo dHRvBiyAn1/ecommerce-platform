@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [ '**' ]
 
+# ✅ Add permissions at workflow level
+permissions:
+  contents: read
+  checks: write        # required for mikepenz/action-junit-report
+  actions: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # ✅ opt into Node.js 24 now
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
@@ -13,14 +22,15 @@ jobs:
       config-server: ${{ steps.filter.outputs.config-server }}
       discovery-server: ${{ steps.filter.outputs.discovery-server }}
       user-service: ${{ steps.filter.outputs.user-service }}
+      product-service: ${{ steps.filter.outputs.product-service }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Detect changed services
         id: filter
-        uses: dorny/paths-filter@v2
+        uses: dorny/paths-filter@v3
         with:
           filters: |
             config-server:
@@ -29,6 +39,8 @@ jobs:
               - 'services/discovery-server/**'
             user-service:
               - 'services/user-service/**'
+            product-service:
+              - 'services/product-service/**'
             frontend:
               - 'frontend/ecommerce-app/**'
 
@@ -36,10 +48,13 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.config-server == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
@@ -47,15 +62,23 @@ jobs:
       - name: Build config-server
         working-directory: ./services/config-server
         run: mvn clean verify
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          report_paths: '**/target/surefire-reports/TEST-*.xml'
 
   build-discovery-server:
     needs: detect-changes
     if: needs.detect-changes.outputs.discovery-server == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
@@ -63,11 +86,19 @@ jobs:
       - name: Build discovery-server
         working-directory: ./services/discovery-server
         run: mvn clean verify
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          report_paths: '**/target/surefire-reports/TEST-*.xml'
 
   build-user-service:
     needs: detect-changes
     if: needs.detect-changes.outputs.user-service == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     services:
       postgres:
         image: postgres:15-alpine
@@ -83,17 +114,17 @@ jobs:
           --health-timeout=5s
           --health-retries=5
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
           cache: maven
       - name: Wait for Postgres
         run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
           until pg_isready -h localhost -p 5432 -U postgres; do sleep 1; done
         env:
           PGPASSWORD: root
@@ -103,20 +134,82 @@ jobs:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/ecommerce
           SPRING_DATASOURCE_USERNAME: postgres
           SPRING_DATASOURCE_PASSWORD: root
+          SPRING_CONFIG_IMPORT: "optional:configserver:"
+          SPRING_CLOUD_CONFIG_ENABLED: "false"
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_ACCESS_TOKEN_EXPIRATION: 900000
+          JWT_REFRESH_TOKEN_EXPIRATION: 604800000
         run: mvn clean verify
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          report_paths: '**/target/surefire-reports/TEST-*.xml'
+
+  build-product-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.product-service == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    services:
+      mongodb:
+        image: mongo:6
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: root
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd="mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - name: Wait for MongoDB
+        run: |
+          for i in {1..30}; do
+            nc -z localhost 27017 && echo "MongoDB is up" && exit 0
+            echo "Waiting for MongoDB..."
+            sleep 2
+          done
+          exit 1
+      - name: Build product-service
+        working-directory: ./services/product-service
+        env:
+          SPRING_DATA_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
+          SPRING_CONFIG_IMPORT: "optional:configserver:"   # ← already had this
+          SPRING_CLOUD_CONFIG_ENABLED: "false"             # ← already had this
+          SPRING_APPLICATION_NAME: product-service         # ← ADD: ensures correct config is fetched
+        run: mvn clean verify
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          report_paths: '**/target/surefire-reports/TEST-*.xml'
 
   build-frontend:
     needs: detect-changes
     if: needs.detect-changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: '**/package.json'
+          cache-dependency-path: frontend/ecommerce-app/package-lock.json
       - name: Install dependencies
         working-directory: ./frontend/ecommerce-app
         run: |
@@ -127,6 +220,4 @@ jobs:
           fi
       - name: Build and Test
         working-directory: ./frontend/ecommerce-app
-        run: |
-          npm run build
-          # npm test -- --watch=false --browsers=ChromeHeadless
+        run: npm run build

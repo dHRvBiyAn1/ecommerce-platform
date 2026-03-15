@@ -1,19 +1,35 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectorRef, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ToastService, Toast } from './toast.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-toast',
   standalone: true,
   imports: [CommonModule],
   templateUrl: './toast.component.html',
-  styleUrl: './toast.component.css'
+  styleUrl: './toast.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush   // ← ADD THIS
 })
-export class ToastComponent {
+export class ToastComponent implements OnInit, OnDestroy {
   toasts: Toast[] = [];
+  private subscription: Subscription = new Subscription;
 
-  constructor(private toastService: ToastService) {
-    this.toastService.toasts$.subscribe(t => this.toasts = t);
+  constructor(
+    private toastService: ToastService,
+    private cdr: ChangeDetectorRef               // ← ADD THIS
+  ) {}
+
+  ngOnInit() {
+    // ← Move subscription OUT of constructor into ngOnInit
+    this.subscription = this.toastService.toasts$.subscribe(t => {
+      this.toasts = t;
+      this.cdr.markForCheck();                   // ← trigger change detection safely
+    });
+  }
+
+  ngOnDestroy() {
+    this.subscription?.unsubscribe();            // ← prevent memory leak
   }
 
   remove(id: string) {

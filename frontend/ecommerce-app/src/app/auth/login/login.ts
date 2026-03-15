@@ -44,9 +44,9 @@ export class Login {
         this.cdr.detectChanges();
         
         const role = this.authService.getUserRole();
-        if (role?.includes('ADMIN')) {
+        if (role?.includes('ROLE_ADMIN')) {
           this.router.navigate(['/admin']);
-        } else if (role?.includes('SELLER')) {
+        } else if (role?.includes('ROLE_SELLER')) {
           this.router.navigate(['/seller']);
         } else {
           this.router.navigate(['/']);
