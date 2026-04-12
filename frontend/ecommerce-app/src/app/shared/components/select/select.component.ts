@@ -1,6 +1,7 @@
 import { Component, Input, forwardRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR, ReactiveFormsModule } from '@angular/forms';
+import { IconComponent } from '../icon/icon.component';
 
 export interface SelectOption {
   label: string;
@@ -10,7 +11,7 @@ export interface SelectOption {
 @Component({
   selector: 'app-select',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, IconComponent],
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,

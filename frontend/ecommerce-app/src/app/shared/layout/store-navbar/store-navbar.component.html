@@ -1,0 +1,66 @@
+<nav class="store-navbar" [class.scrolled]="isScrolled">
+  <div class="nav-container">
+    <!-- Logo -->
+    <a routerLink="/" class="nav-brand">
+      <div class="brand-mark">
+        <app-icon name="brand" [size]="22"></app-icon>
+      </div>
+      <span class="brand-name">ShopVerse</span>
+    </a>
+
+    <!-- Desktop Links -->
+    <div class="nav-links">
+      @for (link of navLinks; track link.label) {
+        <a [routerLink]="link.route" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: link.route === '/' }" class="nav-link">
+          {{ link.label }}
+        </a>
+      }
+    </div>
+
+    <!-- Actions -->
+    <div class="nav-actions">
+      <!-- Search -->
+      <button class="nav-icon-btn" aria-label="Search">
+        <app-icon name="search" [size]="20"></app-icon>
+      </button>
+
+      <!-- Theme Toggle -->
+      <button class="nav-icon-btn" (click)="toggleTheme()" aria-label="Toggle theme">
+        @if ((theme$ | async) === 'dark') {
+          <app-icon name="moon" [size]="20"></app-icon>
+        } @else {
+          <app-icon name="sun" [size]="20"></app-icon>
+        }
+      </button>
+
+      <!-- Wishlist -->
+      <a routerLink="/shop" class="nav-icon-btn" aria-label="Wishlist">
+        <app-icon name="heart" [size]="20"></app-icon>
+      </a>
+
+      <!-- Cart -->
+      <a routerLink="/shop" class="nav-icon-btn cart-btn" aria-label="Shopping cart">
+        <app-icon name="cart" [size]="20"></app-icon>
+        @if (cartCount > 0) {
+          <span class="cart-badge">{{ cartCount }}</span>
+        }
+      </a>
+
+      <!-- Mobile Menu -->
+      <button class="nav-icon-btn mobile-toggle" (click)="toggleMobileMenu()" aria-label="Menu">
+        <app-icon [name]="mobileMenuOpen ? 'close' : 'menu'" [size]="22"></app-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile Menu -->
+  @if (mobileMenuOpen) {
+    <div class="mobile-menu">
+      @for (link of navLinks; track link.label) {
+        <a [routerLink]="link.route" class="mobile-link" (click)="mobileMenuOpen = false">
+          {{ link.label }}
+        </a>
+      }
+    </div>
+  }
+</nav>

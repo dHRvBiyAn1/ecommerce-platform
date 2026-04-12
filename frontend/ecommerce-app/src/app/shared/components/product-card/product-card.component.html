@@ -1,0 +1,66 @@
+<a class="product-card" [routerLink]="['/product', product.id]" [class.out-of-stock]="!product.inStock">
+  <!-- Image -->
+  <div class="card-image">
+    <div class="image-placeholder" [style.background]="product.gradient">
+      @if (product.image) {
+        <img [src]="product.image" [alt]="product.name" loading="lazy" />
+      }
+    </div>
+
+    <!-- Badge -->
+    @if (product.badge) {
+      <span class="card-badge" [class.badge-sale]="product.badge === 'sale'" [class.badge-new]="product.badge === 'new'" [class.badge-hot]="product.badge === 'hot'">
+        @if (product.badge === 'sale') { SALE }
+        @else if (product.badge === 'new') { NEW }
+        @else if (product.badge === 'hot') { HOT }
+      </span>
+    }
+
+    <!-- Wishlist -->
+    <button class="wishlist-btn" (click)="onToggleWishlist($event)" [class.active]="wishlisted" [attr.aria-label]="wishlisted ? 'Remove from wishlist' : 'Add to wishlist'">
+      <app-icon [name]="wishlisted ? 'heart-filled' : 'heart'" [size]="18"></app-icon>
+    </button>
+
+    <!-- Quick View overlay on hover -->
+    <div class="quick-view-overlay">
+      <app-icon name="eye" [size]="20"></app-icon>
+      <span>Quick View</span>
+    </div>
+  </div>
+
+  <!-- Info -->
+  <div class="card-info">
+    <span class="card-category">{{ product.category }}</span>
+    <h3 class="card-name">{{ product.name }}</h3>
+
+    <div class="card-rating">
+      <app-star-rating [rating]="product.rating" [reviewCount]="product.reviewCount"></app-star-rating>
+    </div>
+
+    <div class="card-price">
+      <span class="price-current">${{ product.price.toFixed(2) }}</span>
+      @if (product.originalPrice && product.originalPrice > product.price) {
+        <span class="price-original">${{ product.originalPrice.toFixed(2) }}</span>
+        <span class="price-discount">-{{ discountPercent }}%</span>
+      }
+    </div>
+
+    <!-- CTA -->
+    @if (product.inStock) {
+      <button class="add-to-cart-btn" (click)="onAddToCart($event)" [class.added]="addedToCart">
+        @if (addedToCart) {
+          <app-icon name="check" [size]="16"></app-icon>
+          <span>Added!</span>
+        } @else {
+          <app-icon name="cart" [size]="16"></app-icon>
+          <span>Add to Cart</span>
+        }
+      </button>
+    } @else {
+      <button class="notify-btn" (click)="$event.stopPropagation(); $event.preventDefault()">
+        <app-icon name="bell" [size]="16"></app-icon>
+        <span>Notify Me</span>
+      </button>
+    }
+  </div>
+</a>

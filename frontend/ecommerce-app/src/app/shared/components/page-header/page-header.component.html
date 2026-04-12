@@ -1,0 +1,23 @@
+<div class="page-header">
+  <div class="page-title">
+    <h2>{{ title }}</h2>
+    @if (subtitle) {
+      <p>{{ subtitle }}</p>
+    }
+  </div>
+
+  @if (breadcrumbs.length) {
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      @for (crumb of breadcrumbs; track crumb.label; let last = $last) {
+        @if (crumb.link && !last) {
+          <a [routerLink]="crumb.link" class="breadcrumb-link">{{ crumb.label }}</a>
+        } @else {
+          <span [class.active]="last">{{ crumb.label }}</span>
+        }
+        @if (!last) {
+          <app-icon name="chevron-right" [size]="16" customClass="breadcrumb-separator"></app-icon>
+        }
+      }
+    </nav>
+  }
+</div>

@@ -1,14 +1,15 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AdminLayoutComponent } from '../../../shared/layout/admin-layout/admin-layout.component';
 import { CardComponent } from '../../../shared/components/card/card.component';
 import { InputComponent } from '../../../shared/components/input/input.component';
 import { ButtonComponent } from '../../../shared/components/button/button.component';
 import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
 import { TextareaComponent } from '../../../shared/components/textarea/textarea.component';
+import { PageHeaderComponent, BreadcrumbItem } from '../../../shared/components/page-header/page-header.component';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { Router } from '@angular/router';
+import { IconComponent } from '../../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-admin-add-product',
@@ -16,17 +17,23 @@ import { Router } from '@angular/router';
   imports: [
     CommonModule, 
     FormsModule,
-    AdminLayoutComponent, 
     CardComponent, 
     InputComponent, 
     ButtonComponent, 
     SelectComponent, 
-    TextareaComponent
+    TextareaComponent,
+    PageHeaderComponent,
+    IconComponent
   ],
   templateUrl: './add-product.component.html',
   styleUrl: './add-product.component.css'
 })
 export class AdminAddProductComponent {
+  breadcrumbs: BreadcrumbItem[] = [
+    { label: 'Dashboard', link: '/admin' },
+    { label: 'Add Product' }
+  ];
+
   product = {
     name: '',
     category: '',
@@ -88,7 +95,6 @@ export class AdminAddProductComponent {
 
   onSubmit() {
     console.log('Saving product:', this.product);
-    // Simulate API delay
     this.toastService.info('Saving product...');
     setTimeout(() => {
       this.toastService.success('Product added successfully!');

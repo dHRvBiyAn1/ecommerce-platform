@@ -1,20 +1,20 @@
 .dashboard-grid {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
 /* Rows & Spans */
 .top-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  gap: 20px;
 }
 
 .charts-row, .bottom-row {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 24px;
+  gap: 20px;
 }
 
 .full-row {
@@ -105,7 +105,7 @@
 
 .frontend-table th {
   text-align: left;
-  padding: 12px 0;
+  padding: 10px 0;
   color: var(--color-text-muted);
   font-weight: 500;
   font-size: 0.85rem;
@@ -113,7 +113,7 @@
 }
 
 .frontend-table td {
-  padding: 16px 0;
+  padding: 14px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
@@ -128,7 +128,7 @@
 .map-placeholder {
   width: 100%;
   height: 200px;
-  margin-top: 24px;
+  margin-top: 20px;
   background: rgba(255, 255, 255, 0.02);
   border-radius: 8px;
 }

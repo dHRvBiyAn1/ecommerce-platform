@@ -11,21 +11,25 @@
 }
 
 .badge-success {
-  background: rgba(52, 211, 153, 0.1);
-  color: var(--color-success, #34d399);
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--color-success, #10b981);
+  border: 1px solid rgba(52, 211, 153, 0.25);
 }
 
 .badge-error {
-  background: rgba(248, 113, 113, 0.1);
-  color: var(--color-error, #f87171);
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--color-error, #ef4444);
+  border: 1px solid rgba(239, 68, 68, 0.25);
 }
 
 .badge-warning {
-  background: rgba(251, 191, 36, 0.1);
-  color: var(--color-warning, #fbbf24);
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--color-warning, #f59e0b);
+  border: 1px solid rgba(245, 158, 11, 0.25);
 }
 
 .badge-primary {
-  background: rgba(99, 102, 241, 0.15);
+  background: rgba(99, 102, 241, 0.18);
   color: var(--color-primary-light, #818cf8);
+  border: 1px solid rgba(99, 102, 241, 0.25);
 }

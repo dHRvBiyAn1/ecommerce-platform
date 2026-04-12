@@ -1,1 +1,191 @@
-<p>home works!</p>
+<app-store-navbar></app-store-navbar>
+
+<!-- Hero Section -->
+<section class="hero">
+  <div class="hero-content">
+    <span class="hero-badge">
+      <app-icon name="zap" [size]="14"></app-icon>
+      New Season Collection
+    </span>
+    <h1 class="hero-title">
+      Discover <span class="gradient-text">Premium</span> Tech
+    </h1>
+    <p class="hero-subtitle">
+      Curated selection of the world's finest technology. Experience innovation at its peak
+      with exclusive deals and free shipping on orders over $50.
+    </p>
+    <div class="hero-actions">
+      <a routerLink="/shop" class="btn-hero-primary">
+        <span>Shop Now</span>
+        <app-icon name="arrow-right" [size]="18"></app-icon>
+      </a>
+      <a routerLink="/shop" class="btn-hero-secondary">
+        <app-icon name="eye" [size]="18"></app-icon>
+        <span>View All</span>
+      </a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat">
+        <span class="stat-number">50K+</span>
+        <span class="stat-label">Happy Customers</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <span class="stat-number">200+</span>
+        <span class="stat-label">Premium Brands</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <span class="stat-number">4.9</span>
+        <span class="stat-label">Store Rating</span>
+      </div>
+    </div>
+  </div>
+  <div class="hero-orbs">
+    <div class="hero-orb orb-a"></div>
+    <div class="hero-orb orb-b"></div>
+    <div class="hero-orb orb-c"></div>
+  </div>
+</section>
+
+<!-- Categories -->
+<section class="section" id="categories">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title">Browse Categories</h2>
+      <a routerLink="/shop" class="section-link">
+        View All <app-icon name="arrow-right" [size]="16"></app-icon>
+      </a>
+    </div>
+    <div class="categories-grid">
+      @for (cat of categories; track cat.name; let i = $index) {
+        <a routerLink="/shop" class="category-card" [style.animation-delay]="(i * 80) + 'ms'">
+          <div class="category-icon">
+            <app-icon [name]="cat.icon" [size]="28"></app-icon>
+          </div>
+          <span class="category-name">{{ cat.name }}</span>
+          <span class="category-count">{{ cat.count }} items</span>
+        </a>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- Featured Products -->
+<section class="section" id="featured">
+  <div class="container">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">Featured Products</h2>
+        <p class="section-subtitle">Hand-picked by our team for exceptional quality</p>
+      </div>
+      <a routerLink="/shop" class="section-link">
+        View All <app-icon name="arrow-right" [size]="16"></app-icon>
+      </a>
+    </div>
+    <div class="products-grid">
+      @for (product of featuredProducts; track product.id; let i = $index) {
+        <app-product-card
+          [product]="product"
+          (addToCart)="onAddToCart($event)"
+          [style.animation-delay]="(i * 60) + 'ms'"
+        ></app-product-card>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- Trust Badges -->
+<section class="section section-trust">
+  <div class="container">
+    <app-trust-badges></app-trust-badges>
+  </div>
+</section>
+
+<!-- Trending Products -->
+<section class="section" id="trending">
+  <div class="container">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">Trending Now</h2>
+        <p class="section-subtitle">What everyone's talking about</p>
+      </div>
+      <a routerLink="/shop" class="section-link">
+        View All <app-icon name="arrow-right" [size]="16"></app-icon>
+      </a>
+    </div>
+    <div class="products-grid cols-4">
+      @for (product of trendingProducts; track product.id; let i = $index) {
+        <app-product-card
+          [product]="product"
+          (addToCart)="onAddToCart($event)"
+          [style.animation-delay]="(i * 60) + 'ms'"
+        ></app-product-card>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- Newsletter -->
+<section class="section section-newsletter">
+  <div class="container">
+    <div class="newsletter-card">
+      <div class="newsletter-content">
+        <h2 class="newsletter-title">Stay in the Loop</h2>
+        <p class="newsletter-subtitle">Get exclusive deals, new arrivals, and insider tips delivered to your inbox.</p>
+        <div class="newsletter-form">
+          <div class="newsletter-input-wrap">
+            <app-icon name="mail" [size]="18"></app-icon>
+            <input type="email" placeholder="Enter your email" />
+          </div>
+          <button class="newsletter-btn">
+            Subscribe
+            <app-icon name="arrow-right" [size]="16"></app-icon>
+          </button>
+        </div>
+        <p class="newsletter-disclaimer">No spam, unsubscribe anytime. We respect your privacy.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="store-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="footer-logo">
+          <div class="brand-mark">
+            <app-icon name="brand" [size]="20"></app-icon>
+          </div>
+          <span>ShopVerse</span>
+        </div>
+        <p class="footer-tagline">Premium technology, curated for you. Experience the future of shopping.</p>
+      </div>
+      <div class="footer-links-group">
+        <h4>Shop</h4>
+        <a href="#">All Products</a>
+        <a href="#">New Arrivals</a>
+        <a href="#">Best Sellers</a>
+        <a href="#">Deals</a>
+      </div>
+      <div class="footer-links-group">
+        <h4>Support</h4>
+        <a href="#">Help Center</a>
+        <a href="#">Shipping Info</a>
+        <a href="#">Returns</a>
+        <a href="#">Contact Us</a>
+      </div>
+      <div class="footer-links-group">
+        <h4>Company</h4>
+        <a href="#">About Us</a>
+        <a href="#">Careers</a>
+        <a href="#">Blog</a>
+        <a href="#">Privacy Policy</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2027 ShopVerse. All rights reserved.</p>
+    </div>
+  </div>
+</footer>

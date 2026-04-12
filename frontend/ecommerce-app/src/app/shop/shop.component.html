@@ -1,0 +1,121 @@
+<app-store-navbar></app-store-navbar>
+
+<div class="shop-page">
+  <div class="container">
+    <!-- Page Header -->
+    <div class="shop-header">
+      <div>
+        <h1 class="shop-title">Shop</h1>
+        <p class="shop-count">{{ filteredProducts.length }} products found</p>
+      </div>
+      <div class="shop-controls">
+        <!-- Sort -->
+        <div class="sort-wrap">
+          <select [(ngModel)]="sortBy" class="sort-select" id="sort-products">
+            <option value="popular">Most Popular</option>
+            <option value="newest">Newest First</option>
+            <option value="price-low">Price: Low → High</option>
+            <option value="price-high">Price: High → Low</option>
+            <option value="rating">Highest Rated</option>
+          </select>
+        </div>
+
+        <!-- View Toggle -->
+        <div class="view-toggle">
+          <button class="view-btn" [class.active]="viewMode === 'grid'" (click)="viewMode = 'grid'" aria-label="Grid view">
+            <app-icon name="grid" [size]="18"></app-icon>
+          </button>
+          <button class="view-btn" [class.active]="viewMode === 'list'" (click)="viewMode = 'list'" aria-label="List view">
+            <app-icon name="list" [size]="18"></app-icon>
+          </button>
+        </div>
+
+        <!-- Mobile Filter Toggle -->
+        <button class="filter-toggle" (click)="filterOpen = !filterOpen">
+          <app-icon name="sliders" [size]="18"></app-icon>
+          <span>Filters</span>
+          @if (activeFiltersCount > 0) {
+            <span class="filter-count">{{ activeFiltersCount }}</span>
+          }
+        </button>
+      </div>
+    </div>
+
+    <div class="shop-layout">
+      <!-- Sidebar Filters -->
+      <aside class="filter-sidebar" [class.open]="filterOpen">
+        <div class="filter-header">
+          <h3>Filters</h3>
+          @if (activeFiltersCount > 0) {
+            <button class="clear-filters" (click)="clearFilters()">Clear All</button>
+          }
+        </div>
+
+        <!-- Categories -->
+        <div class="filter-section">
+          <h4 class="filter-title">Categories</h4>
+          <div class="filter-list">
+            @for (cat of categories; track cat.name) {
+              <button class="filter-chip" [class.active]="cat.active" (click)="selectCategory(cat.name)">
+                {{ cat.name }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <!-- Brands -->
+        <div class="filter-section">
+          <h4 class="filter-title">Brands</h4>
+          <div class="brand-list">
+            @for (brand of brands; track brand.name) {
+              <label class="brand-checkbox" [class.checked]="brand.checked">
+                <input type="checkbox" [(ngModel)]="brand.checked" [id]="'brand-' + brand.name" />
+                <span class="checkbox-mark"></span>
+                <span class="brand-label">{{ brand.name }}</span>
+              </label>
+            }
+          </div>
+        </div>
+
+        <!-- Rating -->
+        <div class="filter-section">
+          <h4 class="filter-title">Rating</h4>
+          <div class="rating-options">
+            @for (r of [4, 3, 2, 1]; track r) {
+              <button class="rating-option" [class.active]="selectedRating === r" (click)="setRating(r)">
+                <span class="rating-stars">
+                  @for (s of [1,2,3,4,5]; track s) {
+                    <app-icon [name]="s <= r ? 'star' : 'star-empty'" [size]="14" [class]="s <= r ? 'star-filled' : 'star-dim'"></app-icon>
+                  }
+                </span>
+                <span class="rating-text">& up</span>
+              </button>
+            }
+          </div>
+        </div>
+      </aside>
+
+      <!-- Product Grid -->
+      <div class="products-area">
+        @if (filteredProducts.length === 0) {
+          <div class="no-results">
+            <app-icon name="search" [size]="48"></app-icon>
+            <h3>No products found</h3>
+            <p>Try adjusting your filters or search criteria</p>
+            <button class="btn-clear" (click)="clearFilters()">Clear Filters</button>
+          </div>
+        } @else {
+          <div class="products-grid" [class.list-view]="viewMode === 'list'">
+            @for (product of filteredProducts; track product.id; let i = $index) {
+              <app-product-card
+                [product]="product"
+                (addToCart)="onAddToCart($event)"
+                [style.animation-delay]="(i * 50) + 'ms'"
+              ></app-product-card>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+</div>

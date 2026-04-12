@@ -7,16 +7,33 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 32px;
+  padding: 0 27px;
   position: sticky;
   top: 0;
   z-index: 40;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-toggle {
+  margin-right: 16px;
+  color: var(--color-text-muted);
+  transition: all 0.2s ease;
+}
+
+.sidebar-toggle:hover {
+  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.05);
+  transform: scale(1.05);
+}
+
 .search-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   position: relative;
   width: 320px;
 }
@@ -61,7 +78,7 @@
 .actions {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 17px;
 }
 
 .icon-btn {
@@ -106,7 +123,7 @@
 .user-profile {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   cursor: pointer;
   padding: 6px;
   border-radius: 24px;

@@ -6,11 +6,12 @@ import { AuthService } from '../auth.service';
 import { InputComponent } from '../../shared/components/input.component';
 import { ButtonComponent } from '../../shared/components/button.component';
 import { ToastService } from '../../shared/toast/toast.service';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule, InputComponent, ButtonComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, InputComponent, ButtonComponent, IconComponent],
   templateUrl: './register.html',
   styleUrl: './register.css',
 })
