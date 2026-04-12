@@ -1,9 +1,9 @@
-<div class="app-layout">
+<div class="app-layout" [class.sidebar-collapsed]="isCollapsed$ | async">
   <app-sidebar></app-sidebar>
   <div class="main-content">
     <app-header></app-header>
     <main class="page-content">
-      <ng-content></ng-content>
+      <router-outlet></router-outlet>
     </main>
   </div>
 </div>

@@ -2,11 +2,12 @@ import { Component, ChangeDetectorRef, OnInit, OnDestroy, ChangeDetectionStrateg
 import { CommonModule } from '@angular/common';
 import { ToastService, Toast } from './toast.service';
 import { Subscription } from 'rxjs';
+import { IconComponent } from '../components/icon/icon.component';
 
 @Component({
   selector: 'app-toast',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, IconComponent],
   templateUrl: './toast.component.html',
   styleUrl: './toast.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush   // ← ADD THIS

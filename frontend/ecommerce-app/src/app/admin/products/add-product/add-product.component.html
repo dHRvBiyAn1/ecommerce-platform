@@ -1,21 +1,8 @@
-<app-admin-layout>
-  <div class="page-header">
-    <div class="page-title">
-      <h2>Add Product</h2>
-    </div>
 
-    <div class="breadcrumb">
-      <span>Dashboard</span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="9 18 15 12 9 6"></polyline>
-      </svg>
-      <span>Products</span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="9 18 15 12 9 6"></polyline>
-      </svg>
-      <span class="active">Add Product</span>
-    </div>
-  </div>
+<app-page-header
+  title="Add Product"
+  [breadcrumbs]="breadcrumbs"
+></app-page-header>
 
   <form class="product-form" (ngSubmit)="onSubmit()">
     <!-- Products Description Section -->
@@ -97,73 +84,68 @@
     </app-card>
 
     <!-- Pricing & Availability Section -->
-    <app-card title="Pricing & Availability" customClass="form-section mt-6">
-      <div class="form-grid">
-        <app-input
-          id="price"
-          label="Price ($)"
-          type="number"
-          placeholder="100"
-          [(ngModel)]="product.price"
-          name="price"
-        ></app-input>
-
-        <app-input
-          id="discount"
-          label="Discount (%)"
-          type="number"
-          placeholder="0"
-          [(ngModel)]="product.discount"
-          name="discount"
-        ></app-input>
-
-        <div class="stock-control-wrapper">
-          <label class="section-label">Stock Quantity</label>
-          <div class="stock-input-group">
-            <button type="button" class="ctrl-btn" (click)="decStock()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-            </button>
-            <input type="number" class="stock-val" [(ngModel)]="product.stock" name="stock" />
-            <button type="button" class="ctrl-btn" (click)="incStock()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-            </button>
+    <div class="mt-10">
+      <app-card title="Pricing & Availability" customClass="form-section">
+        <div class="form-grid">
+          <app-input
+            id="price"
+            label="Price ($)"
+            type="number"
+            placeholder="100"
+            [(ngModel)]="product.price"
+            name="price"
+          ></app-input>
+  
+          <app-input
+            id="discount"
+            label="Discount (%)"
+            type="number"
+            placeholder="0"
+            [(ngModel)]="product.discount"
+            name="discount"
+          ></app-input>
+  
+          <div class="stock-control-wrapper">
+            <label class="section-label">Stock Quantity</label>
+            <div class="stock-input-group">
+              <button type="button" class="ctrl-btn" (click)="decStock()">
+                <app-icon name="minus"></app-icon>
+              </button>
+              <input type="number" class="stock-val" [(ngModel)]="product.stock" name="stock" />
+              <button type="button" class="ctrl-btn" (click)="incStock()">
+                <app-icon name="plus"></app-icon>
+              </button>
+            </div>
           </div>
+  
+          <app-select
+            id="availability"
+            label="Availability Status"
+            placeholder="Select Availability"
+            [options]="availabilities"
+            [(ngModel)]="product.availability"
+            name="availability"
+          ></app-select>
         </div>
-
-        <app-select
-          id="availability"
-          label="Availability Status"
-          placeholder="Select Availability"
-          [options]="availabilities"
-          [(ngModel)]="product.availability"
-          name="availability"
-        ></app-select>
-      </div>
-    </app-card>
+      </app-card>
+    </div>
 
     <!-- Images Upload (Placeholder matching screenshot dropzone) -->
-    <app-card title="Products Images" customClass="form-section mt-6">
-      <div class="dropzone">
-        <div class="upload-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="17 8 12 3 7 8"></polyline>
-            <line x1="12" y1="3" x2="12" y2="15"></line>
-          </svg>
+    <div class="mt-10">
+      <app-card title="Products Images" customClass="form-section">
+        <div class="dropzone">
+          <div class="upload-icon">
+            <app-icon name="upload"></app-icon>
+          </div>
+          <p class="dropzone-title">Click to upload or drag and drop</p>
+          <p class="dropzone-text">SVG, PNG, JPG or GIF (max, 800 X 800px)</p>
         </div>
-        <p class="dropzone-title">Click to upload or drag and drop</p>
-        <p class="dropzone-text">SVG, PNG, JPG or GIF (max, 800 X 800px)</p>
-      </div>
-    </app-card>
+      </app-card>
+    </div>
 
-    <div class="form-actions mt-6">
+    <div class="form-actions mt-10">
       <app-button text="Cancel" type="button" variant="outline"></app-button>
       <app-button text="Save Product" type="submit"></app-button>
     </div>
   </form>
-</app-admin-layout>
+
