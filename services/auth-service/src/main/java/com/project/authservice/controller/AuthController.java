@@ -1,7 +1,6 @@
 package com.project.authservice.controller;
 
 import com.project.authservice.dto.ApiResponse;
-import com.project.authservice.dto.LoginRequest;
 import com.project.authservice.dto.RegistrationRequest;
 import com.project.authservice.dto.TokenResponse;
 import com.project.authservice.dto.UserProfileDto;
@@ -22,7 +21,7 @@ public class AuthController {
     private final AuthService authService;
 
     @Value("${jwt.refresh-token-expiration}")
-    private int refreshTokenDurationMs;
+    private long refreshTokenDurationMs;
 
     public AuthController(AuthService authService) {
         this.authService = authService;
@@ -43,11 +42,12 @@ public class AuthController {
             HttpServletResponse response) {
 
         String refreshTokenCookie = CookieUtils.getCookieValue(request, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
-        
+
         TokenResponse tokenResponse = authService.authenticate(grantType, email, password, refreshTokenCookie);
 
         if (tokenResponse instanceof AuthService.TokenResponseWithRefresh trwr) {
-            CookieUtils.addCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME, trwr.getRefreshToken(), refreshTokenDurationMs / 1000);
+            CookieUtils.addCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME, trwr.getRefreshToken(),
+                    (int) (refreshTokenDurationMs / 1000));
             return ResponseEntity.ok(ApiResponse.success(new TokenResponse(tokenResponse.getAccessToken())));
         }
 

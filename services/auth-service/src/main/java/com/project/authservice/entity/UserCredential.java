@@ -1,7 +1,9 @@
 package com.project.authservice.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -12,6 +14,8 @@ import java.util.UUID;
 @Table(name = "user_credentials")
 @Getter
 @Setter
+@AllArgsConstructor
+@NoArgsConstructor
 public class UserCredential {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

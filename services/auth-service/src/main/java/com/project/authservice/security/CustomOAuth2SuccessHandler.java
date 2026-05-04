@@ -21,7 +21,7 @@ public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler 
     private final AuthService authService;
     
     @Value("${jwt.refresh-token-expiration}")
-    private int refreshTokenDurationMs;
+    private long refreshTokenDurationMs;
 
     public CustomOAuth2SuccessHandler(AuthService authService) {
         this.authService = authService;
@@ -39,7 +39,7 @@ public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler 
         
         AuthService.TokenResponseWithRefresh tokenResponse = authService.generateTokenPairForOAuth2(user);
 
-        CookieUtils.addCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME, tokenResponse.getRefreshToken(), refreshTokenDurationMs / 1000);
+        CookieUtils.addCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME, tokenResponse.getRefreshToken(), (int) (refreshTokenDurationMs / 1000));
 
         // Redirect back to frontend SPA with access token in fragment or query param
         // For security, usually it's better to redirect with a short-lived authorization code and have the SPA exchange it,
