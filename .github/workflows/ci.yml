@@ -22,6 +22,7 @@ jobs:
       config-server: ${{ steps.filter.outputs.config-server }}
       discovery-server: ${{ steps.filter.outputs.discovery-server }}
       user-service: ${{ steps.filter.outputs.user-service }}
+      auth-service: ${{ steps.filter.outputs.auth-service }}
       product-service: ${{ steps.filter.outputs.product-service }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
@@ -39,6 +40,8 @@ jobs:
               - 'services/discovery-server/**'
             user-service:
               - 'services/user-service/**'
+            auth-service:
+              - 'services/auth-service/**'
             product-service:
               - 'services/product-service/**'
             frontend:
@@ -91,10 +94,9 @@ jobs:
         if: always()
         with:
           report_paths: '**/target/surefire-reports/TEST-*.xml'
-
-  build-user-service:
+  build-auth-service:
     needs: detect-changes
-    if: needs.detect-changes.outputs.user-service == 'true'
+    if: needs.detect-changes.outputs.auth-service == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -128,8 +130,8 @@ jobs:
           until pg_isready -h localhost -p 5432 -U postgres; do sleep 1; done
         env:
           PGPASSWORD: root
-      - name: Build user-service
-        working-directory: ./services/user-service
+      - name: Build auth-service
+        working-directory: ./services/auth-service
         env:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/ecommerce
           SPRING_DATASOURCE_USERNAME: postgres

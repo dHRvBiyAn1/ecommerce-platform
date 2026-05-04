@@ -136,11 +136,11 @@ services:
       retries: 5
       start_period: 30s
 
-  user-service:
+  auth-service:
     build:
-      context: ../services/user-service
+      context: ../services/auth-service
       dockerfile: Dockerfile
-    container_name: user-service
+    container_name: auth-service
     ports:
       - "8081:8081"
     environment:

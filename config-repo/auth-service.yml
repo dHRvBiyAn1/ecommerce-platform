@@ -1,0 +1,28 @@
+server:
+  port: 8081
+
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/ecommerce
+    username: postgres
+    password: root
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        "[format_sql]": true
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:test-client-id}
+            client-secret: ${GOOGLE_CLIENT_SECRET:test-client-secret}
+            scope: email, profile
+
+jwt:
+  secret: ${JWT_SECRET:XzQh5zfZM4WJGak5UiUvo+TVqFJ+RhF45e/rgE/zuMt41+1j49oQI+T0SW49Ya/OpoCLDD+kIOrOsKSb/2dRHw==}
+  access-token-expiration: 900000 # 15 minutes in ms
+  refresh-token-expiration: 2592000000 # 30 days in ms
