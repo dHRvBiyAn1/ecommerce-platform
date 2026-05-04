@@ -6,6 +6,7 @@ import com.project.authservice.entity.User;
 import com.project.authservice.security.RsaKeyProperties;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -14,9 +15,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class JwtService {
 
-    private final RsaKeyProperties rsaKeys;
+    private RsaKeyProperties rsaKeys;
     
     @Value("${jwt.access-token-expiration}")
     private long jwtExpiration;

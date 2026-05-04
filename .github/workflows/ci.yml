@@ -21,7 +21,6 @@ jobs:
     outputs:
       config-server: ${{ steps.filter.outputs.config-server }}
       discovery-server: ${{ steps.filter.outputs.discovery-server }}
-      user-service: ${{ steps.filter.outputs.user-service }}
       auth-service: ${{ steps.filter.outputs.auth-service }}
       product-service: ${{ steps.filter.outputs.product-service }}
       frontend: ${{ steps.filter.outputs.frontend }}
@@ -38,8 +37,6 @@ jobs:
               - 'services/config-server/**'
             discovery-server:
               - 'services/discovery-server/**'
-            user-service:
-              - 'services/user-service/**'
             auth-service:
               - 'services/auth-service/**'
             product-service:
