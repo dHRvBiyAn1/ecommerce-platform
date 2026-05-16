@@ -2,6 +2,5 @@ server:
   port: 8082
 
 spring:
-  data:
-    mongodb:
+  mongodb:
       uri: mongodb://root:root@mongodb:27017/product_db?authSource=admin

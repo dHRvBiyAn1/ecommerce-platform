@@ -222,7 +222,7 @@ jobs:
       - name: Build product-service
         working-directory: ./services/product-service
         env:
-          SPRING_DATA_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
+          SPRING_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
           SPRING_CONFIG_IMPORT: "optional:configserver:"
           SPRING_CLOUD_CONFIG_ENABLED: "false"
           SPRING_APPLICATION_NAME: product-service
@@ -272,7 +272,7 @@ jobs:
       - name: Build inventory-service
         working-directory: ./services/inventory-service
         env:
-          SPRING_DATA_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
+          SPRING_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
           SPRING_CONFIG_IMPORT: "optional:configserver:"
           SPRING_CLOUD_CONFIG_ENABLED: "false"
           SPRING_APPLICATION_NAME: inventory-service
@@ -325,7 +325,7 @@ jobs:
       - name: Build order-service
         working-directory: ./services/order-service
         env:
-          SPRING_DATA_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
+          SPRING_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
           SPRING_CONFIG_IMPORT: "optional:configserver:"
           SPRING_CLOUD_CONFIG_ENABLED: "false"
           SPRING_APPLICATION_NAME: order-service
@@ -378,7 +378,7 @@ jobs:
       - name: Build payment-service
         working-directory: ./services/payment-service
         env:
-          SPRING_DATA_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
+          SPRING_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
           SPRING_CONFIG_IMPORT: "optional:configserver:"
           SPRING_CLOUD_CONFIG_ENABLED: "false"
           SPRING_APPLICATION_NAME: payment-service

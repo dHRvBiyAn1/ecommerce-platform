@@ -2,8 +2,7 @@ server:
   port: 8085
 
 spring:
-  data:
-    mongodb:
+  mongodb:
       uri: mongodb://root:root@mongodb:27017/payment_db?authSource=admin
 
 payment:

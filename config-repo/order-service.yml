@@ -2,8 +2,7 @@ server:
   port: 8084
 
 spring:
-  data:
-    mongodb:
+  mongodb:
       uri: mongodb://root:root@mongodb:27017/order_db?authSource=admin
 
 order:
