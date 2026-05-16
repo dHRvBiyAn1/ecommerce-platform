@@ -1,10 +1,13 @@
 package com.project.authservice.security;
 
 import com.project.authservice.service.JwtService;
+import com.project.authservice.service.TokenBlacklistService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -22,10 +25,14 @@ import java.util.stream.Collectors;
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
 
-    private final JwtService jwtService;
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthFilter.class);
 
-    public JwtAuthFilter(JwtService jwtService) {
+    private final JwtService jwtService;
+    private final TokenBlacklistService tokenBlacklistService;
+
+    public JwtAuthFilter(JwtService jwtService, TokenBlacklistService tokenBlacklistService) {
         this.jwtService = jwtService;
+        this.tokenBlacklistService = tokenBlacklistService;
     }
 
     @Override
@@ -39,6 +46,17 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         String token = authHeader.substring(7);
+
+        try {
+            if (tokenBlacklistService.isBlacklisted(token)) {
+                log.info("Blacklisted token rejected for request: {}", request.getRequestURI());
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.getWriter().write("Token is blacklisted");
+                return;
+            }
+        } catch (Exception e) {
+            log.warn("Redis blacklist check failed (proceeding without): {}", e.getMessage());
+        }
 
         try {
             if (jwtService.validateToken(token)) {
@@ -61,8 +79,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception e) {
-            // Token validation failed, ignore and proceed. Security rules will block
-            // unauthenticated requests.
+            log.debug("Token validation failed: {}", e.getMessage());
         }
 
         filterChain.doFilter(request, response);

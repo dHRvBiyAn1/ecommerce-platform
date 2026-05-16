@@ -1,0 +1,10 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: api-gateway
+  config:
+    import: optional:configserver:http://config-server:8888
+gateway:
+  jwt:
+    jwks-url: http://auth-service:8081/.well-known/jwks.json

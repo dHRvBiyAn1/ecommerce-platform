@@ -1,0 +1,28 @@
+server:
+  port: 8086
+
+spring:
+  mail:
+    host: smtp
+    port: 1025
+    username:
+    password:
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+notification:
+  email:
+    from: noreply@ecommerce.com
+    welcome-subject: "Welcome to ShopVerse!"
+    order-confirmation-subject: "Order Confirmation - #%s"
+    payment-receipt-subject: "Payment Receipt - #%s"
+    shipping-update-subject: "Shipping Update - Order #%s"
+    low-stock-subject: "Low Stock Alert - %s"
+
+logging:
+  level:
+    '[com.project.notification]': DEBUG

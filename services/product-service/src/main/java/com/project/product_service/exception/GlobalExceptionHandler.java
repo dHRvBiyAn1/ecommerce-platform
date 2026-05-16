@@ -92,15 +92,6 @@ public class GlobalExceptionHandler {
                 "An unexpected error occurred. Please try again later.", request);
     }
 
-    // ── 500 — Catch-all ──
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex,
-            HttpServletRequest request) {
-        log.error("Runtime exception on {}: {}", request.getRequestURI(), ex.getMessage(), ex);
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error",
-                "An unexpected error occurred. Please try again later.", request);
-    }
-
     // ── Builder ──
     private ResponseEntity<ErrorResponse> buildResponse(HttpStatus status, String error,
             String message, HttpServletRequest request) {

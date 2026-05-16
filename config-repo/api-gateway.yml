@@ -1,0 +1,57 @@
+server:
+  port: 8080
+
+spring:
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          discovery:
+            locator:
+              enabled: true
+              lowerCaseServiceId: true
+          routes:
+            - id: auth-service
+              uri: lb://auth-service
+              predicates:
+                - Path=/api/auth/**, /api/users/**, /oauth2/**, /login/oauth2/**, /.well-known/**
+              filters:
+                - StripPrefix=0
+            - id: product-service
+              uri: lb://product-service
+              predicates:
+                - Path=/api/v1/products/**, /api/v1/categories/**
+              filters:
+                - StripPrefix=0
+            - id: inventory-service
+              uri: lb://inventory-service
+              predicates:
+                - Path=/api/v1/inventory/**
+              filters:
+                - StripPrefix=0
+            - id: order-service
+              uri: lb://order-service
+              predicates:
+                - Path=/api/v1/orders/**
+              filters:
+                - StripPrefix=0
+            - id: payment-service
+              uri: lb://payment-service
+              predicates:
+                - Path=/api/v1/payments/**
+              filters:
+                - StripPrefix=0
+          default-filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.requestedTokens: 1
+
+gateway:
+  jwt:
+    jwks-url: http://auth-service:8081/.well-known/jwks.json
+
+logging:
+  level:
+    '[com.project.gateway]': DEBUG

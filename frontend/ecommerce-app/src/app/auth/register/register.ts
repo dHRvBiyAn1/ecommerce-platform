@@ -26,11 +26,9 @@ export class Register {
     private toastService: ToastService,
   ) {
     this.registerForm = this.fb.group({
-      firstName: ['', [Validators.required]],
-      lastName: [''],
+      displayName: ['', [Validators.required]],
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]],
-      role: ['CUSTOMER'],
     });
   }
 

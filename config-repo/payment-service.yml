@@ -1,0 +1,19 @@
+server:
+  port: 8085
+
+spring:
+  data:
+    mongodb:
+      uri: mongodb://root:root@mongodb:27017/payment_db?authSource=admin
+
+payment:
+  gateway:
+    success-rate: 0.90
+    simulate-delay-ms: 500
+  retry:
+    max-attempts: 3
+    backoff-ms: 1000
+
+logging:
+  level:
+    '[com.project.payment]': DEBUG

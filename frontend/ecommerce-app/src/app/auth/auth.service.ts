@@ -1,14 +1,12 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, BehaviorSubject } from 'rxjs';
 import { tap } from 'rxjs/operators';
 
 export interface RegisterRequest {
   email: string;
   password: string;
-  firstName: string;
-  lastName?: string;
-  role?: string;
+  displayName: string;
 }
 
 export interface LoginRequest {
@@ -19,15 +17,13 @@ export interface LoginRequest {
 export interface JwtResponse {
   accessToken: string;
   tokenType: string;
-  expiresIn: number;
-  // refreshToken not included because it's in HTTP-only cookie
 }
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
-  private apiUrl = 'http://localhost:8081/api/v1/users';
+  private apiUrl = 'http://localhost:8081/api/auth';
   private accessToken: string | null = null;
   private loggedIn = new BehaviorSubject<boolean>(false);
 
@@ -40,16 +36,20 @@ export class AuthService {
   }
 
   login(request: LoginRequest): Observable<JwtResponse> {
-    return this.http.post<JwtResponse>(`${this.apiUrl}/login`, request, { withCredentials: true })
+    const params = new HttpParams()
+      .set('grant_type', 'password')
+      .set('email', request.email)
+      .set('password', request.password);
+    return this.http.post<JwtResponse>(`${this.apiUrl}/token`, null, { params, withCredentials: true })
       .pipe(tap(response => {
         this.accessToken = response.accessToken;
         this.loggedIn.next(true);
-        // Store token in memory only
       }));
   }
 
   refreshToken(): Observable<JwtResponse> {
-    return this.http.post<JwtResponse>(`${this.apiUrl}/refresh`, {}, { withCredentials: true })
+    const params = new HttpParams().set('grant_type', 'refresh_token');
+    return this.http.post<JwtResponse>(`${this.apiUrl}/token`, null, { params, withCredentials: true })
       .pipe(tap(response => {
         this.accessToken = response.accessToken;
         this.loggedIn.next(true);
@@ -77,7 +77,6 @@ export class AuthService {
     try {
       const payload = this.accessToken.split('.')[1];
       const decoded = JSON.parse(atob(payload));
-      // Backend typically puts this in 'roles' or 'role' depending on configuration
       return decoded.roles || decoded.role || null;
     } catch (e) {
       return null;
@@ -85,7 +84,6 @@ export class AuthService {
   }
 
   private checkTokenOnInit() {
-    // Optionally try to refresh token on app start
     this.refreshToken().subscribe({
       error: () => this.loggedIn.next(false)
     });

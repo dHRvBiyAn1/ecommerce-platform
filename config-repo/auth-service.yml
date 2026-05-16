@@ -8,7 +8,7 @@ spring:
     password: root
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
@@ -23,6 +23,9 @@ spring:
             scope: email, profile
 
 jwt:
-  secret: ${JWT_SECRET:XzQh5zfZM4WJGak5UiUvo+TVqFJ+RhF45e/rgE/zuMt41+1j49oQI+T0SW49Ya/OpoCLDD+kIOrOsKSb/2dRHw==}
-  access-token-expiration: 900000 # 15 minutes in ms
-  refresh-token-expiration: 2592000000 # 30 days in ms
+  access-token-expiration: 900000
+  refresh-token-expiration: 2592000000
+
+rsa:
+  public-key-location: classpath:keys/public.pem
+  private-key-location: classpath:keys/private.pem

@@ -1,5 +1,6 @@
 package com.project.product_service.service;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -25,5 +26,9 @@ public interface ProductService {
     void deleteProduct(String id, UUID sellerId);
 
     ProductResponse setProductActiveStatus(String id, boolean active);
+
+    ProductResponse updateStock(String id, Integer stockQuantity);
+
+    Page<ProductResponse> getProductsByPriceRange(BigDecimal min, BigDecimal max, Pageable pageable);
     
 }

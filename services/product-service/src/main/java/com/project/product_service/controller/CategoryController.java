@@ -1,6 +1,12 @@
 package com.project.product_service.controller;
 
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -8,7 +14,9 @@ import org.springframework.web.bind.annotation.*;
 
 import com.project.product_service.dto.CategoryRequest;
 import com.project.product_service.dto.CategoryResponse;
+import com.project.product_service.dto.ProductResponse;
 import com.project.product_service.service.CategoryService;
+import com.project.product_service.service.ProductService;
 
 import jakarta.validation.Valid;
 
@@ -20,8 +28,10 @@ import java.util.List;
 public class CategoryController {
 
     private final CategoryService categoryService;
+    private final ProductService productService;
 
     @GetMapping
+    @Cacheable("categories")
     public ResponseEntity<List<CategoryResponse>> getAllCategories() {
         return new ResponseEntity<>(categoryService.getAllCategories(), HttpStatus.OK);
     }
@@ -31,8 +41,15 @@ public class CategoryController {
         return new ResponseEntity<>(categoryService.getCategory(id), HttpStatus.OK);
     }
 
+    @GetMapping("/{id}/products")
+    public ResponseEntity<Page<ProductResponse>> getProductsByCategory(
+            @PathVariable String id,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return new ResponseEntity<>(productService.getProductsByCategory(id, pageable), HttpStatus.OK);
+    }
+
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')") // only admin can create categories
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CategoryResponse> createCategory(@Valid @RequestBody CategoryRequest request) {
         return new ResponseEntity<>(categoryService.createCategory(request), HttpStatus.CREATED);
     }

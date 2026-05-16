@@ -1,6 +1,7 @@
 package com.project.authservice.controller;
 
 import com.project.authservice.dto.ApiResponse;
+import com.project.authservice.dto.ChangePasswordRequest;
 import com.project.authservice.dto.RegistrationRequest;
 import com.project.authservice.dto.TokenResponse;
 import com.project.authservice.dto.UserProfileDto;
@@ -10,8 +11,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -56,9 +59,24 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request, HttpServletResponse response) {
+        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        String accessToken = null;
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            accessToken = authHeader.substring(7);
+        }
+
         String refreshTokenValue = CookieUtils.getCookieValue(request, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
-        authService.logout(refreshTokenValue);
+        authService.logout(accessToken, refreshTokenValue);
         CookieUtils.deleteCookie(request, response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            Authentication authentication) {
+        String email = authentication.getName();
+        authService.changePassword(email, request.oldPassword(), request.newPassword());
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 }

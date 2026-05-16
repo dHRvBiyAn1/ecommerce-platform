@@ -32,41 +32,20 @@
 
       <!-- Register form -->
       <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="auth-form" novalidate>
-        <div class="name-row">
-          <!-- First name -->
-          <app-input
-            id="reg-firstname"
-            label="First name"
-            type="text"
-            placeholder="John"
-            autocomplete="given-name"
-            formControlName="firstName"
-            [hasError]="
-              !!(registerForm.get('firstName')?.invalid && registerForm.get('firstName')?.touched)
-            "
-            errorMessage="First name is required"
-          >
-            <svg icon viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fill-rule="evenodd"
-                d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                clip-rule="evenodd"
-              />
-            </svg>
-          </app-input>
-
-          <!-- Last name -->
-          <app-input
-            id="reg-lastname"
-            label="Last name"
-            type="text"
-            placeholder="Doe"
-            autocomplete="family-name"
-            formControlName="lastName"
-          >
-            <app-icon icon name="user" [size]="18"></app-icon>
-          </app-input>
-        </div>
+        <app-input
+          id="reg-displayname"
+          label="Display name"
+          type="text"
+          placeholder="John Doe"
+          autocomplete="name"
+          formControlName="displayName"
+          [hasError]="
+            !!(registerForm.get('displayName')?.invalid && registerForm.get('displayName')?.touched)
+          "
+          errorMessage="Display name is required"
+        >
+          <app-icon icon name="user" [size]="18"></app-icon>
+        </app-input>
 
         <!-- Email field -->
         <app-input
@@ -109,8 +88,6 @@
         >
           <app-icon icon name="lock" [size]="18"></app-icon>
         </app-input>
-
-        <input type="hidden" formControlName="role" />
 
         <!-- Submit button -->
         <app-button

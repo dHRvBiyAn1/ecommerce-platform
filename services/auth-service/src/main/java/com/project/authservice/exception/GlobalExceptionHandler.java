@@ -20,27 +20,31 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(UserAlreadyExistsException.class)
-    public ResponseEntity<ErrorResponse> handleUserAlreadyExistsException(UserAlreadyExistsException ex, HttpServletRequest request) {
+    public ResponseEntity<ErrorResponse> handleUserAlreadyExistsException(UserAlreadyExistsException ex,
+            HttpServletRequest request) {
         return buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage(), request.getRequestURI(), null);
     }
 
-    @ExceptionHandler({AuthException.class, BadCredentialsException.class, AuthenticationException.class})
+    @ExceptionHandler({ AuthException.class, BadCredentialsException.class, AuthenticationException.class })
     public ResponseEntity<ErrorResponse> handleAuthenticationException(Exception ex, HttpServletRequest request) {
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, ex.getMessage(), request.getRequestURI(), null);
     }
 
     @ExceptionHandler(TokenRefreshException.class)
-    public ResponseEntity<ErrorResponse> handleTokenRefreshException(TokenRefreshException ex, HttpServletRequest request) {
+    public ResponseEntity<ErrorResponse> handleTokenRefreshException(TokenRefreshException ex,
+            HttpServletRequest request) {
         return buildErrorResponse(HttpStatus.FORBIDDEN, ex.getMessage(), request.getRequestURI(), null);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException ex, HttpServletRequest request) {
+    public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException ex,
+            HttpServletRequest request) {
         return buildErrorResponse(HttpStatus.FORBIDDEN, "Access Denied", request.getRequestURI(), null);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex, HttpServletRequest request) {
+    public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex,
+            HttpServletRequest request) {
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach((error) -> {
             String fieldName = ((FieldError) error).getField();
@@ -52,17 +56,18 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGlobalException(Exception ex, HttpServletRequest request) {
-        return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred", request.getRequestURI(), null);
+        return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred",
+                request.getRequestURI(), null);
     }
 
-    private ResponseEntity<ErrorResponse> buildErrorResponse(HttpStatus status, String message, String path, Object errors) {
+    private ResponseEntity<ErrorResponse> buildErrorResponse(HttpStatus status, String message, String path,
+            Object errors) {
         ErrorResponse errorResponse = new ErrorResponse(
                 status.value(),
                 message,
                 path,
                 LocalDateTime.now(),
-                errors
-        );
+                errors);
         return new ResponseEntity<>(errorResponse, status);
     }
 }

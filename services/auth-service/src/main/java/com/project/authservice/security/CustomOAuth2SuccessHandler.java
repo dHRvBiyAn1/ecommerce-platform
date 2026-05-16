@@ -41,11 +41,9 @@ public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler 
 
         CookieUtils.addCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME, tokenResponse.getRefreshToken(), (int) (refreshTokenDurationMs / 1000));
 
-        // Redirect back to frontend SPA with access token in fragment or query param
-        // For security, usually it's better to redirect with a short-lived authorization code and have the SPA exchange it,
-        // but since we aren't using Authorization Server, we can redirect to the frontend with the access token.
-        // A common pattern for SPA is to redirect to a generic successful auth page on the frontend which reads the token.
-        String frontendUrl = "http://localhost:4200/oauth2/redirect?token=" + tokenResponse.getAccessToken();
+        // Redirect to frontend with token in URL fragment (not query param) to avoid
+        // exposure in server logs, browser history, and Referer headers.
+        String frontendUrl = "http://localhost:4200/oauth2/redirect#token=" + tokenResponse.getAccessToken();
         response.sendRedirect(frontendUrl);
     }
 }

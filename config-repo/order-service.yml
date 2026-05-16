@@ -1,0 +1,21 @@
+server:
+  port: 8084
+
+spring:
+  data:
+    mongodb:
+      uri: mongodb://root:root@mongodb:27017/order_db?authSource=admin
+
+order:
+  tax-rate: 0.10
+  shipping-cost: 5.99
+  free-shipping-threshold: 50.00
+  coupon:
+    welcome10:
+      code: WELCOME10
+      discount-percent: 10
+      max-uses: 1
+
+logging:
+  level:
+    '[com.project.order]': DEBUG

@@ -1,6 +1,10 @@
 package com.project.product_service.controller;
 
 import lombok.RequiredArgsConstructor;
+
+import java.math.BigDecimal;
+import java.util.UUID;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -12,11 +16,10 @@ import org.springframework.web.bind.annotation.*;
 
 import com.project.product_service.dto.ProductRequest;
 import com.project.product_service.dto.ProductResponse;
+import com.project.product_service.dto.StockUpdateRequest;
 import com.project.product_service.service.ProductService;
 
 import jakarta.validation.Valid;
-
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/products")
@@ -25,7 +28,6 @@ public class ProductController {
 
     private final ProductService productService;
 
-    // Public endpoints
     @GetMapping
     public ResponseEntity<Page<ProductResponse>> getAllActiveProducts(
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
@@ -51,7 +53,29 @@ public class ProductController {
         return new ResponseEntity<>(productService.getProduct(id), HttpStatus.OK);
     }
 
-    // Seller endpoints
+    @GetMapping("/seller/{sellerId}")
+    public ResponseEntity<Page<ProductResponse>> getProductsBySeller(
+            @PathVariable UUID sellerId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return new ResponseEntity<>(productService.getProductsBySeller(sellerId, pageable), HttpStatus.OK);
+    }
+
+    @GetMapping("/filter")
+    public ResponseEntity<Page<ProductResponse>> filterByPrice(
+            @RequestParam BigDecimal minPrice,
+            @RequestParam BigDecimal maxPrice,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return new ResponseEntity<>(productService.getProductsByPriceRange(minPrice, maxPrice, pageable), HttpStatus.OK);
+    }
+
+    @PatchMapping("/{id}/stock")
+    @PreAuthorize("hasRole('SELLER') or hasRole('ADMIN')")
+    public ResponseEntity<ProductResponse> updateStock(
+            @PathVariable String id,
+            @Valid @RequestBody StockUpdateRequest request) {
+        return new ResponseEntity<>(productService.updateStock(id, request.stockQuantity()), HttpStatus.OK);
+    }
+
     @GetMapping("/seller")
     @PreAuthorize("hasRole('SELLER')")
     public ResponseEntity<Page<ProductResponse>> getSellerProducts(
@@ -75,7 +99,6 @@ public class ProductController {
             @PathVariable String id,
             @Valid @RequestBody ProductRequest request,
             @RequestAttribute("userId") UUID sellerId) {
-        // Ensure the product belongs to the seller (service layer checks)
         request.setSellerId(sellerId);
         return new ResponseEntity<>(productService.updateProduct(id, request), HttpStatus.OK);
     }
@@ -89,7 +112,6 @@ public class ProductController {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
-    // Admin endpoints (can override seller restrictions)
     @PutMapping("/admin/{id}/toggle")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductResponse> toggleProductActive(@PathVariable String id, @RequestParam boolean active) {

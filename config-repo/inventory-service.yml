@@ -1,0 +1,11 @@
+server:
+  port: 8083
+
+spring:
+  data:
+    mongodb:
+      uri: mongodb://root:root@mongodb:27017/inventory_db?authSource=admin
+
+logging:
+  level:
+    '[com.project.inventory]': DEBUG

@@ -6,14 +6,13 @@ on:
   pull_request:
     branches: [ '**' ]
 
-# ✅ Add permissions at workflow level
 permissions:
   contents: read
-  checks: write        # required for mikepenz/action-junit-report
+  checks: write
   actions: read
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # ✅ opt into Node.js 24 now
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   detect-changes:
@@ -21,8 +20,13 @@ jobs:
     outputs:
       config-server: ${{ steps.filter.outputs.config-server }}
       discovery-server: ${{ steps.filter.outputs.discovery-server }}
+      api-gateway: ${{ steps.filter.outputs.api-gateway }}
       auth-service: ${{ steps.filter.outputs.auth-service }}
       product-service: ${{ steps.filter.outputs.product-service }}
+      inventory-service: ${{ steps.filter.outputs.inventory-service }}
+      order-service: ${{ steps.filter.outputs.order-service }}
+      payment-service: ${{ steps.filter.outputs.payment-service }}
+      notification-service: ${{ steps.filter.outputs.notification-service }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - name: Checkout repository
@@ -37,12 +41,45 @@ jobs:
               - 'services/config-server/**'
             discovery-server:
               - 'services/discovery-server/**'
+            api-gateway:
+              - 'services/api-gateway/**'
             auth-service:
               - 'services/auth-service/**'
             product-service:
               - 'services/product-service/**'
+            inventory-service:
+              - 'services/inventory-service/**'
+            order-service:
+              - 'services/order-service/**'
+            payment-service:
+              - 'services/payment-service/**'
+            notification-service:
+              - 'services/notification-service/**'
             frontend:
               - 'frontend/ecommerce-app/**'
+
+  # ── Shared setup for Java services ──
+  .java-setup: &java-setup
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - name: Build ${{ matrix.service }}
+        working-directory: ./services/${{ matrix.service }}
+        run: mvn clean verify -DskipTests
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          report_paths: '**/target/surefire-reports/TEST-*.xml'
 
   build-config-server:
     needs: detect-changes
@@ -91,6 +128,31 @@ jobs:
         if: always()
         with:
           report_paths: '**/target/surefire-reports/TEST-*.xml'
+
+  build-api-gateway:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.api-gateway == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - name: Build api-gateway
+        working-directory: ./services/api-gateway
+        run: mvn clean verify
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          report_paths: '**/target/surefire-reports/TEST-*.xml'
+
   build-auth-service:
     needs: detect-changes
     if: needs.detect-changes.outputs.auth-service == 'true'
@@ -135,7 +197,6 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: root
           SPRING_CONFIG_IMPORT: "optional:configserver:"
           SPRING_CLOUD_CONFIG_ENABLED: "false"
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_ACCESS_TOKEN_EXPIRATION: 900000
           JWT_REFRESH_TOKEN_EXPIRATION: 604800000
         run: mvn clean verify
@@ -185,9 +246,183 @@ jobs:
         working-directory: ./services/product-service
         env:
           SPRING_DATA_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
-          SPRING_CONFIG_IMPORT: "optional:configserver:"   # ← already had this
-          SPRING_CLOUD_CONFIG_ENABLED: "false"             # ← already had this
-          SPRING_APPLICATION_NAME: product-service         # ← ADD: ensures correct config is fetched
+          SPRING_CONFIG_IMPORT: "optional:configserver:"
+          SPRING_CLOUD_CONFIG_ENABLED: "false"
+          SPRING_APPLICATION_NAME: product-service
+        run: mvn clean verify
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          report_paths: '**/target/surefire-reports/TEST-*.xml'
+
+  build-inventory-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.inventory-service == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    services:
+      mongodb:
+        image: mongo:6
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: root
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd="mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - name: Wait for MongoDB
+        run: |
+          for i in {1..30}; do
+            nc -z localhost 27017 && echo "MongoDB is up" && exit 0
+            echo "Waiting for MongoDB..."
+            sleep 2
+          done
+          exit 1
+      - name: Build inventory-service
+        working-directory: ./services/inventory-service
+        env:
+          SPRING_DATA_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
+          SPRING_CONFIG_IMPORT: "optional:configserver:"
+          SPRING_CLOUD_CONFIG_ENABLED: "false"
+          SPRING_APPLICATION_NAME: inventory-service
+        run: mvn clean verify
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          report_paths: '**/target/surefire-reports/TEST-*.xml'
+
+  build-order-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.order-service == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    services:
+      mongodb:
+        image: mongo:6
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: root
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd="mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - name: Wait for MongoDB
+        run: |
+          for i in {1..30}; do
+            nc -z localhost 27017 && echo "MongoDB is up" && exit 0
+            echo "Waiting for MongoDB..."
+            sleep 2
+          done
+          exit 1
+      - name: Build order-service
+        working-directory: ./services/order-service
+        env:
+          SPRING_DATA_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
+          SPRING_CONFIG_IMPORT: "optional:configserver:"
+          SPRING_CLOUD_CONFIG_ENABLED: "false"
+          SPRING_APPLICATION_NAME: order-service
+        run: mvn clean verify
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          report_paths: '**/target/surefire-reports/TEST-*.xml'
+
+  build-payment-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.payment-service == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    services:
+      mongodb:
+        image: mongo:6
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: root
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd="mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - name: Wait for MongoDB
+        run: |
+          for i in {1..30}; do
+            nc -z localhost 27017 && echo "MongoDB is up" && exit 0
+            echo "Waiting for MongoDB..."
+            sleep 2
+          done
+          exit 1
+      - name: Build payment-service
+        working-directory: ./services/payment-service
+        env:
+          SPRING_DATA_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
+          SPRING_CONFIG_IMPORT: "optional:configserver:"
+          SPRING_CLOUD_CONFIG_ENABLED: "false"
+          SPRING_APPLICATION_NAME: payment-service
+        run: mvn clean verify
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v5
+        if: always()
+        with:
+          report_paths: '**/target/surefire-reports/TEST-*.xml'
+
+  build-notification-service:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.notification-service == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - name: Build notification-service
+        working-directory: ./services/notification-service
         run: mvn clean verify
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v5
