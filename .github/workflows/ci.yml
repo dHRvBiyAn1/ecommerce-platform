@@ -58,29 +58,6 @@ jobs:
             frontend:
               - 'frontend/ecommerce-app/**'
 
-  # ── Shared setup for Java services ──
-  .java-setup: &java-setup
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-          cache: maven
-      - name: Build ${{ matrix.service }}
-        working-directory: ./services/${{ matrix.service }}
-        run: mvn clean verify -DskipTests
-      - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v5
-        if: always()
-        with:
-          report_paths: '**/target/surefire-reports/TEST-*.xml'
-
   build-config-server:
     needs: detect-changes
     if: needs.detect-changes.outputs.config-server == 'true'
@@ -342,6 +319,9 @@ jobs:
             sleep 2
           done
           exit 1
+      - name: Install common library
+        working-directory: ./services/common
+        run: mvn clean install -DskipTests
       - name: Build order-service
         working-directory: ./services/order-service
         env:
@@ -392,6 +372,9 @@ jobs:
             sleep 2
           done
           exit 1
+      - name: Install common library
+        working-directory: ./services/common
+        run: mvn clean install -DskipTests
       - name: Build payment-service
         working-directory: ./services/payment-service
         env:

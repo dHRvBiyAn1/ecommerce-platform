@@ -8,6 +8,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -127,28 +128,50 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     .parseSignedClaims(token)
                     .getPayload();
 
-            String userId = claims.getSubject();
-            String email = claims.get("email", String.class);
+            final String userId = claims.getSubject();
+            final String email = claims.get("email", String.class);
 
             Object rolesObj = claims.get("roles");
-            String roles = "";
-            if (rolesObj instanceof List<?> rolesList) {
-                roles = String.join(",", rolesList.stream()
-                        .map(Object::toString)
-                        .toArray(String[]::new));
-            }
+            final String roles = (rolesObj instanceof List<?> rolesList)
+                    ? String.join(",", rolesList.stream().map(Object::toString).toArray(String[]::new))
+                    : "";
 
-            request.setAttribute("X-User-Id", userId != null ? userId : "");
-            request.setAttribute("X-User-Email", email != null ? email : "");
-            request.setAttribute("X-Roles", roles);
+            HttpServletRequestWrapper wrapper = new HttpServletRequestWrapper(request) {
+                @Override
+                public String getHeader(String name) {
+                    return switch (name) {
+                        case "X-User-Id" -> userId != null ? userId : "";
+                        case "X-User-Email" -> email != null ? email : "";
+                        case "X-Roles" -> roles;
+                        default -> super.getHeader(name);
+                    };
+                }
+
+                @Override
+                public java.util.Enumeration<String> getHeaders(String name) {
+                    return switch (name) {
+                        case "X-User-Id", "X-User-Email", "X-Roles" ->
+                                java.util.Collections.enumeration(java.util.List.of(getHeader(name)));
+                        default -> super.getHeaders(name);
+                    };
+                }
+
+                @Override
+                public java.util.Enumeration<String> getHeaderNames() {
+                    java.util.List<String> names = java.util.Collections.list(super.getHeaderNames());
+                    names.add("X-User-Id");
+                    names.add("X-User-Email");
+                    names.add("X-Roles");
+                    return java.util.Collections.enumeration(names);
+                }
+            };
+
+            chain.doFilter(wrapper, response);
 
         } catch (Exception e) {
             log.debug("JWT validation failed for {}: {}", path, e.getMessage());
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            return;
         }
-
-        chain.doFilter(request, response);
     }
 
     private boolean isPublicPath(String path, String method) {
