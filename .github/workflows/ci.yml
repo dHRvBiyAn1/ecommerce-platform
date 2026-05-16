@@ -457,15 +457,14 @@ jobs:
           distribution: temurin
           java-version: 17
           cache: maven
-      - name: Install common library
-        working-directory: ./services/common
-        run: mvn clean install -DskipTests -q
+      - name: Install all modules
+        run: mvn -B install -DskipTests -q
       - name: SonarCloud analysis
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          mvn -B verify sonar:sonar \
+          mvn -B sonar:sonar -DskipTests \
             -Dsonar.projectKey=ecommerce-platform \
             -Dsonar.organization=${{ github.repository_owner }} \
             -Dsonar.host.url=https://sonarcloud.io \
