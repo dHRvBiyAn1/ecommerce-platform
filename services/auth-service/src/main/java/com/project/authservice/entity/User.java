@@ -31,6 +31,8 @@ public class User {
 
     private String imageUrl;
 
+    private boolean active = true;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;

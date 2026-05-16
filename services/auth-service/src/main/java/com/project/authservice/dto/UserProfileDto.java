@@ -12,6 +12,7 @@ public class UserProfileDto {
     private String email;
     private String displayName;
     private String imageUrl;
+    private boolean active;
     private LocalDateTime createdAt;
     private Set<String> roles;
     private Set<String> permissions;

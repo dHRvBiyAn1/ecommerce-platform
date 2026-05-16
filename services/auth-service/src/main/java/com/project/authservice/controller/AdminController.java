@@ -114,4 +114,32 @@ public class AdminController {
 
         return ResponseEntity.ok(ApiResponse.success(userMapper.toDto(user)));
     }
+
+    @PutMapping("/users/{userId}/activate")
+    @PreAuthorize("hasAuthority('admin:users:write')")
+    @Transactional
+    public ResponseEntity<ApiResponse<UserProfileDto>> toggleUserActive(
+            @PathVariable UUID userId,
+            @RequestParam boolean active) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        user.setActive(active);
+        user = userRepository.save(user);
+        return ResponseEntity.ok(ApiResponse.success(userMapper.toDto(user)));
+    }
+
+    @PutMapping("/users/{userId}/assign-role/{roleName}")
+    @PreAuthorize("hasAuthority('admin:users:write')")
+    @Transactional
+    public ResponseEntity<ApiResponse<UserProfileDto>> assignRole(
+            @PathVariable UUID userId,
+            @PathVariable String roleName) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        Role role = roleRepository.findByName(roleName)
+                .orElseThrow(() -> new RuntimeException("Role not found: " + roleName));
+        user.getRoles().add(role);
+        user = userRepository.save(user);
+        return ResponseEntity.ok(ApiResponse.success(userMapper.toDto(user)));
+    }
 }

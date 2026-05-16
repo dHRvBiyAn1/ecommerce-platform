@@ -53,9 +53,14 @@ public class AuthService {
         User user = new User();
         user.setEmail(request.getEmail());
         user.setDisplayName(request.getDisplayName());
+        user.setActive(true);
 
-        Role userRole = roleRepository.findByName("ROLE_USER")
-                .orElseThrow(() -> new RuntimeException("Default role not found"));
+        String roleName = switch (request.getUserType()) {
+            case SELLER -> "ROLE_SELLER";
+            default -> "ROLE_CUSTOMER";
+        };
+        Role userRole = roleRepository.findByName(roleName)
+                .orElseThrow(() -> new RuntimeException("Default role not found: " + roleName));
         user.getRoles().add(userRole);
 
         user = userRepository.save(user);
@@ -210,7 +215,8 @@ public class AuthService {
             user = new User();
             user.setEmail(email);
             user.setDisplayName(displayName);
-            Role userRole = roleRepository.findByName("ROLE_USER")
+            user.setActive(true);
+            Role userRole = roleRepository.findByName("ROLE_CUSTOMER")
                     .orElseThrow(() -> new RuntimeException("Default role not found"));
             user.getRoles().add(userRole);
             user = userRepository.save(user);

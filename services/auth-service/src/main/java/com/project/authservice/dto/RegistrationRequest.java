@@ -17,4 +17,10 @@ public class RegistrationRequest {
 
     @NotBlank(message = "Display name is required")
     private String displayName;
+
+    private UserType userType = UserType.CUSTOMER;
+
+    public enum UserType {
+        CUSTOMER, SELLER
+    }
 }

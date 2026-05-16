@@ -1,6 +1,8 @@
 package com.project.product_service.service.impl;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -8,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -17,9 +20,15 @@ import com.project.product_service.exception.ResourceNotFoundException;
 import com.project.product_service.exception.AccessDeniedException;
 import com.project.product_service.model.Product;
 import com.project.product_service.repository.ProductRepository;
+import com.project.product_service.search.ProductDocument;
+import com.project.product_service.search.ProductSearchRepository;
 import com.project.product_service.service.CategoryService;
 import com.project.product_service.service.ProductEventPublisher;
 import com.project.product_service.service.ProductService;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.query.Criteria;
+import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,6 +41,8 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final CategoryService categoryService;
     private final ProductEventPublisher eventPublisher;
+    private final ProductSearchRepository productSearchRepository;
+    private final ElasticsearchOperations elasticsearchOperations;
 
     @Override
     @Cacheable(value = "products")
@@ -65,8 +76,25 @@ public class ProductServiceImpl implements ProductService {
     @Cacheable(value = "products")
     public Page<ProductResponse> searchProducts(String keyword, Pageable pageable) {
         log.debug("Searching products with keyword: {}", keyword);
-        return productRepository.searchByText(keyword, pageable)
-                .map(this::mapToResponse);
+        try {
+            Criteria criteria = new Criteria("name").contains(keyword)
+                    .or(new Criteria("description").contains(keyword));
+            CriteriaQuery query = new CriteriaQuery(criteria);
+            query.setPageable(pageable);
+            var searchHits = elasticsearchOperations.search(query, ProductDocument.class);
+            var products = searchHits.stream()
+                    .map(SearchHit::getContent)
+                    .map(doc -> productRepository.findById(doc.getId()))
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .map(this::mapToResponse)
+                    .toList();
+            return new PageImpl<>(products, pageable, searchHits.getTotalHits());
+        } catch (Exception e) {
+            log.warn("Elasticsearch search failed, falling back to MongoDB text search: {}", e.getMessage());
+            return productRepository.searchByText(keyword, pageable)
+                    .map(this::mapToResponse);
+        }
     }
 
     @Override
@@ -94,6 +122,7 @@ public class ProductServiceImpl implements ProductService {
         product.setActive(true);
 
         product = productRepository.save(product);
+        syncToElasticsearch(product);
         log.info("Product created with id: {}, SKU: {}", product.getId(), product.getSku());
 
         eventPublisher.publishEvent(
@@ -126,6 +155,7 @@ public class ProductServiceImpl implements ProductService {
         product.setImageUrls(request.getImageUrls());
 
         product = productRepository.save(product);
+        syncToElasticsearch(product);
         log.info("Product updated with id: {}", product.getId());
 
         eventPublisher.publishEvent(
@@ -156,6 +186,7 @@ public class ProductServiceImpl implements ProductService {
 
         product.setActive(false);
         productRepository.save(product);
+        removeFromElasticsearch(id);
         log.info("Product soft-deleted with id: {}", id);
 
         eventPublisher.publishEvent(
@@ -172,6 +203,11 @@ public class ProductServiceImpl implements ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
         product.setActive(active);
         product = productRepository.save(product);
+        if (active) {
+            syncToElasticsearch(product);
+        } else {
+            removeFromElasticsearch(id);
+        }
 
         ProductEventPublisher.Type eventType = active
                 ? ProductEventPublisher.Type.ACTIVATED
@@ -193,6 +229,7 @@ public class ProductServiceImpl implements ProductService {
 
         product.setStockQuantity(stockQuantity);
         product = productRepository.save(product);
+        syncToElasticsearch(product);
 
         eventPublisher.publishEvent(
             ProductEventPublisher.Type.STOCK_CHANGED,
@@ -208,6 +245,32 @@ public class ProductServiceImpl implements ProductService {
         log.debug("Fetching products in price range: {} - {}", min, max);
         return productRepository.findByPriceBetweenAndActiveTrue(min, max, pageable)
                 .map(this::mapToResponse);
+    }
+
+    private void syncToElasticsearch(Product product) {
+        try {
+            ProductDocument doc = new ProductDocument();
+            doc.setId(product.getId());
+            doc.setName(product.getName());
+            doc.setDescription(product.getDescription());
+            doc.setCategoryId(product.getCategoryId());
+            doc.setPrice(product.getPrice());
+            doc.setStockQuantity(product.getStockQuantity());
+            doc.setImageUrls(product.getImageUrls());
+            doc.setSellerId(product.getSellerId());
+            doc.setActive(product.isActive());
+            productSearchRepository.save(doc);
+        } catch (Exception e) {
+            log.warn("Failed to sync product {} to Elasticsearch: {}", product.getId(), e.getMessage());
+        }
+    }
+
+    private void removeFromElasticsearch(String id) {
+        try {
+            productSearchRepository.deleteById(id);
+        } catch (Exception e) {
+            log.warn("Failed to remove product {} from Elasticsearch: {}", id, e.getMessage());
+        }
     }
 
     private ProductResponse mapToResponse(Product product) {

@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -69,12 +70,14 @@ public class JwtService {
     
     @SuppressWarnings("unchecked")
     public Set<String> getRolesFromToken(String token) {
-        return getClaims(token).get("roles", Set.class);
+        List<String> roles = getClaims(token).get("roles", List.class);
+        return roles != null ? Set.copyOf(roles) : Set.of();
     }
 
     @SuppressWarnings("unchecked")
     public Set<String> getPermissionsFromToken(String token) {
-        return getClaims(token).get("permissions", Set.class);
+        List<String> permissions = getClaims(token).get("permissions", List.class);
+        return permissions != null ? Set.copyOf(permissions) : Set.of();
     }
 
     private Claims getClaims(String token) {

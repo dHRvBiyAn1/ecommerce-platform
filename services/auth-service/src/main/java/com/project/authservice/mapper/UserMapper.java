@@ -19,6 +19,7 @@ public interface UserMapper {
 
     @Mapping(target = "roles", source = "roles", qualifiedByName = "mapRoles")
     @Mapping(target = "permissions", source = "roles", qualifiedByName = "mapPermissions")
+    @Mapping(target = "active", source = "active")
     UserProfileDto toDto(User user);
 
     @Named("mapRoles")
