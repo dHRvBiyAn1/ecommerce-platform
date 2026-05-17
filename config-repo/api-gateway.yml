@@ -14,7 +14,7 @@ spring:
             - id: auth-service
               uri: lb://auth-service
               predicates:
-                - Path=/api/auth/**, /api/users/**, /oauth2/**, /login/oauth2/**, /.well-known/**
+                - Path=/api/auth/**, /api/users/**, /api/user/**, /oauth2/**, /login/oauth2/**, /.well-known/**
               filters:
                 - StripPrefix=0
             - id: product-service

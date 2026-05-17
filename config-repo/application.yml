@@ -16,6 +16,23 @@ spring:
           max-active: 16
           max-idle: 8
           min-idle: 4
+  kafka:
+    bootstrap-servers: kafka:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.type.mapping: "inventoryEvent:com.project.inventory.event.InventoryEvent"
+      acks: all
+      retries: 3
+      compression-type: snappy
+    consumer:
+      group-id: ${spring.application.name}-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+      auto-offset-reset: earliest
 
 cors:
   allowed-origins: "http://localhost:4200"
@@ -43,21 +60,3 @@ logging:
     '[org.springframework.kafka]': INFO
     '[org.springframework.data.redis]': INFO
     '[org.springframework.cloud.gateway]': INFO
-
-kafka:
-  bootstrap-servers: kafka:9092
-  producer:
-    key-serializer: org.apache.kafka.common.serialization.StringSerializer
-    value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-    properties:
-      spring.json.type.mapping: "inventoryEvent:com.project.inventory.event.InventoryEvent"
-    acks: all
-    retries: 3
-    compression-type: snappy
-  consumer:
-    group-id: ${spring.application.name}-group
-    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-    properties:
-      spring.json.trusted.packages: "*"
-    auto-offset-reset: earliest
