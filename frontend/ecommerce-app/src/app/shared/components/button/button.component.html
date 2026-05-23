@@ -1,9 +1,0 @@
-<button [type]="type" class="btn" [ngClass]="'btn-' + variant" [disabled]="disabled || loading">
-  @if (loading) {
-    <span class="spinner"></span>
-    <span>{{ loadingText || text }}</span>
-  } @else {
-    <span>{{ text }}</span>
-    <ng-content select="[icon]"></ng-content>
-  }
-</button>

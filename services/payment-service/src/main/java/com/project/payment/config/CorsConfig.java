@@ -9,7 +9,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 
-@Configuration
+// @Configuration
 public class CorsConfig {
 
     @Value("${cors.allowed-origins:http://localhost:4200}")

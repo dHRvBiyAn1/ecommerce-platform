@@ -225,7 +225,7 @@ services:
     ports:
       - "8082:8082"
     environment:
-      SPRING_MONGODB_URI: mongodb://root:root@mongodb:27017/product_db?authSource=admin
+      SPRING_DATA_MONGODB_URI: mongodb://root:root@mongodb:27017/product_db?authSource=admin
       SPRING_DATA_REDIS_HOST: redis
       ELASTICSEARCH_HOST: elasticsearch
       SPRING_PROFILES_ACTIVE: docker
@@ -235,6 +235,8 @@ services:
       redis:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
       config-server:
         condition: service_healthy

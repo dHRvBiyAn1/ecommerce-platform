@@ -16,6 +16,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -136,6 +139,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     ? String.join(",", rolesList.stream().map(Object::toString).toArray(String[]::new))
                     : "";
 
+            List<SimpleGrantedAuthority> authorities = roles.isEmpty() ? List.of()
+                    : java.util.Arrays.stream(roles.split(","))
+                            .map(r -> new SimpleGrantedAuthority(r.trim()))
+                            .toList();
+
+            UsernamePasswordAuthenticationToken auth =
+                    new UsernamePasswordAuthenticationToken(userId, null, authorities);
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
             HttpServletRequestWrapper wrapper = new HttpServletRequestWrapper(request) {
                 @Override
                 public String getHeader(String name) {
@@ -179,7 +191,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             return true;
         }
         if (HttpMethod.GET.name().equals(method)
-                && (path.startsWith("/api/v1/products/") || path.startsWith("/api/v1/categories/"))) {
+                && (path.equals("/api/v1/products") || path.equals("/api/v1/categories")
+                    || path.startsWith("/api/v1/products/") || path.startsWith("/api/v1/categories/"))) {
             return true;
         }
         return false;

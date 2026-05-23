@@ -1,0 +1,94 @@
+<div class="max-w-7xl mx-auto flex flex-col gap-8 pb-16">
+  <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div>
+      <div class="flex items-center gap-2 text-surface-500 text-xs mb-2">
+        <a class="hover:text-primary transition-colors" routerLink="/seller">Seller Dashboard</a>
+        <i class="pi pi-chevron-right" style="font-size: 0.75rem"></i>
+        <a class="hover:text-primary transition-colors" routerLink="/seller/inventory">Inventory</a>
+        <i class="pi pi-chevron-right" style="font-size: 0.75rem"></i>
+        <span class="text-surface-900 dark:text-surface-0 font-semibold">Add New Product</span>
+      </div>
+      <h1 class="text-3xl md:text-4xl font-bold text-surface-900 dark:text-surface-0 tracking-tight">Add New Product</h1>
+      <p class="text-surface-500 mt-2 text-sm">Configure details to list this item onto Glacier database instantly.</p>
+    </div>
+    <div class="flex gap-3 w-full sm:w-auto">
+      <button pButton class="p-button-outlined" routerLink="/seller/inventory" label="Cancel"></button>
+      <button pButton (click)="onSubmit()" label="Publish Product"></button>
+    </div>
+  </div>
+
+  @if (successMessage) {
+    <div class="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm font-medium flex items-center gap-3">
+      <i class="pi pi-check-circle" style="font-size: 1.25rem"></i>
+      {{ successMessage }}
+    </div>
+  }
+  @if (errorMessage) {
+    <div class="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-medium flex items-center gap-3">
+      <i class="pi pi-exclamation-circle" style="font-size: 1.25rem"></i>
+      {{ errorMessage }}
+    </div>
+  }
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="lg:col-span-2 space-y-8">
+      <p-card header="Basic Information">
+        <div class="space-y-6">
+          <div>
+            <label class="block text-sm font-medium text-surface-900 dark:text-surface-0 mb-1">Product Title <span class="text-red-500">*</span></label>
+            <input pInputText type="text" placeholder="e.g., Titanium Pro Smartwatch" [(ngModel)]="name" class="w-full" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-surface-900 dark:text-surface-0 mb-1">Description</label>
+            <textarea pInputTextarea placeholder="Provide product features, sizing, specifications..." rows="4" [(ngModel)]="description" class="w-full"></textarea>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label class="block text-sm font-medium text-surface-900 dark:text-surface-0 mb-1">Category <span class="text-red-500">*</span></label>
+              <p-select [options]="categories" [(ngModel)]="selectedCategory" optionLabel="name" placeholder="Select a category" class="w-full" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-surface-900 dark:text-surface-0 mb-1">Brand</label>
+              <input pInputText type="text" placeholder="Brand Name" [(ngModel)]="brand" class="w-full" />
+            </div>
+          </div>
+        </div>
+      </p-card>
+
+      <p-card header="Product Image Links">
+        <div>
+          <label class="block text-sm font-medium text-surface-900 dark:text-surface-0 mb-1">Image Web URL</label>
+          <input pInputText type="text" placeholder="e.g. https://images.unsplash.com/photo-..." [(ngModel)]="imageUrl" class="w-full" />
+          <p class="text-xs text-surface-500 mt-2">Provide a working image URL or leave blank to auto-generate a premium placeholder.</p>
+        </div>
+      </p-card>
+    </div>
+
+    <div class="space-y-8">
+      <p-card header="Pricing Details">
+        <div>
+          <label class="block text-sm font-medium text-surface-900 dark:text-surface-0 mb-1">Base Price ($) <span class="text-red-500">*</span></label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <span class="text-surface-500 text-sm">$</span>
+            </div>
+            <input pInputText class="w-full pl-8" type="number" placeholder="0.00" [(ngModel)]="price" />
+          </div>
+        </div>
+      </p-card>
+
+      <p-card header="Inventory Settings">
+        <div class="space-y-5">
+          <div>
+            <label class="block text-sm font-medium text-surface-900 dark:text-surface-0 mb-1">SKU (Stock Keeping Unit)</label>
+            <input pInputText type="text" placeholder="e.g. GL-PRO-100" [(ngModel)]="sku" class="w-full" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-surface-900 dark:text-surface-0 mb-1">Available Units <span class="text-red-500">*</span></label>
+            <input pInputText type="number" placeholder="e.g. 50" [(ngModel)]="stockQuantity" class="w-full" />
+          </div>
+        </div>
+      </p-card>
+    </div>
+  </div>
+</div>

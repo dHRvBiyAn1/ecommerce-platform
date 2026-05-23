@@ -36,6 +36,9 @@ public class HeaderAuthenticationFilter extends OncePerRequestFilter {
             UsernamePasswordAuthenticationToken auth =
                     new UsernamePasswordAuthenticationToken(UUID.fromString(userId), null, authorities);
             SecurityContextHolder.getContext().setAuthentication(auth);
+
+            // Set request attribute so controllers can use @RequestAttribute("userId")
+            request.setAttribute("userId", UUID.fromString(userId));
         }
 
         chain.doFilter(request, response);

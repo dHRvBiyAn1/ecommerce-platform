@@ -25,10 +25,6 @@ import com.project.product_service.search.ProductSearchRepository;
 import com.project.product_service.service.CategoryService;
 import com.project.product_service.service.ProductEventPublisher;
 import com.project.product_service.service.ProductService;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.query.Criteria;
-import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
 
 import lombok.RequiredArgsConstructor;
 
@@ -42,7 +38,6 @@ public class ProductServiceImpl implements ProductService {
     private final CategoryService categoryService;
     private final ProductEventPublisher eventPublisher;
     private final ProductSearchRepository productSearchRepository;
-    private final ElasticsearchOperations elasticsearchOperations;
 
     @Override
     @Cacheable(value = "products")
@@ -77,19 +72,15 @@ public class ProductServiceImpl implements ProductService {
     public Page<ProductResponse> searchProducts(String keyword, Pageable pageable) {
         log.debug("Searching products with keyword: {}", keyword);
         try {
-            Criteria criteria = new Criteria("name").contains(keyword)
-                    .or(new Criteria("description").contains(keyword));
-            CriteriaQuery query = new CriteriaQuery(criteria);
-            query.setPageable(pageable);
-            var searchHits = elasticsearchOperations.search(query, ProductDocument.class);
-            var products = searchHits.stream()
-                    .map(SearchHit::getContent)
+            var docs = productSearchRepository.search(keyword, pageable);
+            var total = productSearchRepository.count(keyword);
+            var products = docs.stream()
                     .map(doc -> productRepository.findById(doc.getId()))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .map(this::mapToResponse)
                     .toList();
-            return new PageImpl<>(products, pageable, searchHits.getTotalHits());
+            return new PageImpl<>(products, pageable, total);
         } catch (Exception e) {
             log.warn("Elasticsearch search failed, falling back to MongoDB text search: {}", e.getMessage());
             return productRepository.searchByText(keyword, pageable)
