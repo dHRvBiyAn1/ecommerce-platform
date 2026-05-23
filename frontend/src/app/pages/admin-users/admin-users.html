@@ -1,0 +1,113 @@
+<div class="max-w-[1400px] mx-auto flex flex-col gap-8">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      <h2 class="text-2xl font-semibold text-surface-900 dark:text-surface-0">Platform Governance</h2>
+      <p class="text-surface-500 mt-1 text-sm">Manage global user access, roles, and moderation flags dynamically.</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <p-card>
+      <p class="text-xs text-surface-500 uppercase font-semibold">Total Accounts</p>
+      <h3 class="text-2xl font-bold text-surface-900 dark:text-surface-0 mt-1">{{ totalUsersCount }}</h3>
+    </p-card>
+    <p-card>
+      <p class="text-xs text-surface-500 uppercase font-semibold">System Admins</p>
+      <h3 class="text-2xl font-bold text-primary mt-1">{{ adminsCount }}</h3>
+    </p-card>
+    <p-card>
+      <p class="text-xs text-surface-500 uppercase font-semibold">Active Users</p>
+      <h3 class="text-2xl font-bold text-green-500 mt-1">{{ activeCount }}</h3>
+    </p-card>
+    <p-card>
+      <p class="text-xs text-surface-500 uppercase font-semibold">Suspended Accounts</p>
+      <h3 class="text-2xl font-bold text-red-500 mt-1">{{ suspendedCount }}</h3>
+    </p-card>
+  </div>
+
+  <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
+    <span class="p-input-icon-left w-full md:max-w-md">
+      <i class="pi pi-search"></i>
+      <input pInputText class="w-full" placeholder="Search by name or email..." [(ngModel)]="searchQuery" (ngModelChange)="applyFilters()" />
+    </span>
+    <div class="flex items-center gap-3 w-full md:w-auto">
+      <span class="text-sm text-surface-500 font-medium">Filter Role:</span>
+      <p-select [options]="roleOptions" [(ngModel)]="selectedRoleFilter" (ngModelChange)="applyFilters()" styleClass="w-40"></p-select>
+    </div>
+  </div>
+
+  <p-card header="User Management">
+    <div class="overflow-x-auto">
+    <p-table [value]="filteredUsers" [paginator]="true" [rows]="10" [tableStyle]="{ 'min-width': '100%' }" [responsiveLayout]="'stack'" [breakpoint]="'768px'">
+      <ng-template pTemplate="header">
+        <tr>
+          <th class="pl-6">User Identity</th>
+          <th>Role Transitions</th>
+          <th>Status</th>
+          <th>Joined Date</th>
+          <th class="text-center pr-6">Access Control</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-user>
+        <tr [class.bg-red-50]="user.status === 'SUSPENDED'">
+          <td class="pl-6">
+            <div class="flex items-center gap-3">
+              @if (user.avatarUrl) {
+                <img [alt]="user.name" class="w-10 h-10 rounded-full border border-primary/20 object-cover" [src]="user.avatarUrl" />
+              } @else {
+                <div class="w-10 h-10 rounded-full border border-primary/20 bg-primary/10 flex items-center justify-center font-bold text-sm text-primary">
+                  {{ user.name.substring(0, 2).toUpperCase() }}
+                </div>
+              }
+              <div>
+                <div class="font-medium text-surface-900 dark:text-surface-0 text-sm" [class.opacity-60]="user.status === 'SUSPENDED'">{{ user.name }}</div>
+                <div class="text-xs text-surface-500">{{ user.email }}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="flex flex-col gap-2">
+              <span [ngClass]="{
+                'bg-emerald-500/10 text-emerald-500': (user.roles?.[0] || user.role) === 'BUYER',
+                'bg-sky-500/10 text-sky-500': (user.roles?.[0] || user.role) === 'SELLER',
+                'bg-purple-500/10 text-purple-500': (user.roles?.[0] || user.role) === 'ADMIN'
+              }" class="px-2 py-0.5 rounded-full text-xs font-medium">
+                {{ user.roles?.[0] || user.role }}
+              </span>
+              <select class="bg-transparent border border-surface-border text-surface-700 dark:text-surface-200 text-sm rounded px-2 py-1"
+                      [value]="user.role" (change)="changeUserRole(user.id, $event)">
+                <option value="BUYER">BUYER</option>
+                <option value="SELLER">SELLER</option>
+                <option value="ADMIN">ADMIN</option>
+              </select>
+            </div>
+          </td>
+          <td>
+            @if (user.status === 'ACTIVE') {
+              <p-badge value="Active" severity="success"></p-badge>
+            } @else {
+              <p-badge value="Suspended" severity="danger"></p-badge>
+            }
+          </td>
+          <td class="text-sm text-surface-500 font-medium">{{ user.joinedDate }}</td>
+          <td class="text-center pr-6">
+            @if (user.status === 'ACTIVE') {
+              <button pButton size="small" class="p-button-outlined p-button-danger" label="Suspend" (click)="toggleUserStatus(user)"></button>
+            } @else {
+              <button pButton size="small" class="p-button-outlined p-button-success" label="Reactivate" (click)="toggleUserStatus(user)"></button>
+            }
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="5" class="text-center py-16 text-surface-500">
+            <i class="pi pi-users text-3xl text-primary mb-3 block"></i>
+            <p class="font-medium text-surface-700 dark:text-surface-200">No users matched search criteria.</p>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+    </div>
+  </p-card>
+</div>
