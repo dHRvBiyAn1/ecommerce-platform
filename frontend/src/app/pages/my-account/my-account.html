@@ -1,0 +1,128 @@
+<main class="flex-1 p-6 md:p-10 flex flex-col gap-8 max-w-4xl mx-auto w-full pt-6 md:pt-10">
+  
+  <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div>
+      <h2 class="text-3xl font-headline font-semibold text-surface-900 dark:text-surface-0 tracking-tight">Account Overview</h2>
+      <p class="text-surface-500 mt-1">Hello, {{ name }}. Here is your microservice account portal summary.</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="bg-surface-ground border border-surface-border px-4 py-2 rounded-full flex items-center gap-2">
+        <i class="pi pi-gem text-primary" style="font-size: 1rem"></i>
+        <span class="font-semibold text-surface-900 dark:text-surface-0">Premium Account Tier</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="space-y-6">
+    
+    <p-card header="Profile">
+      <div class="flex flex-col items-center text-center">
+        <div class="w-16 h-16 rounded-full bg-surface-100 dark:bg-surface-800 flex items-center justify-center mb-4">
+          <img alt="User Avatar" class="w-full h-full object-cover rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZ9dHlbIGd6YsgtWwxThDJBkabuI53HW5hW5hPAjN74jSgY4s9CFyuEoItH6hkn9-MtQn349ldx8MLJAC34TId0A_QJJBY2lrovbP4k_x83O6yc1HQbFjOXNHSASwlSCFgp73HUjAfy3uk1gPD1VUFJIauUOLZzDbJkXTZtIb-euqI-qp1DoRh3egh9ykCclIVhEHlzSKULoUApubX0sZS6eXau8sJjvE2X0B3gTj5bMz1IoRG3yEP0g-hMbwvLbPFajNxKAAAE2g"/>
+        </div>
+        
+        @if (!isEditingProfile) {
+          <h3 class="text-xl font-semibold text-surface-900 dark:text-surface-0">{{ name }}</h3>
+          <p class="text-surface-500 mb-6">{{ email }}</p>
+          <div class="w-full space-y-3">
+            <button class="w-full border border-surface-border bg-surface-ground text-surface-900 dark:text-surface-0 py-2.5 rounded-lg flex items-center justify-between px-4 hover:bg-surface-ground/80 transition-colors text-sm" (click)="toggleEditProfile()">
+              <div class="flex items-center gap-3">
+                <i class="pi pi-cog text-surface-500" style="font-size: 1rem"></i>
+                <span class="font-medium">Edit Profile Fields</span>
+              </div>
+              <i class="pi pi-chevron-right text-surface-500" style="font-size: 1rem"></i>
+            </button>
+          </div>
+        } @else {
+          <div class="w-full space-y-3 text-left">
+            <div>
+              <label for="name" class="block text-sm font-medium text-surface-900 dark:text-surface-0 mb-1">Full Name</label>
+              <input pInputText id="name" type="text" [(ngModel)]="name" class="w-full" />
+            </div>
+            <div>
+              <label for="email" class="block text-sm font-medium text-surface-900 dark:text-surface-0 mb-1">Email Address</label>
+              <input pInputText id="email" type="email" [(ngModel)]="email" class="w-full" />
+            </div>
+            <div class="flex gap-2 pt-2">
+              <button pButton class="w-full" size="small" [loading]="isSavingProfile" (click)="saveProfile()" label="Save">
+              </button>
+              <button pButton class="p-button-outlined w-full" size="small" (click)="toggleEditProfile()" label="Cancel">
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    </p-card>
+
+    <p-card header="Contact & Billing">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <i class="pi pi-phone text-surface-500" style="font-size: 1rem"></i>
+            <span class="text-sm text-surface-500">Contact Number</span>
+          </div>
+          <p class="text-surface-900 dark:text-surface-0 font-semibold text-sm">{{ phone }}</p>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <i class="pi pi-map-marker text-surface-500" style="font-size: 1rem"></i>
+            <span class="text-sm text-surface-500">Primary Destination</span>
+          </div>
+          <p class="text-surface-900 dark:text-surface-0 font-semibold text-sm truncate">{{ defaultAddress }}</p>
+        </div>
+      </div>
+      
+      <div class="mt-6 flex justify-between items-center text-xs text-surface-500 border-t border-surface-border pt-4">
+        <span>Authorization Method: Spring Security JWT Token</span>
+        <span class="text-primary font-medium">Valid Active Session</span>
+      </div>
+    </p-card>
+
+    <p-card header="Order History">
+      <p-table [value]="ordersList" [stripedRows]="true" [responsiveLayout]="'stack'" [breakpoint]="'768px'">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Order Reference ID</th>
+            <th>Shipping Address</th>
+            <th>Items List</th>
+            <th class="text-right">Grand Total</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-ord>
+          <tr>
+            <td class="text-primary font-semibold text-xs tracking-wider">{{ ord.id }}</td>
+            <td class="text-surface-500 text-xs truncate max-w-[150px] sm:max-w-xs">{{ ord.shippingAddress }}</td>
+            <td class="text-xs font-medium text-surface-900 dark:text-surface-0">
+              @for (itm of ord.items; track itm.productName; let last = $last) {
+                {{ itm.productName }} (x{{ itm.quantity }}){{ !last ? ', ' : '' }}
+              }
+            </td>
+            <td class="text-right text-primary font-bold">${{ ord.totalAmount | number:'1.2-2' }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="4" class="py-8 text-center text-surface-500 text-sm">
+              <i class="pi pi-receipt text-2xl text-primary mb-2 block mx-auto"></i>
+              No orders found. Place your first dynamic order in the storefront!
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </p-card>
+
+  </div>
+</main>
+
+<footer class="bg-surface-card font-body text-xs text-surface-500 w-full py-12 px-6 flex flex-col md:flex-row justify-between items-center gap-4 border-t border-surface-border mt-auto">
+  <div>
+    <span class="font-headline font-bold text-surface-900 dark:text-surface-0 mr-2">Glacier Enterprise</span>
+    <span>© 2024 Glacier Enterprise. All rights reserved.</span>
+  </div>
+  <div class="flex gap-6 flex-wrap justify-center sm:justify-start">
+    <a class="text-surface-500 hover:text-primary hover:underline transition-all opacity-80 hover:opacity-100" routerLink="/">Privacy Policy</a>
+    <a class="text-surface-500 hover:text-primary hover:underline transition-all opacity-80 hover:opacity-100" routerLink="/">Terms of Service</a>
+    <a class="text-surface-500 hover:text-primary hover:underline transition-all opacity-80 hover:opacity-100" routerLink="/">Help Center</a>
+    <a class="text-surface-500 hover:text-primary hover:underline transition-all opacity-80 hover:opacity-100" routerLink="/">API Docs</a>
+  </div>
+</footer>
