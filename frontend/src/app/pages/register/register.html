@@ -1,0 +1,49 @@
+<div class="min-h-screen flex items-center justify-center bg-surface-50 dark:bg-surface-950 p-4">
+  <app-floating-configurator />
+  <div class="w-full max-w-md">
+    <div class="text-center mb-8">
+      <div class="flex items-center justify-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+          <span class="text-white font-bold text-xl">G</span>
+        </div>
+        <span class="text-2xl font-bold text-surface-900 dark:text-surface-0">Glacier</span>
+      </div>
+      <h1 class="text-2xl font-bold text-surface-900 dark:text-surface-0">Create your account</h1>
+      <p class="text-surface-500 mt-2">Join Glacier Commerce today</p>
+    </div>
+
+    @if (errorMessage) {
+      <div class="p-4 mb-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-medium">
+        <i class="pi pi-exclamation-circle mr-2"></i>
+        {{ errorMessage }}
+      </div>
+    }
+
+    <p-card>
+      <div class="space-y-5">
+        <div>
+          <label class="block text-sm font-medium text-surface-900 dark:text-surface-0 mb-1">Full Name</label>
+          <input pInputText type="text" placeholder="John Doe" [(ngModel)]="fullName" class="w-full" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-surface-900 dark:text-surface-0 mb-1">Email</label>
+          <input pInputText type="email" placeholder="you@example.com" [(ngModel)]="email" class="w-full" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-surface-900 dark:text-surface-0 mb-1">Password</label>
+          <input pInputText type="password" placeholder="••••••••" [(ngModel)]="password" class="w-full" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-surface-900 dark:text-surface-0 mb-1">I want to</label>
+          <p-selectbutton [options]="roleOptions" [(ngModel)]="selectedRole" [allowEmpty]="false" class="w-full" />
+        </div>
+        <button pButton class="w-full" (click)="onRegister()" [loading]="isSubmitting" label="Create Account"></button>
+      </div>
+    </p-card>
+
+    <p class="text-center text-sm text-surface-500 mt-6">
+      Already have an account?
+      <a routerLink="/login" class="text-primary font-semibold hover:underline">Sign in</a>
+    </p>
+  </div>
+</div>
