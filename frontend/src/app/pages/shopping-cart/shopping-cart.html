@@ -1,0 +1,94 @@
+<main class="flex-grow pt-6 pb-16 px-6 md:px-12 max-w-7xl mx-auto w-full">
+  <div class="mb-8 flex items-end justify-between">
+    <div>
+      <h1 class="text-3xl font-semibold text-surface-900 dark:text-surface-0 tracking-tight mb-2">Shopping Cart</h1>
+      <p class="text-surface-500 text-sm">{{ cartItems.length }} items in your cart</p>
+    </div>
+    @if (cartItems.length > 0) {
+      <button pButton class="p-button-text gap-2 text-primary" size="small" icon="pi pi-trash" (click)="clearCart()" label="Clear Cart">
+      </button>
+    }
+  </div>
+
+  @if (cartItems.length > 0) {
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div class="lg:col-span-2 space-y-4">
+        @for (item of cartItems; track item.product.id) {
+          <div class="bg-surface-0 dark:bg-surface-900 rounded-xl shadow-sm border border-surface-200 dark:border-surface-700 p-4 flex flex-col sm:flex-row gap-6 items-start sm:items-center relative overflow-hidden">
+            <div class="w-20 h-20 rounded-lg bg-surface-100 dark:bg-surface-800 flex-shrink-0 overflow-hidden relative">
+              <img [alt]="item.product.name" class="w-full h-full object-cover" [src]="item.product.imageUrls[0]"/>
+            </div>
+            
+            <div class="flex-grow">
+              <div class="flex justify-between items-start mb-1">
+                <h3 class="font-semibold text-surface-900 dark:text-surface-0 text-lg cursor-pointer hover:text-primary transition-colors" routerLink="/product">{{ item.product.name }}</h3>
+                <span class="text-sm text-surface-500">${{ item.product.price | number:'1.2-2' }}</span>
+              </div>
+              <p class="text-surface-500 text-xs mb-4">SKU: {{ item.product.sku }} | Category: {{ item.product.categoryName }}</p>
+              
+              <div class="flex items-center justify-between mt-auto">
+                <div class="flex items-center gap-3 border border-surface-border rounded-lg bg-surface-card px-2 py-1">
+                  <button pButton class="p-button-text size-6 text-surface-500 hover:text-primary" size="small" icon="pi pi-minus" (click)="updateQuantity(item.product.id, item.quantity - 1)">
+                  </button>
+                  <span class="text-surface-900 dark:text-surface-0 w-4 text-center text-sm font-semibold">{{ item.quantity }}</span>
+                  <button pButton class="p-button-text size-6 text-surface-500 hover:text-primary" size="small" icon="pi pi-plus" (click)="updateQuantity(item.product.id, item.quantity + 1)">
+                  </button>
+                </div>
+                
+                <div class="flex gap-4">
+                  <button pButton class="p-button-text gap-1 text-surface-500 hover:text-red-500" size="small" icon="pi pi-trash" (click)="removeItem(item.product.id)" label="Remove">
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="lg:col-span-1">
+        <p-card header="Order Summary" class="sticky top-24">
+          <div class="space-y-3 text-sm">
+            <div class="flex justify-between text-surface-500">
+              <span>Subtotal</span>
+              <span class="text-surface-900 dark:text-surface-0 font-semibold">${{ subtotal | number:'1.2-2' }}</span>
+            </div>
+            <div class="flex justify-between text-surface-500">
+              <span>Estimated Shipping</span>
+              <span class="text-surface-900 dark:text-surface-0 font-semibold">{{ shipping === 0 ? 'Free' : '$' + (shipping | number:'1.2-2') }}</span>
+            </div>
+            <div class="flex justify-between text-surface-500">
+              <span>Estimated Tax (8%)</span>
+              <span class="text-surface-900 dark:text-surface-0 font-semibold">${{ tax | number:'1.2-2' }}</span>
+            </div>
+          </div>
+
+          <div class="border-t border-surface-border pt-4 mt-6">
+            <div class="flex justify-between items-center mb-2">
+              <span class="font-semibold text-lg text-surface-900 dark:text-surface-0">Total</span>
+                <span class="text-xl font-bold text-surface-900 dark:text-surface-0">${{ total | number:'1.2-2' }}</span>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-4 pt-4">
+            <button pButton class="p-button-outlined" label="Update Cart">
+            </button>
+            <button pButton label="Proceed to Checkout" icon="pi pi-arrow-right" iconPos="right" routerLink="/checkout">
+            </button>
+            
+            <div class="flex items-center justify-center gap-2 text-xs text-surface-500">
+              <i class="pi pi-lock" style="font-size: 1rem"></i> Secure payment transaction powered by Gateway
+            </div>
+          </div>
+        </p-card>
+      </div>
+    </div>
+  } @else {
+    <div class="py-24 text-center rounded-xl border border-surface-border bg-surface-card max-w-lg mx-auto">
+      <i class="pi pi-shopping-bag text-4xl text-primary mb-4 block mx-auto"></i>
+      <h3 class="text-xl font-medium text-surface-900 dark:text-surface-0">Your Shopping Cart is empty</h3>
+      <p class="text-sm text-surface-500 mt-2">Explore our collections of dynamic premium digital hardware products.</p>
+      <button pButton class="p-button-outlined mt-8" routerLink="/" label="Continue Shopping">
+      </button>
+    </div>
+  }
+</main>
