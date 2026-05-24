@@ -1,51 +1,48 @@
 package com.project.common.event;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
-public class OrderEvent {
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+@Builder(builderMethodName = "orderEventBuilder")
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class OrderEvent extends BaseEvent {
 
     public enum Type {
-        CREATED, CONFIRMED, SHIPPED, DELIVERED, CANCELLED, REFUNDED,
-        PAYMENT_PENDING, PAYMENT_COMPLETED, PAYMENT_FAILED
-    }
-
-    public OrderEvent() {}
-
-    public OrderEvent(Type type, String orderId, UUID userId, BigDecimal totalAmount) {
-        this.type = type;
-        this.orderId = orderId;
-        this.userId = userId;
-        this.totalAmount = totalAmount;
-    }
-
-    public OrderEvent(Type type, String orderId, UUID userId, BigDecimal totalAmount, LocalDateTime timestamp) {
-        this.type = type;
-        this.orderId = orderId;
-        this.userId = userId;
-        this.totalAmount = totalAmount;
-        this.timestamp = timestamp;
+        CREATED, CONFIRMED, PROCESSING, SHIPPED, DELIVERED,
+        CANCELLED, REFUNDED, PAYMENT_PENDING, PAYMENT_COMPLETED, PAYMENT_FAILED
     }
 
     private Type type;
     private String orderId;
+    private String orderNumber;
     private UUID userId;
+    private String userEmail;
     private BigDecimal totalAmount;
-    private LocalDateTime timestamp = LocalDateTime.now();
+    private String currency;
+    private List<Item> items;
 
-    public Type getType() { return type; }
-    public void setType(Type type) { this.type = type; }
-
-    public String getOrderId() { return orderId; }
-    public void setOrderId(String orderId) { this.orderId = orderId; }
-
-    public UUID getUserId() { return userId; }
-    public void setUserId(UUID userId) { this.userId = userId; }
-
-    public BigDecimal getTotalAmount() { return totalAmount; }
-    public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
-
-    public LocalDateTime getTimestamp() { return timestamp; }
-    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Item {
+        private String productId;
+        private String sku;
+        private int quantity;
+        private BigDecimal unitPrice;
+        private UUID sellerId;
+    }
 }

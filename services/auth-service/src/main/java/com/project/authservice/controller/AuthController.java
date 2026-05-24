@@ -10,32 +10,43 @@ import com.project.authservice.util.CookieUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/auth")
+@RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
 
-    @Value("${jwt.refresh-token-expiration}")
+    @Value("${jwt.refresh-token-expiration:2592000000}")
     private long refreshTokenDurationMs;
 
-    public AuthController(AuthService authService) {
-        this.authService = authService;
-    }
+    @Value("${security.cookies.secure:true}")
+    private boolean secureCookie;
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<UserProfileDto>> register(@Valid @RequestBody RegistrationRequest request) {
-        UserProfileDto userProfile = authService.register(request);
-        return new ResponseEntity<>(ApiResponse.created(userProfile), HttpStatus.CREATED);
+    public ResponseEntity<ApiResponse<UserProfileDto>> register(
+            @Valid @RequestBody RegistrationRequest request) {
+        return new ResponseEntity<>(ApiResponse.created(authService.register(request)), HttpStatus.CREATED);
     }
 
+    /**
+     * OAuth2-style token endpoint supporting {@code password} and {@code refresh_token}
+     * grants. The refresh token is delivered as an HttpOnly Secure SameSite=Strict cookie;
+     * only the access token is returned in the body.
+     */
     @PostMapping("/token")
     public ResponseEntity<ApiResponse<TokenResponse>> token(
             @RequestParam("grant_type") String grantType,
@@ -44,39 +55,58 @@ public class AuthController {
             HttpServletRequest request,
             HttpServletResponse response) {
 
-        String refreshTokenCookie = CookieUtils.getCookieValue(request, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
+        String existingRefresh = CookieUtils.getCookieValue(request, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
+        String userAgent = request.getHeader(HttpHeaders.USER_AGENT);
+        String ipAddress = clientIp(request);
 
-        TokenResponse tokenResponse = authService.authenticate(grantType, email, password, refreshTokenCookie);
+        AuthService.TokenResponseWithRefresh result =
+                authService.authenticate(grantType, email, password, existingRefresh, userAgent, ipAddress);
 
-        if (tokenResponse instanceof AuthService.TokenResponseWithRefresh trwr) {
-            CookieUtils.addCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME, trwr.getRefreshToken(),
-                    (int) (refreshTokenDurationMs / 1000));
-            return ResponseEntity.ok(ApiResponse.success(new TokenResponse(tokenResponse.getAccessToken())));
-        }
+        CookieUtils.addCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME,
+                result.getRefreshToken(), (int) (refreshTokenDurationMs / 1000), secureCookie);
 
-        return ResponseEntity.ok(ApiResponse.success(tokenResponse));
+        return ResponseEntity.ok(ApiResponse.success(new TokenResponse(result.getAccessToken())));
     }
 
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request, HttpServletResponse response) {
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-        String accessToken = null;
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            accessToken = authHeader.substring(7);
-        }
-
+        String accessToken = (authHeader != null && authHeader.startsWith("Bearer ")) ? authHeader.substring(7) : null;
         String refreshTokenValue = CookieUtils.getCookieValue(request, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
         authService.logout(accessToken, refreshTokenValue);
         CookieUtils.deleteCookie(request, response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
+    /**
+     * Authenticated user changes their own password. Replaces previous {@code permitAll}
+     * version that NPE'd on {@code authentication.getName()}.
+     */
     @PostMapping("/change-password")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @Valid @RequestBody ChangePasswordRequest request,
             Authentication authentication) {
-        String email = authentication.getName();
-        authService.changePassword(email, request.oldPassword(), request.newPassword());
+        // Principal is the user id (UUID string) from the JWT subject claim. We use the
+        // Authentication.getName() to load the email indirectly via the service; in the
+        // common-resource-server flow we'd read 'email' claim instead.
+        // For the auth-service self-call we keep the legacy form: authentication.getName()
+        // here will be the user id; the service signature accepts email lookup directly so
+        // we surface it explicitly via the Authentication.principal token.
+        String userId = authentication.getName();
+        // We need the email for matching. AuthService.changePassword expects email — but the
+        // caller is the authenticated user, so resolve email by loading the user once.
+        // (Done inside AuthService.changePassword via UserRepository.)
+        // We pass userId-as-email for compatibility with downstream lookup-by-email which
+        // we replace here with a lookup-by-id helper.
+        authService.changePasswordByUserId(java.util.UUID.fromString(userId), request.oldPassword(),
+                request.newPassword());
         return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    private static String clientIp(HttpServletRequest req) {
+        String xff = req.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) return xff.split(",")[0].trim();
+        return req.getRemoteAddr();
     }
 }

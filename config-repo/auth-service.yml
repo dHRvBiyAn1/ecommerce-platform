@@ -1,31 +1,81 @@
 server:
   port: 8081
+  forward-headers-strategy: framework
 
 spring:
   datasource:
-    url: jdbc:postgresql://postgres:5432/ecommerce
-    username: postgres
-    password: root
+    url: jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB:ecommerce}
+    username: ${POSTGRES_USER:ecommerce}
+    password: ${POSTGRES_PASSWORD:change_me_postgres}
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
     properties:
       hibernate:
-        "[format_sql]": true
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: ${GOOGLE_CLIENT_ID:test-client-id}
-            client-secret: ${GOOGLE_CLIENT_SECRET:test-client-secret}
-            scope: email, profile
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
 
+# OAuth2 social-login providers. Configured programmatically by OAuth2ClientConfig
+# only when both -client-id and -client-secret are set. Leaving these empty
+# disables social login cleanly (no startup-time validation failure).
+oauth2:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}
+    client-secret: ${GOOGLE_CLIENT_SECRET:}
+  github:
+    client-id: ${GITHUB_CLIENT_ID:}
+    client-secret: ${GITHUB_CLIENT_SECRET:}
+
+# JWT signing
 jwt:
-  access-token-expiration: 900000
-  refresh-token-expiration: 2592000000
+  access-token-expiration: 900000        # 15 min
+  refresh-token-expiration: 2592000000   # 30 days
+  issuer: auth-service
 
+# RSA keys (loaded by KeyManager); paths are URI-style (file:, classpath:, etc).
 rsa:
-  public-key-location: classpath:keys/public.pem
-  private-key-location: classpath:keys/private.pem
+  private-key-location: ${AUTH_RSA_PRIVATE_KEY_LOCATION:}
+  public-key-location: ${AUTH_RSA_PUBLIC_KEY_LOCATION:}
+  kid: ${AUTH_RSA_KID:auth-key-dev}
+  previous-public-key-location: ${AUTH_RSA_PREVIOUS_PUBLIC_KEY_LOCATION:}
+  previous-kid: ${AUTH_RSA_PREVIOUS_KID:}
+
+# Bootstrap admin (created on first start ONLY if both fields are set)
+admin:
+  email: ${ADMIN_EMAIL:}
+  password: ${ADMIN_PASSWORD:}
+  display-name: ${ADMIN_DISPLAY_NAME:Platform Admin}
+
+# Cookie settings — must be true in any non-localhost environment
+security:
+  cookies:
+    secure: ${SECURE_COOKIES:false}
+
+# Frontend URLs used by OAuth2 success handler / magic links
+app:
+  frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:4200}
+  oauth2-redirect-path: /oauth2/redirect
+
+# Disable the common auto-resource-server config in auth-service: this service
+# verifies its own JWTs via JwtAuthFilter against the in-memory KeyManager.
+common:
+  security:
+    resource-server:
+      enabled: false
+
+logging:
+  level:
+    com.project.authservice: INFO

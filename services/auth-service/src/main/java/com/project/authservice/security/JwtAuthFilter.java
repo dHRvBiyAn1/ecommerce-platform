@@ -6,8 +6,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -18,71 +18,65 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+/**
+ * Validates self-issued JWTs on auth-service's own protected endpoints (/api/user,
+ * /api/admin, /api/auth/change-password). Other backend services use Spring's
+ * standard OAuth2 resource server filter chain (see common.security.ResourceServerSecurityConfig)
+ * which fetches our JWKS.
+ */
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
-    private static final Logger log = LoggerFactory.getLogger(JwtAuthFilter.class);
-
     private final JwtService jwtService;
-    private final TokenBlacklistService tokenBlacklistService;
-
-    public JwtAuthFilter(JwtService jwtService, TokenBlacklistService tokenBlacklistService) {
-        this.jwtService = jwtService;
-        this.tokenBlacklistService = tokenBlacklistService;
-    }
+    private final TokenBlacklistService blacklist;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
+        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
+            chain.doFilter(request, response);
             return;
         }
 
         String token = authHeader.substring(7);
 
         try {
-            if (tokenBlacklistService.isBlacklisted(token)) {
-                log.info("Blacklisted token rejected for request: {}", request.getRequestURI());
+            if (blacklist.isBlacklisted(token)) {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("Token is blacklisted");
+                response.getWriter().write("Token revoked");
                 return;
             }
         } catch (Exception e) {
-            log.warn("Redis blacklist check failed (proceeding without): {}", e.getMessage());
+            log.warn("Blacklist check failed; falling through: {}", e.getMessage());
         }
 
         try {
             if (jwtService.validateToken(token)) {
                 String userId = jwtService.getUserIdFromToken(token);
-                String email = jwtService.getEmailFromToken(token);
                 Set<String> roles = jwtService.getRolesFromToken(token);
                 Set<String> permissions = jwtService.getPermissionsFromToken(token);
 
-                List<GrantedAuthority> authorities = roles.stream()
-                        .map(SimpleGrantedAuthority::new)
-                        .collect(Collectors.toList());
+                List<GrantedAuthority> authorities = new ArrayList<>();
+                roles.forEach(r -> authorities.add(new SimpleGrantedAuthority(r)));
+                permissions.forEach(p -> authorities.add(new SimpleGrantedAuthority(p)));
 
-                authorities.addAll(permissions.stream()
-                        .map(SimpleGrantedAuthority::new)
-                        .toList());
-
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userId, null, authorities);
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                UsernamePasswordAuthenticationToken auth =
+                        new UsernamePasswordAuthenticationToken(userId, null, authorities);
+                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(auth);
             }
         } catch (Exception e) {
-            log.debug("Token validation failed: {}", e.getMessage());
+            log.debug("JWT validation failed: {}", e.getMessage());
         }
 
-        filterChain.doFilter(request, response);
+        chain.doFilter(request, response);
     }
 }

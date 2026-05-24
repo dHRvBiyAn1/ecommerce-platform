@@ -1,5 +1,8 @@
 package com.project.order.controller;
 
+import com.project.common.constant.Permissions;
+import com.project.common.dto.ApiResponse;
+import com.project.common.security.CurrentUser;
 import com.project.order.dto.OrderRequest;
 import com.project.order.dto.OrderResponse;
 import com.project.order.dto.OrderStatusUpdateRequest;
@@ -12,8 +15,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
@@ -26,94 +36,68 @@ public class OrderController {
     private final OrderService orderService;
 
     @PostMapping
-    public ResponseEntity<OrderResponse> createOrder(
+    @PreAuthorize("hasAuthority('" + Permissions.ORDERS_CREATE + "')")
+    public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
             @Valid @RequestBody OrderRequest request,
-            Authentication authentication) {
-        UUID userId = getUserId(authentication);
-        String userEmail = getUserEmail(authentication);
-        log.info("Creating order for user: {}", userId);
-        OrderResponse response = orderService.createOrder(request, userId, userEmail);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
+        UUID userId = CurrentUser.requireId();
+        String email = CurrentUser.email().orElse(null);
+        OrderResponse response = orderService.createOrder(request, userId, email, idempotencyKey);
+        return new ResponseEntity<>(ApiResponse.created(response), HttpStatus.CREATED);
     }
 
+    /**
+     * List endpoint: admins see everything, customers see only their own orders.
+     */
     @GetMapping
-    public ResponseEntity<Page<OrderResponse>> getOrders(
-            Authentication authentication,
-            Pageable pageable) {
-        if (isAdmin(authentication)) {
-            log.debug("Admin fetching all orders");
-            return ResponseEntity.ok(orderService.getAllOrders(pageable));
-        }
-        UUID userId = getUserId(authentication);
-        log.debug("Fetching orders for user: {}", userId);
-        return ResponseEntity.ok(orderService.getUserOrders(userId, pageable));
+    @PreAuthorize("hasAuthority('" + Permissions.ORDERS_READ + "')")
+    public ResponseEntity<ApiResponse<Page<OrderResponse>>> getOrders(Pageable pageable) {
+        Page<OrderResponse> page = CurrentUser.isAdmin()
+                ? orderService.getAllOrders(pageable)
+                : orderService.getUserOrders(CurrentUser.requireId(), pageable);
+        return ResponseEntity.ok(ApiResponse.success(page));
     }
 
     @GetMapping("/{orderId}")
-    public ResponseEntity<OrderResponse> getOrder(@PathVariable String orderId) {
-        log.debug("Fetching order: {}", orderId);
-        OrderResponse response = orderService.getOrder(orderId);
-        return ResponseEntity.ok(response);
+    @PreAuthorize("hasAuthority('" + Permissions.ORDERS_READ + "')")
+    public ResponseEntity<ApiResponse<OrderResponse>> getOrder(@PathVariable String orderId) {
+        OrderResponse order = orderService.getOrder(orderId);
+        if (!CurrentUser.isAdmin() && !order.getUserId().equals(CurrentUser.requireId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(ApiResponse.success(order));
     }
 
     @GetMapping("/number/{orderNumber}")
-    public ResponseEntity<OrderResponse> getOrderByNumber(@PathVariable String orderNumber) {
-        log.debug("Fetching order by number: {}", orderNumber);
-        OrderResponse response = orderService.getOrderByNumber(orderNumber);
-        return ResponseEntity.ok(response);
+    @PreAuthorize("hasAuthority('" + Permissions.ORDERS_READ + "')")
+    public ResponseEntity<ApiResponse<OrderResponse>> getOrderByNumber(@PathVariable String orderNumber) {
+        OrderResponse order = orderService.getOrderByNumber(orderNumber);
+        if (!CurrentUser.isAdmin() && !order.getUserId().equals(CurrentUser.requireId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(ApiResponse.success(order));
     }
 
+    /** Order status updates (shipped/delivered) are admin-only. */
     @PutMapping("/{orderId}/status")
-    public ResponseEntity<OrderResponse> updateOrderStatus(
+    @PreAuthorize("hasAuthority('" + Permissions.ORDERS_UPDATE + "') and hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<OrderResponse>> updateOrderStatus(
             @PathVariable String orderId,
             @Valid @RequestBody OrderStatusUpdateRequest request) {
-        log.info("Updating status for order: {} to {}", orderId, request.getStatus());
-        OrderResponse response = orderService.updateOrderStatus(orderId, request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(orderService.updateOrderStatus(orderId, request)));
     }
 
     @PostMapping("/{orderId}/cancel")
-    public ResponseEntity<OrderResponse> cancelOrder(
-            @PathVariable String orderId,
-            Authentication authentication) {
-        UUID userId = getUserId(authentication);
-        log.info("Cancelling order: {} by user: {}", orderId, userId);
-        OrderResponse response = orderService.cancelOrder(orderId, userId);
-        return ResponseEntity.ok(response);
+    @PreAuthorize("hasAuthority('" + Permissions.ORDERS_CANCEL + "')")
+    public ResponseEntity<ApiResponse<OrderResponse>> cancelOrder(@PathVariable String orderId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                orderService.cancelOrder(orderId, CurrentUser.requireId(), CurrentUser.isAdmin())));
     }
 
     @GetMapping("/status/{status}")
-    public ResponseEntity<Page<OrderResponse>> getOrdersByStatus(
-            @PathVariable OrderStatus status,
-            Pageable pageable) {
-        log.debug("Fetching orders by status: {}", status);
-        return ResponseEntity.ok(orderService.getOrdersByStatus(status, pageable));
-    }
-
-    private UUID getUserId(Authentication authentication) {
-        if (authentication == null || authentication.getPrincipal() == null) {
-            return null;
-        }
-        try {
-            return UUID.fromString(authentication.getPrincipal().toString());
-        } catch (IllegalArgumentException e) {
-            log.warn("Invalid user ID format: {}", authentication.getPrincipal());
-            return null;
-        }
-    }
-
-    private String getUserEmail(Authentication authentication) {
-        if (authentication == null || authentication.getCredentials() == null) {
-            return null;
-        }
-        return authentication.getCredentials().toString();
-    }
-
-    private boolean isAdmin(Authentication authentication) {
-        if (authentication == null) {
-            return false;
-        }
-        return authentication.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Page<OrderResponse>>> getOrdersByStatus(
+            @PathVariable OrderStatus status, Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success(orderService.getOrdersByStatus(status, pageable)));
     }
 }

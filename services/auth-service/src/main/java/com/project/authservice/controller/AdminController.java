@@ -2,6 +2,9 @@ package com.project.authservice.controller;
 
 import com.project.authservice.dto.ApiResponse;
 import com.project.authservice.dto.UserProfileDto;
+import com.project.authservice.dto.admin.AssignRolesRequest;
+import com.project.authservice.dto.admin.CreateRoleRequest;
+import com.project.authservice.dto.admin.UpdateRolePermissionsRequest;
 import com.project.authservice.entity.Permission;
 import com.project.authservice.entity.Role;
 import com.project.authservice.entity.User;
@@ -9,13 +12,25 @@ import com.project.authservice.mapper.UserMapper;
 import com.project.authservice.repository.PermissionRepository;
 import com.project.authservice.repository.RoleRepository;
 import com.project.authservice.repository.UserRepository;
+import com.project.common.exception.DuplicateResourceException;
+import com.project.common.exception.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Set;
@@ -24,6 +39,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
+@RequiredArgsConstructor
 public class AdminController {
 
     private final UserRepository userRepository;
@@ -31,115 +47,90 @@ public class AdminController {
     private final PermissionRepository permissionRepository;
     private final UserMapper userMapper;
 
-    public AdminController(UserRepository userRepository, RoleRepository roleRepository,
-                           PermissionRepository permissionRepository, UserMapper userMapper) {
-        this.userRepository = userRepository;
-        this.roleRepository = roleRepository;
-        this.permissionRepository = permissionRepository;
-        this.userMapper = userMapper;
-    }
-
     @GetMapping("/users")
     @PreAuthorize("hasAuthority('admin:users:read')")
     public ResponseEntity<ApiResponse<Page<UserProfileDto>>> listUsers(Pageable pageable) {
-        Page<User> users = userRepository.findAll(pageable);
-        Page<UserProfileDto> dtos = users.map(userMapper::toDto);
-        return ResponseEntity.ok(ApiResponse.success(dtos));
+        return ResponseEntity.ok(ApiResponse.success(userRepository.findAll(pageable).map(userMapper::toDto)));
     }
 
     @GetMapping("/users/{userId}")
     @PreAuthorize("hasAuthority('admin:users:read')")
     public ResponseEntity<ApiResponse<UserProfileDto>> getUser(@PathVariable UUID userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
         return ResponseEntity.ok(ApiResponse.success(userMapper.toDto(user)));
     }
 
     @GetMapping("/roles")
     @PreAuthorize("hasAuthority('admin:roles:read')")
     public ResponseEntity<ApiResponse<List<Role>>> listRoles() {
-        List<Role> roles = roleRepository.findAll();
-        return ResponseEntity.ok(ApiResponse.success(roles));
+        return ResponseEntity.ok(ApiResponse.success(roleRepository.findAll()));
     }
 
     @PostMapping("/roles")
     @PreAuthorize("hasAuthority('admin:roles:write')")
     @Transactional
-    public ResponseEntity<ApiResponse<Role>> createRole(@RequestBody String roleName) {
-        if (roleRepository.findByName(roleName).isPresent()) {
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.<Role>success(null));
+    public ResponseEntity<ApiResponse<Role>> createRole(@Valid @RequestBody CreateRoleRequest request) {
+        if (roleRepository.findByName(request.name()).isPresent()) {
+            throw new DuplicateResourceException("Role already exists: " + request.name());
         }
         Role role = new Role();
-        role.setName(roleName);
+        role.setName(request.name());
         role = roleRepository.save(role);
-        return new ResponseEntity<>(ApiResponse.success(role), HttpStatus.CREATED);
+        return new ResponseEntity<>(ApiResponse.created(role), HttpStatus.CREATED);
     }
 
-    @PutMapping("/permissions/{roleId}")
+    @PutMapping("/roles/{roleId}/permissions")
     @PreAuthorize("hasAuthority('admin:roles:write')")
     @Transactional
     public ResponseEntity<ApiResponse<Role>> updateRolePermissions(
             @PathVariable UUID roleId,
-            @RequestBody List<String> permissionNames) {
+            @Valid @RequestBody UpdateRolePermissionsRequest request) {
         Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new RuntimeException("Role not found"));
-
-        Set<Permission> permissions = permissionNames.stream()
+                .orElseThrow(() -> new ResourceNotFoundException("Role", roleId));
+        Set<Permission> perms = request.permissions().stream()
                 .map(name -> permissionRepository.findByName(name)
-                        .orElseThrow(() -> new RuntimeException("Permission not found: " + name)))
+                        .orElseThrow(() -> new ResourceNotFoundException("Permission", name)))
                 .collect(Collectors.toSet());
-
-        role.setPermissions(permissions);
-        role = roleRepository.save(role);
-        return ResponseEntity.ok(ApiResponse.success(role));
+        role.setPermissions(perms);
+        return ResponseEntity.ok(ApiResponse.success(roleRepository.save(role)));
     }
 
     @PutMapping("/users/{userId}/roles")
     @PreAuthorize("hasAuthority('admin:users:write')")
     @Transactional
-    public ResponseEntity<ApiResponse<UserProfileDto>> updateUserRoles(
+    public ResponseEntity<ApiResponse<UserProfileDto>> setRoles(
             @PathVariable UUID userId,
-            @RequestBody List<String> roleNames) {
+            @Valid @RequestBody AssignRolesRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        Set<Role> roles = roleNames.stream()
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+        Set<Role> roles = request.roles().stream()
                 .map(name -> roleRepository.findByName(name)
-                        .orElseThrow(() -> new RuntimeException("Role not found: " + name)))
+                        .orElseThrow(() -> new ResourceNotFoundException("Role", name)))
                 .collect(Collectors.toSet());
-
         user.setRoles(roles);
-        user = userRepository.save(user);
-
-        return ResponseEntity.ok(ApiResponse.success(userMapper.toDto(user)));
+        return ResponseEntity.ok(ApiResponse.success(userMapper.toDto(userRepository.save(user))));
     }
 
-    @PutMapping("/users/{userId}/activate")
+    @PutMapping("/users/{userId}/active")
     @PreAuthorize("hasAuthority('admin:users:write')")
     @Transactional
-    public ResponseEntity<ApiResponse<UserProfileDto>> toggleUserActive(
+    public ResponseEntity<ApiResponse<UserProfileDto>> setActive(
             @PathVariable UUID userId,
             @RequestParam boolean active) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
         user.setActive(active);
-        user = userRepository.save(user);
-        return ResponseEntity.ok(ApiResponse.success(userMapper.toDto(user)));
+        return ResponseEntity.ok(ApiResponse.success(userMapper.toDto(userRepository.save(user))));
     }
 
-    @PutMapping("/users/{userId}/assign-role/{roleName}")
-    @PreAuthorize("hasAuthority('admin:users:write')")
+    @DeleteMapping("/roles/{roleId}")
+    @PreAuthorize("hasAuthority('admin:roles:write')")
     @Transactional
-    public ResponseEntity<ApiResponse<UserProfileDto>> assignRole(
-            @PathVariable UUID userId,
-            @PathVariable String roleName) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        Role role = roleRepository.findByName(roleName)
-                .orElseThrow(() -> new RuntimeException("Role not found: " + roleName));
-        user.getRoles().add(role);
-        user = userRepository.save(user);
-        return ResponseEntity.ok(ApiResponse.success(userMapper.toDto(user)));
+    public ResponseEntity<ApiResponse<Void>> deleteRole(@PathVariable UUID roleId) {
+        Role role = roleRepository.findById(roleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Role", roleId));
+        roleRepository.delete(role);
+        return ResponseEntity.noContent().build();
     }
 }

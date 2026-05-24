@@ -1,17 +1,32 @@
 package com.project.common.dto;
 
-public class ApiResponse<T> {
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+import java.time.Instant;
+import java.util.UUID;
+
+/**
+ * Standard envelope every public REST endpoint should return.
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class ApiResponse<T> {
     private int status;
     private String message;
     private T data;
-
-    public ApiResponse() {}
+    private String traceId;
+    private Instant timestamp = Instant.now();
 
     public ApiResponse(int status, String message, T data) {
         this.status = status;
         this.message = message;
         this.data = data;
+        this.traceId = UUID.randomUUID().toString();
     }
 
     public static <T> ApiResponse<T> success(T data) {
@@ -33,13 +48,4 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> error(int status, String message, T data) {
         return new ApiResponse<>(status, message, data);
     }
-
-    public int getStatus() { return status; }
-    public void setStatus(int status) { this.status = status; }
-
-    public String getMessage() { return message; }
-    public void setMessage(String message) { this.message = message; }
-
-    public T getData() { return data; }
-    public void setData(T data) { this.data = data; }
 }

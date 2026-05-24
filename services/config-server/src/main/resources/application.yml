@@ -1,22 +1,16 @@
-server:
-  port: 8888
-
 spring:
   application:
     name: config-server
+  profiles:
+    active: native
   cloud:
     config:
-      enabled: false
       server:
-        git:
-          uri: https://github.com/dHRvBiyAn1/ecommerce-platform.git
-          default-label: feature/auth-service
-          search-paths: config-repo
-          clone-on-start: true
-    
-  # ✅ Also disable bootstrap config fetching entirely
-  config:
-    import: "optional:configserver:"
+        native:
+          search-locations: file:/config-repo
+server:
+  port: 8888
+
 eureka:
   client:
     serviceUrl:
@@ -25,3 +19,9 @@ eureka:
     registerWithEureka: true
   instance:
     prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

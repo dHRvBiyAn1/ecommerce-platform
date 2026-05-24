@@ -3,7 +3,11 @@ package com.project.authservice.service;
 import com.project.authservice.dto.RegistrationRequest;
 import com.project.authservice.dto.TokenResponse;
 import com.project.authservice.dto.UserProfileDto;
-import com.project.authservice.entity.*;
+import com.project.authservice.entity.AuthProvider;
+import com.project.authservice.entity.RefreshToken;
+import com.project.authservice.entity.Role;
+import com.project.authservice.entity.User;
+import com.project.authservice.entity.UserCredential;
 import com.project.authservice.exception.AuthException;
 import com.project.authservice.exception.TokenRefreshException;
 import com.project.authservice.exception.UserAlreadyExistsException;
@@ -12,7 +16,8 @@ import com.project.authservice.repository.RefreshTokenRepository;
 import com.project.authservice.repository.RoleRepository;
 import com.project.authservice.repository.UserCredentialRepository;
 import com.project.authservice.repository.UserRepository;
-import com.project.authservice.service.UserEventPublisher.EventType;
+import com.project.common.constant.Roles;
+import com.project.common.event.UserEvent;
 import jakarta.transaction.Transactional;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -41,28 +46,27 @@ public class AuthService {
     private final UserEventPublisher userEventPublisher;
     private final TokenBlacklistService tokenBlacklistService;
 
-    @Value("${jwt.refresh-token-expiration}")
+    @Value("${jwt.refresh-token-expiration:2592000000}")
     private long refreshTokenDurationMs;
 
+    /**
+     * Public registration. Always assigns ROLE_CUSTOMER. Sellers must be promoted
+     * by an admin via {@code POST /api/admin/users/{id}/assign-role/SELLER} or via
+     * the dedicated seller-onboarding flow.
+     */
     @Transactional
     public UserProfileDto register(RegistrationRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new UserAlreadyExistsException("Email already in use");
         }
+        Role customerRole = roleRepository.findByName(Roles.CUSTOMER)
+                .orElseThrow(() -> new IllegalStateException(Roles.CUSTOMER + " role missing"));
 
         User user = new User();
         user.setEmail(request.getEmail());
         user.setDisplayName(request.getDisplayName());
         user.setActive(true);
-
-        String roleName = switch (request.getUserType()) {
-            case SELLER -> "ROLE_SELLER";
-            default -> "ROLE_CUSTOMER";
-        };
-        Role userRole = roleRepository.findByName(roleName)
-                .orElseThrow(() -> new RuntimeException("Default role not found: " + roleName));
-        user.getRoles().add(userRole);
-
+        user.getRoles().add(customerRole);
         user = userRepository.save(user);
 
         UserCredential credential = new UserCredential();
@@ -71,87 +75,96 @@ public class AuthService {
         credential.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         userCredentialRepository.save(credential);
 
-        try {
-            userEventPublisher.publishEvent(EventType.CREATED, user.getId(), user.getEmail());
-        } catch (Exception e) {
-            log.warn("Failed to publish registration event", e);
-        }
+        userEventPublisher.publish(UserEvent.userEventBuilder()
+                .type(UserEvent.Type.CREATED)
+                .userId(user.getId())
+                .email(user.getEmail())
+                .displayName(user.getDisplayName())
+                .build());
 
         return userMapper.toDto(user);
     }
 
     @Transactional
-    public TokenResponse authenticate(String grantType, String email, String password, String refreshTokenCookie) {
-        if ("password".equals(grantType)) {
-            User user = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new AuthException("Invalid credentials"));
-
-            UserCredential credential = userCredentialRepository
-                    .findByUserIdAndAuthProvider(user.getId(), AuthProvider.LOCAL)
-                    .orElseThrow(() -> new AuthException("Invalid credentials"));
-
-            if (!passwordEncoder.matches(password, credential.getPasswordHash())) {
-                throw new AuthException("Invalid credentials");
-            }
-
-            TokenResponse result = createTokenPair(user, UUID.randomUUID());
-
-            try {
-                userEventPublisher.publishEvent(EventType.LOGGED_IN, user.getId(), user.getEmail());
-            } catch (Exception e) {
-                log.warn("Failed to publish login event", e);
-            }
-
-            return result;
-        } else if ("refresh_token".equals(grantType)) {
-            if (refreshTokenCookie == null || refreshTokenCookie.isBlank()) {
-                throw new TokenRefreshException("Refresh token is missing");
-            }
-
-            RefreshToken rToken = refreshTokenRepository.findByToken(refreshTokenCookie)
-                    .orElseThrow(() -> new TokenRefreshException("Refresh token is invalid"));
-
-            if (rToken.isRevoked()) {
-                refreshTokenRepository.revokeFamily(rToken.getFamilyId());
-                throw new TokenRefreshException(
-                        "Refresh token was revoked. Potential security issue. Please login again.");
-            }
-
-            if (rToken.getExpiryDate().isBefore(LocalDateTime.now())) {
-                refreshTokenRepository.delete(rToken);
-                throw new TokenRefreshException("Refresh token expired");
-            }
-
-            rToken.setRevoked(true);
-            refreshTokenRepository.save(rToken);
-
-            User user = rToken.getUser();
-            TokenResponse result = createTokenPair(user, rToken.getFamilyId());
-
-            try {
-                userEventPublisher.publishEvent(EventType.LOGGED_IN, user.getId(), user.getEmail());
-            } catch (Exception e) {
-                log.warn("Failed to publish login event", e);
-            }
-
-            return result;
-        } else {
-            throw new AuthException("Unsupported grant type");
-        }
+    public TokenResponseWithRefresh authenticate(String grantType, String email, String password,
+                                                 String refreshTokenCookie, String userAgent, String ipAddress) {
+        return switch (grantType == null ? "" : grantType) {
+            case "password" -> passwordGrant(email, password, userAgent, ipAddress);
+            case "refresh_token" -> refreshGrant(refreshTokenCookie, userAgent, ipAddress);
+            default -> throw new AuthException("Unsupported grant type: " + grantType);
+        };
     }
 
-    private TokenResponse createTokenPair(User user, UUID familyId) {
+    private TokenResponseWithRefresh passwordGrant(String email, String password,
+                                                   String userAgent, String ipAddress) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AuthException("Invalid credentials"));
+        if (!user.isActive()) throw new AuthException("Account disabled");
+
+        UserCredential cred = userCredentialRepository
+                .findByUserIdAndAuthProvider(user.getId(), AuthProvider.LOCAL)
+                .orElseThrow(() -> new AuthException("Invalid credentials"));
+
+        if (!passwordEncoder.matches(password, cred.getPasswordHash())) {
+            throw new AuthException("Invalid credentials");
+        }
+
+        TokenResponseWithRefresh tokens = createTokenPair(user, UUID.randomUUID(), userAgent, ipAddress);
+
+        userEventPublisher.publish(UserEvent.userEventBuilder()
+                .type(UserEvent.Type.LOGGED_IN)
+                .userId(user.getId())
+                .email(user.getEmail())
+                .build());
+
+        return tokens;
+    }
+
+    private TokenResponseWithRefresh refreshGrant(String refreshTokenCookie, String userAgent, String ipAddress) {
+        if (refreshTokenCookie == null || refreshTokenCookie.isBlank()) {
+            throw new TokenRefreshException("Refresh token missing");
+        }
+        String hash = TokenHasher.sha256(refreshTokenCookie);
+
+        RefreshToken stored = refreshTokenRepository.findByTokenHash(hash)
+                .orElseThrow(() -> new TokenRefreshException("Refresh token invalid"));
+
+        // Token-reuse detection: if a previously-rotated token is presented, revoke the entire family.
+        if (stored.isRevoked()) {
+            log.warn("Reuse of revoked refresh token detected for user={}; revoking family",
+                    stored.getUser().getId());
+            refreshTokenRepository.revokeFamily(stored.getFamilyId());
+            throw new TokenRefreshException("Refresh token revoked. Please login again.");
+        }
+
+        if (stored.getExpiryDate().isBefore(LocalDateTime.now())) {
+            refreshTokenRepository.delete(stored);
+            throw new TokenRefreshException("Refresh token expired");
+        }
+
+        // Rotate: revoke old, issue new with same family id
+        stored.setRevoked(true);
+        refreshTokenRepository.save(stored);
+
+        return createTokenPair(stored.getUser(), stored.getFamilyId(), userAgent, ipAddress);
+    }
+
+    private TokenResponseWithRefresh createTokenPair(User user, UUID familyId, String userAgent, String ipAddress) {
         String accessToken = jwtService.generateToken(user);
 
-        RefreshToken refreshToken = new RefreshToken();
-        refreshToken.setUser(user);
-        refreshToken.setToken(UUID.randomUUID().toString());
-        refreshToken.setExpiryDate(LocalDateTime.now().plus(refreshTokenDurationMs, ChronoUnit.MILLIS));
-        refreshToken.setFamilyId(familyId);
-        refreshTokenRepository.save(refreshToken);
+        String rawRefresh = UUID.randomUUID() + "." + UUID.randomUUID();
+        String hash = TokenHasher.sha256(rawRefresh);
 
-        TokenResponse response = new TokenResponse(accessToken);
-        return new TokenResponseWithRefresh(accessToken, refreshToken.getToken());
+        RefreshToken rt = new RefreshToken();
+        rt.setUser(user);
+        rt.setTokenHash(hash);
+        rt.setExpiryDate(LocalDateTime.now().plus(refreshTokenDurationMs, ChronoUnit.MILLIS));
+        rt.setFamilyId(familyId);
+        rt.setUserAgent(userAgent);
+        rt.setIpAddress(ipAddress);
+        refreshTokenRepository.save(rt);
+
+        return new TokenResponseWithRefresh(accessToken, rawRefresh);
     }
 
     @Transactional
@@ -160,40 +173,36 @@ public class AuthService {
             try {
                 tokenBlacklistService.blacklistToken(accessToken);
             } catch (Exception e) {
-                log.warn("Failed to blacklist access token", e);
-            }
-
-            try {
-                String email = jwtService.getEmailFromToken(accessToken);
-                userEventPublisher.publishEvent(EventType.LOGGED_OUT, null, email);
-            } catch (Exception e) {
-                log.warn("Failed to publish logout event", e);
+                log.warn("Failed to blacklist access token: {}", e.getMessage());
             }
         }
-
         if (refreshTokenValue != null && !refreshTokenValue.isBlank()) {
-            refreshTokenRepository.findByToken(refreshTokenValue).ifPresent(token -> {
-                token.setRevoked(true);
-                refreshTokenRepository.save(token);
+            String hash = TokenHasher.sha256(refreshTokenValue);
+            refreshTokenRepository.findByTokenHash(hash).ifPresent(rt -> {
+                rt.setRevoked(true);
+                refreshTokenRepository.save(rt);
             });
         }
     }
 
     @Transactional
-    public void changePassword(String email, String oldPassword, String newPassword) {
-        User user = userRepository.findByEmail(email)
+    public void changePasswordByUserId(UUID userId, String oldPassword, String newPassword) {
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AuthException("User not found"));
-
-        UserCredential credential = userCredentialRepository
+        UserCredential cred = userCredentialRepository
                 .findByUserIdAndAuthProvider(user.getId(), AuthProvider.LOCAL)
                 .orElseThrow(() -> new AuthException("Password login not configured for this account"));
-
-        if (!passwordEncoder.matches(oldPassword, credential.getPasswordHash())) {
+        if (!passwordEncoder.matches(oldPassword, cred.getPasswordHash())) {
             throw new AuthException("Invalid old password");
         }
+        cred.setPasswordHash(passwordEncoder.encode(newPassword));
+        userCredentialRepository.save(cred);
 
-        credential.setPasswordHash(passwordEncoder.encode(newPassword));
-        userCredentialRepository.save(credential);
+        userEventPublisher.publish(UserEvent.userEventBuilder()
+                .type(UserEvent.Type.PASSWORD_CHANGED)
+                .userId(user.getId())
+                .email(user.getEmail())
+                .build());
     }
 
     @Transactional
@@ -202,36 +211,34 @@ public class AuthService {
         User user;
         if (userOpt.isPresent()) {
             user = userOpt.get();
-            Optional<UserCredential> credOpt = userCredentialRepository.findByUserIdAndAuthProvider(user.getId(),
-                    provider);
-            if (credOpt.isEmpty()) {
-                UserCredential credential = new UserCredential();
-                credential.setUser(user);
-                credential.setAuthProvider(provider);
-                credential.setProviderUserId(providerId);
-                userCredentialRepository.save(credential);
+            if (userCredentialRepository.findByUserIdAndAuthProvider(user.getId(), provider).isEmpty()) {
+                UserCredential c = new UserCredential();
+                c.setUser(user);
+                c.setAuthProvider(provider);
+                c.setProviderUserId(providerId);
+                userCredentialRepository.save(c);
             }
         } else {
             user = new User();
             user.setEmail(email);
             user.setDisplayName(displayName);
             user.setActive(true);
-            Role userRole = roleRepository.findByName("ROLE_CUSTOMER")
-                    .orElseThrow(() -> new RuntimeException("Default role not found"));
-            user.getRoles().add(userRole);
+            Role customer = roleRepository.findByName(Roles.CUSTOMER)
+                    .orElseThrow(() -> new IllegalStateException("ROLE_CUSTOMER missing"));
+            user.getRoles().add(customer);
             user = userRepository.save(user);
 
-            UserCredential credential = new UserCredential();
-            credential.setUser(user);
-            credential.setAuthProvider(provider);
-            credential.setProviderUserId(providerId);
-            userCredentialRepository.save(credential);
+            UserCredential c = new UserCredential();
+            c.setUser(user);
+            c.setAuthProvider(provider);
+            c.setProviderUserId(providerId);
+            userCredentialRepository.save(c);
         }
         return user;
     }
 
-    public TokenResponseWithRefresh generateTokenPairForOAuth2(User user) {
-        return (TokenResponseWithRefresh) createTokenPair(user, UUID.randomUUID());
+    public TokenResponseWithRefresh generateTokenPairForOAuth2(User user, String userAgent, String ipAddress) {
+        return createTokenPair(user, UUID.randomUUID(), userAgent, ipAddress);
     }
 
     @Getter
@@ -242,6 +249,5 @@ public class AuthService {
             super(accessToken);
             this.refreshToken = refreshToken;
         }
-
     }
 }

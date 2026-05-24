@@ -23,3 +23,28 @@ Thumbs.db
 node_modules/
 dist/
 frontend/ecommerce-app/.angular/
+
+# Local env / secrets — NEVER COMMIT
+.env
+.env.local
+.env.*.local
+.secrets/
+*.pem
+!**/test/**/*.pem
+config-repo/secrets/
+
+# Test outputs
+coverage/
+*.lcov
+
+# CycloneDX SBOMs
+**/target/bom.*
+
+# Helm
+**/charts/*.tgz
+
+# Backstage / Terraform / k8s state
+.terraform/
+*.tfstate
+*.tfstate.backup
+kustomize/overlays/local/secret-*.yaml

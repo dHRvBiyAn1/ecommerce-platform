@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ProductRepository extends MongoRepository<Product, String> {
@@ -25,6 +26,8 @@ public interface ProductRepository extends MongoRepository<Product, String> {
 
     // Filter by price range
     Page<Product> findByPriceBetweenAndActiveTrue(BigDecimal min, BigDecimal max, Pageable pageable);
+
+    Optional<Product> findBySku(String sku);
 
     // You can combine multiple criteria using @Query or custom implementation.
 }

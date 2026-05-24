@@ -1,7 +1,7 @@
 package com.project.notification.kafka;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.project.notification.event.PaymentEvent;
+import com.project.common.constant.Topics;
+import com.project.common.event.PaymentEvent;
 import com.project.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,17 +14,23 @@ import org.springframework.stereotype.Component;
 public class PaymentEventHandler {
 
     private final NotificationService notificationService;
-    private final ObjectMapper objectMapper;
 
-    @KafkaListener(topics = "payment-events", groupId = "notification-service-group")
-    public void handleEvent(String message) {
-        log.info("Received payment event: {}", message);
-        try {
-            PaymentEvent event = objectMapper.readValue(message, PaymentEvent.class);
-            log.debug("Deserialized payment event: type={}, paymentId={}", event.getType(), event.getPaymentId());
-            notificationService.handlePaymentEvent(event);
-        } catch (Exception e) {
-            log.error("Failed to process payment event: {}. Error: {}", message, e.getMessage(), e);
+    @KafkaListener(topics = Topics.PAYMENT_EVENTS, containerFactory = "kafkaListenerContainerFactory")
+    public void handle(PaymentEvent event) {
+        if (event == null || event.getType() == null) return;
+
+        switch (event.getType()) {
+            case COMPLETED -> notificationService.record(event.getUserId(), event.getUserEmail(),
+                    "EMAIL", "PAYMENT",
+                    "Payment receipt for order " + event.getOrderId(),
+                    "We received " + event.getCurrency() + " " + event.getAmount(),
+                    event.getEventId());
+            case REFUNDED, PARTIALLY_REFUNDED -> notificationService.record(event.getUserId(), event.getUserEmail(),
+                    "EMAIL", "PAYMENT",
+                    "Refund issued for order " + event.getOrderId(),
+                    "Your refund is being processed. Amount: " + event.getCurrency() + " " + event.getAmount(),
+                    event.getEventId());
+            default -> { /* ignore INITIATED/PROCESSING */ }
         }
     }
 }

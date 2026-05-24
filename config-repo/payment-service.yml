@@ -2,17 +2,35 @@ server:
   port: 8085
 
 spring:
-  mongodb:
-      uri: mongodb://root:root@mongodb:27017/payment_db?authSource=admin
+  data:
+    mongodb:
+      uri: mongodb://${MONGO_INITDB_ROOT_USERNAME:ecommerce}:${MONGO_INITDB_ROOT_PASSWORD:change_me_mongo}@${MONGO_HOST:mongodb}:${MONGO_PORT:27017}/payment_db?authSource=admin
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWK_SET_URI:http://auth-service:8081/.well-known/jwks.json}
 
+# Webhook signing
 payment:
-  gateway:
-    success-rate: 0.90
-    simulate-delay-ms: 500
-  retry:
-    max-attempts: 3
-    backoff-ms: 1000
+  webhook:
+    secret: ${PAYMENT_WEBHOOK_SECRET:}
+    tolerance-seconds: 300
+
+# Stripe; if STRIPE_SECRET_KEY is empty, SandboxGateway is used.
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+
+common:
+  security:
+    resource-server:
+      enabled: false
 
 logging:
   level:
-    '[com.project.payment]': DEBUG
+    com.project.payment: INFO

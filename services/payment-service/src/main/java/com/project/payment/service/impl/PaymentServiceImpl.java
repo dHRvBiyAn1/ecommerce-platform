@@ -1,11 +1,11 @@
 package com.project.payment.service.impl;
 
 import com.project.common.event.PaymentEvent;
+import com.project.common.exception.ResourceNotFoundException;
 import com.project.payment.dto.PaymentRequest;
 import com.project.payment.dto.PaymentResponse;
 import com.project.payment.dto.PaymentWebhookRequest;
 import com.project.payment.exception.PaymentException;
-import com.project.payment.exception.ResourceNotFoundException;
 import com.project.payment.kafka.PaymentEventPublisher;
 import com.project.payment.model.Payment;
 import com.project.payment.model.PaymentStatus;
@@ -13,40 +13,54 @@ import com.project.payment.repository.PaymentRepository;
 import com.project.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final PaymentEventPublisher eventPublisher;
-    private final Random random = new Random();
+    private final StringRedisTemplate redis;
+    private final PaymentGateway gateway;
 
     @Override
     @Transactional
-    public PaymentResponse createPayment(PaymentRequest request, UUID userId, String userEmail) {
-        log.info("Creating payment for orderId={}, userId={}, amount={}",
-                request.getOrderId(), userId, request.getAmount());
+    public PaymentResponse createPayment(PaymentRequest request, UUID userId, String userEmail,
+                                         String idempotencyKey) {
+        // Idempotency
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            String key = "payment:create:" + userId + ":" + idempotencyKey;
+            String existing = redis.opsForValue().get(key);
+            if (existing != null) {
+                return mapToResponse(paymentRepository.findById(existing)
+                        .orElseThrow(() -> new ResourceNotFoundException("Payment", existing)));
+            }
+            Boolean acquired = redis.opsForValue().setIfAbsent(key, "PENDING", Duration.ofMinutes(10));
+            if (!Boolean.TRUE.equals(acquired)) {
+                throw new PaymentException("Duplicate payment request in flight");
+            }
+        }
 
-        Optional<Payment> existingPayment = paymentRepository.findByOrderId(request.getOrderId());
-        if (existingPayment.isPresent()) {
-            log.warn("Payment already exists for orderId={}", request.getOrderId());
+        // Disallow duplicate payments per order (in addition to idempotency-key)
+        Optional<Payment> existing = paymentRepository.findByOrderId(request.getOrderId());
+        if (existing.isPresent()) {
             throw new PaymentException("A payment already exists for order: " + request.getOrderId());
         }
 
         Payment payment = Payment.builder()
-                .paymentReference(generatePaymentReference())
+                .paymentReference("PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                 .orderId(request.getOrderId())
                 .orderNumber(request.getOrderNumber())
                 .userId(userId)
@@ -54,7 +68,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .status(PaymentStatus.PENDING)
                 .paymentMethod(request.getPaymentMethod())
                 .amount(request.getAmount() != null ? request.getAmount() : BigDecimal.ZERO)
-                .currency(request.getCurrency() != null ? request.getCurrency() : "USD")
+                .currency(request.getCurrency() != null ? request.getCurrency() : "INR")
                 .description(request.getDescription())
                 .retryCount(0)
                 .createdAt(LocalDateTime.now())
@@ -62,229 +76,164 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
 
         payment = paymentRepository.save(payment);
-        log.info("Payment created with reference={}, id={}", payment.getPaymentReference(), payment.getId());
 
-        PaymentEvent event = new PaymentEvent(
-                PaymentEvent.Type.INITIATED,
-                payment.getId(),
-                payment.getOrderId(),
-                payment.getAmount(),
-                payment.getCurrency(),
-                payment.getCreatedAt()
-        );
-        eventPublisher.publish(event);
+        // Create the gateway intent (Stripe in production; sandbox-stub for dev)
+        try {
+            String intentId = gateway.createIntent(payment);
+            payment.setTransactionId(intentId);
+            payment = paymentRepository.save(payment);
+        } catch (Exception e) {
+            log.error("Gateway createIntent failed for payment {}: {}", payment.getId(), e.getMessage());
+            payment.setStatus(PaymentStatus.FAILED);
+            payment.setFailureReason("Gateway error: " + e.getMessage());
+            payment = paymentRepository.save(payment);
+            eventPublisher.publish(toEvent(PaymentEvent.Type.FAILED, payment));
+            throw new PaymentException("Payment initialization failed");
+        }
 
+        eventPublisher.publish(toEvent(PaymentEvent.Type.INITIATED, payment));
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            redis.opsForValue().set("payment:create:" + userId + ":" + idempotencyKey,
+                    payment.getId(), Duration.ofHours(24));
+        }
         return mapToResponse(payment);
     }
 
     @Override
     public PaymentResponse getPayment(String paymentId) {
-        log.debug("Fetching payment by id={}", paymentId);
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> {
-                    log.warn("Payment not found with id={}", paymentId);
-                    return new ResourceNotFoundException("Payment not found with id: " + paymentId);
-                });
-        return mapToResponse(payment);
+        return mapToResponse(paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment", paymentId)));
     }
 
     @Override
     public PaymentResponse getPaymentByReference(String reference) {
-        log.debug("Fetching payment by reference={}", reference);
-        Payment payment = paymentRepository.findByPaymentReference(reference)
-                .orElseThrow(() -> {
-                    log.warn("Payment not found with reference={}", reference);
-                    return new ResourceNotFoundException("Payment not found with reference: " + reference);
-                });
-        return mapToResponse(payment);
+        return mapToResponse(paymentRepository.findByPaymentReference(reference)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment", reference)));
     }
 
     @Override
     public PaymentResponse getPaymentByOrderId(String orderId) {
-        log.debug("Fetching payment by orderId={}", orderId);
-        Payment payment = paymentRepository.findByOrderId(orderId)
-                .orElseThrow(() -> {
-                    log.warn("Payment not found for orderId={}", orderId);
-                    return new ResourceNotFoundException("Payment not found for order: " + orderId);
-                });
-        return mapToResponse(payment);
+        return mapToResponse(paymentRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment for order", orderId)));
     }
 
     @Override
     public List<PaymentResponse> getUserPayments(UUID userId) {
-        log.debug("Fetching payments for userId={}", userId);
-        List<Payment> payments = paymentRepository.findByUserId(userId);
-        return payments.stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return paymentRepository.findByUserId(userId).stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
+    /**
+     * In production this is rarely called directly: PSP webhooks drive the state.
+     * Kept for admin retry / dev-mode simulation.
+     */
     @Override
     @Transactional
     public PaymentResponse processPayment(String paymentId) {
-        log.info("Processing payment with id={}", paymentId);
-
         Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> {
-                    log.warn("Payment not found with id={}", paymentId);
-                    return new ResourceNotFoundException("Payment not found with id: " + paymentId);
-                });
-
+                .orElseThrow(() -> new ResourceNotFoundException("Payment", paymentId));
         if (payment.getStatus() != PaymentStatus.PENDING) {
-            log.warn("Payment {} cannot be processed, current status={}", paymentId, payment.getStatus());
-            throw new PaymentException(
-                    "Payment cannot be processed. Current status: " + payment.getStatus());
+            throw new PaymentException("Payment cannot be processed; status=" + payment.getStatus());
         }
-
         payment.setStatus(PaymentStatus.PROCESSING);
         payment.setUpdatedAt(LocalDateTime.now());
         payment = paymentRepository.save(payment);
+        eventPublisher.publish(toEvent(PaymentEvent.Type.PROCESSING, payment));
 
-        PaymentEvent processingEvent = new PaymentEvent(
-                PaymentEvent.Type.PROCESSING,
-                payment.getId(),
-                payment.getOrderId(),
-                payment.getAmount(),
-                payment.getCurrency(),
-                payment.getUpdatedAt()
-        );
-        eventPublisher.publish(processingEvent);
-
-        log.info("Simulating payment gateway call for paymentId={}", paymentId);
-
-        boolean success = random.nextDouble() < 0.9;
-        if (success) {
+        boolean ok = gateway.confirm(payment);
+        if (ok) {
             payment.setStatus(PaymentStatus.COMPLETED);
-            payment.setTransactionId("TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
-            payment.setGatewayResponse("Payment processed successfully");
             payment.setCompletedAt(LocalDateTime.now());
-            log.info("Payment {} completed successfully, transactionId={}",
-                    paymentId, payment.getTransactionId());
-
-            PaymentEvent completedEvent = new PaymentEvent(
-                    PaymentEvent.Type.COMPLETED,
-                    payment.getId(),
-                    payment.getOrderId(),
-                    payment.getAmount(),
-                    payment.getCurrency(),
-                    payment.getCompletedAt()
-            );
-            eventPublisher.publish(completedEvent);
+            payment.setGatewayResponse("OK");
         } else {
             payment.setStatus(PaymentStatus.FAILED);
-            payment.setFailureReason("Simulated gateway error");
-            log.warn("Payment {} failed during processing", paymentId);
-
-            PaymentEvent failedEvent = new PaymentEvent(
-                    PaymentEvent.Type.FAILED,
-                    payment.getId(),
-                    payment.getOrderId(),
-                    payment.getAmount(),
-                    payment.getCurrency(),
-                    LocalDateTime.now()
-            );
-            eventPublisher.publish(failedEvent);
+            payment.setFailureReason("Gateway declined");
         }
-
         payment.setUpdatedAt(LocalDateTime.now());
         payment = paymentRepository.save(payment);
-
+        eventPublisher.publish(toEvent(ok ? PaymentEvent.Type.COMPLETED : PaymentEvent.Type.FAILED, payment));
         return mapToResponse(payment);
     }
 
     @Override
     @Transactional
     public PaymentResponse handlePaymentWebhook(String paymentReference, PaymentWebhookRequest webhook) {
-        log.info("Handling webhook for paymentReference={}, status={}",
-                paymentReference, webhook.getStatus());
-
         Payment payment = paymentRepository.findByPaymentReference(paymentReference)
-                .orElseThrow(() -> {
-                    log.warn("Payment not found with reference={}", paymentReference);
-                    return new ResourceNotFoundException(
-                            "Payment not found with reference: " + paymentReference);
-                });
+                .orElseThrow(() -> new ResourceNotFoundException("Payment", paymentReference));
 
-        payment.setTransactionId(webhook.getTransactionId());
-        payment.setGatewayResponse("Webhook received: " + webhook.getStatus());
+        if (webhook.getTransactionId() != null) payment.setTransactionId(webhook.getTransactionId());
+        payment.setGatewayResponse("Webhook: " + webhook.getStatus());
 
         PaymentEvent.Type eventType;
         switch (webhook.getStatus().toUpperCase()) {
-            case "COMPLETED":
+            case "COMPLETED", "SUCCEEDED" -> {
                 payment.setStatus(PaymentStatus.COMPLETED);
                 payment.setCompletedAt(LocalDateTime.now());
                 eventType = PaymentEvent.Type.COMPLETED;
-                log.info("Webhook marked payment {} as COMPLETED", paymentReference);
-                break;
-            case "FAILED":
+            }
+            case "FAILED" -> {
                 payment.setStatus(PaymentStatus.FAILED);
                 payment.setFailureReason(webhook.getFailureReason());
                 eventType = PaymentEvent.Type.FAILED;
-                log.warn("Webhook marked payment {} as FAILED, reason={}",
-                        paymentReference, webhook.getFailureReason());
-                break;
-            default:
-                log.warn("Unknown webhook status={} for paymentReference={}",
-                        webhook.getStatus(), paymentReference);
-                throw new PaymentException("Unknown webhook status: " + webhook.getStatus());
+            }
+            case "CANCELLED" -> {
+                payment.setStatus(PaymentStatus.CANCELLED);
+                eventType = PaymentEvent.Type.CANCELLED;
+            }
+            default -> throw new PaymentException("Unknown webhook status: " + webhook.getStatus());
         }
-
         payment.setUpdatedAt(LocalDateTime.now());
         payment = paymentRepository.save(payment);
-
-        PaymentEvent event = new PaymentEvent(
-                eventType,
-                payment.getId(),
-                payment.getOrderId(),
-                payment.getAmount(),
-                payment.getCurrency(),
-                payment.getUpdatedAt()
-        );
-        eventPublisher.publish(event);
-
+        eventPublisher.publish(toEvent(eventType, payment));
         return mapToResponse(payment);
     }
 
     @Override
     @Transactional
-    public PaymentResponse refundPayment(String paymentId, String reason) {
-        log.info("Processing refund for paymentId={}, reason={}", paymentId, reason);
-
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> {
-                    log.warn("Payment not found with id={}", paymentId);
-                    return new ResourceNotFoundException("Payment not found with id: " + paymentId);
-                });
-
-        if (payment.getStatus() != PaymentStatus.COMPLETED) {
-            log.warn("Payment {} cannot be refunded, current status={}",
-                    paymentId, payment.getStatus());
-            throw new PaymentException(
-                    "Only completed payments can be refunded. Current status: " + payment.getStatus());
+    public PaymentResponse refundPayment(String paymentId, String reason, BigDecimal amount, String idempotencyKey) {
+        // Idempotency
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            String key = "payment:refund:" + paymentId + ":" + idempotencyKey;
+            Boolean acquired = redis.opsForValue().setIfAbsent(key, "DONE", Duration.ofHours(24));
+            if (!Boolean.TRUE.equals(acquired)) {
+                return getPayment(paymentId);
+            }
         }
 
-        payment.setStatus(PaymentStatus.REFUNDED);
-        payment.setGatewayResponse("Refund processed: " + reason);
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment", paymentId));
+        if (payment.getStatus() != PaymentStatus.COMPLETED &&
+            payment.getStatus() != PaymentStatus.PARTIALLY_REFUNDED) {
+            throw new PaymentException("Only completed payments can be refunded");
+        }
+
+        boolean partial = amount != null && amount.signum() > 0
+                && amount.compareTo(payment.getAmount()) < 0;
+
+        gateway.refund(payment, partial ? amount : payment.getAmount(), reason);
+
+        payment.setStatus(partial ? PaymentStatus.PARTIALLY_REFUNDED : PaymentStatus.REFUNDED);
+        payment.setGatewayResponse("Refund: " + reason);
         payment.setUpdatedAt(LocalDateTime.now());
         payment = paymentRepository.save(payment);
-
-        log.info("Payment {} refunded successfully", paymentId);
-
-        PaymentEvent event = new PaymentEvent(
-                PaymentEvent.Type.REFUNDED,
-                payment.getId(),
-                payment.getOrderId(),
-                payment.getAmount(),
-                payment.getCurrency(),
-                payment.getUpdatedAt()
-        );
-        eventPublisher.publish(event);
-
+        eventPublisher.publish(toEvent(
+                partial ? PaymentEvent.Type.PARTIALLY_REFUNDED : PaymentEvent.Type.REFUNDED, payment));
         return mapToResponse(payment);
     }
 
-    private String generatePaymentReference() {
-        return "PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    private PaymentEvent toEvent(PaymentEvent.Type type, Payment p) {
+        return PaymentEvent.paymentEventBuilder()
+                .type(type)
+                .paymentId(p.getId())
+                .paymentReference(p.getPaymentReference())
+                .orderId(p.getOrderId())
+                .userId(p.getUserId())
+                .userEmail(p.getUserEmail())
+                .amount(p.getAmount())
+                .currency(p.getCurrency())
+                .paymentMethod(p.getPaymentMethod())
+                .failureReason(p.getFailureReason())
+                .build();
     }
 
     private PaymentResponse mapToResponse(Payment payment) {

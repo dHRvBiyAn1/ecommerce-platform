@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="A modern ecommerce platform — products, sellers, and a fast checkout." />
+    <meta name="theme-color" content="#18181B" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#09090B" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2318181B'/%3E%3Ctext x='50%25' y='58%25' text-anchor='middle' fill='%23EC4899' font-family='Rubik,sans-serif' font-weight='700' font-size='40'%3EÉ%3C/text%3E%3C/svg%3E" />
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%2318181B'/%3E%3Ctext x='50%25' y='58%25' text-anchor='middle' fill='%23EC4899' font-family='Rubik,sans-serif' font-weight='700' font-size='112'%3EÉ%3C/text%3E%3C/svg%3E" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Étoile" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&family=Nunito+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    />
+    <title>Étoile — A modern marketplace for considered things.</title>
+    <script>
+      // Apply persisted theme synchronously to prevent FOUC.
+      (function () {
+        try {
+          var key = "ecom-theme";
+          var stored = localStorage.getItem(key) || "system";
+          var dark =
+            stored === "dark" ||
+            (stored === "system" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.classList.add("dark");
+          document.documentElement.style.colorScheme = dark ? "dark" : "light";
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body class="h-full bg-background font-sans text-foreground antialiased">
+    <div id="root" class="h-full"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

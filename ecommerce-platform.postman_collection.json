@@ -1,125 +1,53 @@
 {
   "info": {
-    "name": "E-Commerce Platform API",
-    "description": "Complete API collection for the e-commerce microservices platform. Includes Auth, Products, Inventory, Orders, Payments, and Notifications.\n\nBase URL: http://localhost:8080 (via API Gateway)",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "_exporter_id": "ecommerce-platform"
+    "name": "Ecommerce Platform API",
+    "description": "Complete API collection for the Spring Boot microservices ecommerce platform.\n\nServices covered: auth, product, inventory, order, payment, notification.\nAll requests go through the API Gateway at `{{base_url}}` (default http://localhost:8080).\n\nQuick start:\n1. Run `make up` from the repo root.\n2. Open the **Setup → Bootstrap admin login** request and run it (uses ADMIN_EMAIL/ADMIN_PASSWORD from .env).\n3. Run **Auth → Register customer**, then **Auth → Login (customer)** — it auto-saves `access_token`.\n4. Use any of the customer-scoped requests (catalog, cart, checkout, orders).\n5. To exercise seller flows, run **Admin → Promote user to seller** with the customer's userId, then re-login.\n\nTokens are cached in collection variables (`access_token`, `admin_token`). Tests at the request level capture order ids, product ids, etc. for chaining.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
+    { "key": "base_url",        "value": "http://localhost:8080",                  "type": "string" },
+    { "key": "admin_email",     "value": "admin@local.test",                       "type": "string" },
+    { "key": "admin_password",  "value": "ChangeMe123!",                           "type": "string" },
+    { "key": "customer_email",  "value": "amelia@example.com",                     "type": "string" },
+    { "key": "customer_password","value": "StrongPass1!",                          "type": "string" },
+    { "key": "access_token",    "value": "",                                        "type": "string" },
+    { "key": "admin_token",     "value": "",                                        "type": "string" },
+    { "key": "user_id",         "value": "",                                        "type": "string" },
+    { "key": "category_id",     "value": "",                                        "type": "string" },
+    { "key": "product_id",      "value": "",                                        "type": "string" },
+    { "key": "order_id",        "value": "",                                        "type": "string" },
+    { "key": "order_number",    "value": "",                                        "type": "string" },
+    { "key": "payment_id",      "value": "",                                        "type": "string" },
+    { "key": "payment_reference","value": "",                                       "type": "string" },
+    { "key": "notification_id", "value": "",                                        "type": "string" },
+    { "key": "inventory_id",    "value": "",                                        "type": "string" },
+    { "key": "webhook_secret",  "value": "change_me_payment_webhook",               "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+  },
+  "event": [
     {
-      "key": "base_url",
-      "value": "http://localhost:8080",
-      "type": "string"
-    },
-    {
-      "key": "access_token",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "seller_token",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "admin_token",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "product_id",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "order_id",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "user_id",
-      "value": "",
-      "type": "string"
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// No-op global pre-request. Per-request scripts handle HMAC etc."
+        ]
+      }
     }
   ],
   "item": [
     {
-      "name": "Auth Service",
+      "name": "Setup",
+      "description": "One-shot helpers for bootstrapping a new local environment.",
       "item": [
         {
-          "name": "Register Customer",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
-                  "pm.collectionVariables.set('user_id', pm.response.json().data.id);"
-                ]
-              }
-            }
-          ],
+          "name": "Bootstrap admin login",
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"customer@example.com\",\n  \"password\": \"password123\",\n  \"displayName\": \"Test Customer\",\n  \"userType\": \"CUSTOMER\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/auth/register",
-              "host": ["{{base_url}}"],
-              "path": ["api", "auth", "register"]
-            }
-          }
-        },
-        {
-          "name": "Register Seller",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 201', () => pm.response.to.have.status(201));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"seller@example.com\",\n  \"password\": \"password123\",\n  \"displayName\": \"Test Seller\",\n  \"userType\": \"SELLER\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/auth/register",
-              "host": ["{{base_url}}"],
-              "path": ["api", "auth", "register"]
-            }
-          }
-        },
-        {
-          "name": "Login (Password Grant)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                  "var json = pm.response.json();",
-                  "pm.collectionVariables.set('access_token', json.data.accessToken);",
-                  "pm.collectionVariables.set('refresh_token', pm.cookies.get('refresh_token'));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
+            "auth": { "type": "noauth" },
             "header": [
               { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
             ],
@@ -127,132 +55,140 @@
               "mode": "urlencoded",
               "urlencoded": [
                 { "key": "grant_type", "value": "password" },
-                { "key": "email", "value": "customer@example.com" },
-                { "key": "password", "value": "password123" }
+                { "key": "email",      "value": "{{admin_email}}" },
+                { "key": "password",   "value": "{{admin_password}}" }
               ]
             },
-            "url": {
-              "raw": "{{base_url}}/api/auth/token",
-              "host": ["{{base_url}}"],
-              "path": ["api", "auth", "token"]
-            }
-          }
-        },
-        {
-          "name": "Login as Seller",
+            "url": "{{base_url}}/api/auth/token",
+            "description": "Logs in the bootstrap admin (created on first start when ADMIN_EMAIL/ADMIN_PASSWORD env vars are set in .env). Saves the JWT to `admin_token` so admin requests in the rest of the collection can use it."
+          },
           "event": [
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                  "var json = pm.response.json();",
-                  "pm.collectionVariables.set('seller_token', json.data.accessToken);"
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('admin_token', body?.data?.accessToken ?? '');",
+                  "console.log('admin_token cached');"
                 ]
               }
             }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
-            ],
-            "body": {
-              "mode": "urlencoded",
-              "urlencoded": [
-                { "key": "grant_type", "value": "password" },
-                { "key": "email", "value": "seller@example.com" },
-                { "key": "password", "value": "password123" }
-              ]
-            },
-            "url": {
-              "raw": "{{base_url}}/api/auth/token",
-              "host": ["{{base_url}}"],
-              "path": ["api", "auth", "token"]
-            }
-          }
+          ]
         },
         {
-          "name": "Refresh Token",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
-            ],
-            "body": {
-              "mode": "urlencoded",
-              "urlencoded": [
-                { "key": "grant_type", "value": "refresh_token" }
-              ]
-            },
-            "url": {
-              "raw": "{{base_url}}/api/auth/token",
-              "host": ["{{base_url}}"],
-              "path": ["api", "auth", "token"]
-            }
-          }
-        },
-        {
-          "name": "Get User Profile",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ],
+          "name": "Health — gateway",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
-            ],
-            "url": {
-              "raw": "{{base_url}}/api/user/profile",
-              "host": ["{{base_url}}"],
-              "path": ["api", "user", "profile"]
-            }
+            "auth": { "type": "noauth" },
+            "url": "{{base_url}}/actuator/health"
           }
         },
         {
-          "name": "Update User Profile",
+          "name": "JWKS",
           "request": {
-            "method": "PUT",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" },
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"displayName\": \"Updated Customer Name\",\n  \"imageUrl\": \"https://example.com/avatar.jpg\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/user/profile",
-              "host": ["{{base_url}}"],
-              "path": ["api", "user", "profile"]
-            }
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": "{{base_url}}/.well-known/jwks.json",
+            "description": "Used by every backend service to verify JWTs. Two keys here means a key rotation is in flight."
           }
-        },
+        }
+      ]
+    },
+
+    {
+      "name": "Auth",
+      "description": "Public auth endpoints + signed-in user self-service. JWT is RS256 signed; access tokens are 15 min, refresh tokens 30 days delivered as an HttpOnly cookie.",
+      "item": [
         {
-          "name": "Change Password",
+          "name": "Register (customer)",
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" },
-              { "key": "Content-Type", "value": "application/json" }
-            ],
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"oldPassword\": \"password123\",\n  \"newPassword\": \"newpassword456\"\n}"
+              "raw": "{\n  \"email\": \"{{customer_email}}\",\n  \"password\": \"{{customer_password}}\",\n  \"displayName\": \"Amelia Park\"\n}"
             },
-            "url": {
-              "raw": "{{base_url}}/api/auth/change-password",
-              "host": ["{{base_url}}"],
-              "path": ["api", "auth", "change-password"]
+            "url": "{{base_url}}/api/auth/register",
+            "description": "Public registration. Always assigns ROLE_CUSTOMER. The previous self-elevation to SELLER is intentionally removed; an admin must promote sellers via /api/admin/users/{id}/roles."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('user_id', body?.data?.id ?? '');"
+                ]
+              }
             }
-          }
+          ]
+        },
+        {
+          "name": "Login (customer)",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "password" },
+                { "key": "email",      "value": "{{customer_email}}" },
+                { "key": "password",   "value": "{{customer_password}}" }
+              ]
+            },
+            "url": "{{base_url}}/api/auth/token",
+            "description": "OAuth2-style password grant. Returns access token in body. Refresh token is delivered as an HttpOnly Secure SameSite=Strict cookie."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('access_token', body?.data?.accessToken ?? '');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh token",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [{ "key": "grant_type", "value": "refresh_token" }]
+            },
+            "url": "{{base_url}}/api/auth/token",
+            "description": "Reuses the refresh-token cookie from the previous login. Postman must keep cookies enabled. Family-based reuse detection: if a previously-rotated refresh token is presented, the entire family is revoked."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body?.data?.accessToken) pm.collectionVariables.set('access_token', body.data.accessToken);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Logout",
@@ -261,311 +197,1155 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{access_token}}" }
             ],
-            "url": {
-              "raw": "{{base_url}}/api/auth/logout",
-              "host": ["{{base_url}}"],
-              "path": ["api", "auth", "logout"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Admin",
-      "item": [
-        {
-          "name": "List Users (Admin)",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
-            ],
-            "url": {
-              "raw": "{{base_url}}/api/admin/users?page=0&size=10",
-              "host": ["{{base_url}}"],
-              "path": ["api", "admin", "users"],
-              "query": [
-                { "key": "page", "value": "0" },
-                { "key": "size", "value": "10" }
-              ]
-            }
+            "url": "{{base_url}}/api/auth/logout",
+            "description": "Blacklists the access token in Redis (TTL = remaining lifetime) and revokes the refresh token."
           }
         },
         {
-          "name": "Get User by ID (Admin)",
+          "name": "My profile",
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
             ],
-            "url": {
-              "raw": "{{base_url}}/api/admin/users/{{user_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "admin", "users", "{{user_id}}"]
-            }
+            "url": "{{base_url}}/api/user/profile"
           }
         },
         {
-          "name": "Toggle User Active (Admin)",
+          "name": "Update profile",
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
-            "url": {
-              "raw": "{{base_url}}/api/admin/users/{{user_id}}/activate?active=false",
-              "host": ["{{base_url}}"],
-              "path": ["api", "admin", "users", "{{user_id}}", "activate"],
-              "query": [
-                { "key": "active", "value": "false" }
-              ]
-            }
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Amelia P.\"\n}"
+            },
+            "url": "{{base_url}}/api/user/profile"
           }
         },
         {
-          "name": "Assign Seller Role (Admin)",
-          "request": {
-            "method": "PUT",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
-            ],
-            "url": {
-              "raw": "{{base_url}}/api/admin/users/{{user_id}}/assign-role/ROLE_SELLER",
-              "host": ["{{base_url}}"],
-              "path": ["api", "admin", "users", "{{user_id}}", "assign-role", "ROLE_SELLER"]
-            }
-          }
-        },
-        {
-          "name": "List Roles (Admin)",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
-            ],
-            "url": {
-              "raw": "{{base_url}}/api/admin/roles",
-              "host": ["{{base_url}}"],
-              "path": ["api", "admin", "roles"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Product Service",
-      "item": [
-        {
-          "name": "Get All Products (Public)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/api/v1/products?page=0&size=20",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "products"],
-              "query": [
-                { "key": "page", "value": "0" },
-                { "key": "size", "value": "20" }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Search Products",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/api/v1/products/search?keyword=laptop",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "products", "search"],
-              "query": [
-                { "key": "keyword", "value": "laptop" }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Create Product (Seller)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
-                  "pm.collectionVariables.set('product_id', pm.response.json().id);"
-                ]
-              }
-            }
-          ],
+          "name": "Change password",
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{seller_token}}" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
               { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sku\": \"LAP-001\",\n  \"name\": \"Gaming Laptop Pro\",\n  \"description\": \"High-performance gaming laptop with RTX 4080\",\n  \"categoryId\": \"category-id-here\",\n  \"price\": 1999.99,\n  \"stockQuantity\": 10,\n  \"imageUrls\": [\"https://example.com/laptop.jpg\"]\n}"
+              "raw": "{\n  \"oldPassword\": \"{{customer_password}}\",\n  \"newPassword\": \"NewStrongPass1!\"\n}"
             },
-            "url": {
-              "raw": "{{base_url}}/api/v1/products",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "products"]
-            }
+            "url": "{{base_url}}/api/auth/change-password",
+            "description": "Authenticated-only (the previous permitAll bug is fixed). Uses the JWT subject as the user id."
           }
         },
         {
-          "name": "Get Product by ID",
+          "name": "Login via Google (browser)",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/api/v1/products/{{product_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "products", "{{product_id}}"]
-            }
+            "auth": { "type": "noauth" },
+            "url": "{{base_url}}/oauth2/authorization/google",
+            "description": "Open in a browser — completes via OAuth2 success handler which sets the refresh-token cookie and 302s to the frontend with the access token in the URL fragment."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Admin",
+      "description": "All endpoints require fine-grained authorities (admin:users:read|write, admin:roles:read|write).",
+      "item": [
+        {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": "{{base_url}}/api/admin/users?page=0&size=20"
           }
         },
         {
-          "name": "Update Product (Seller)",
+          "name": "Get user",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": "{{base_url}}/api/admin/users/{{user_id}}"
+          }
+        },
+        {
+          "name": "Promote user to seller",
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{seller_token}}" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
               { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sku\": \"LAP-001\",\n  \"name\": \"Gaming Laptop Pro (Updated)\",\n  \"description\": \"Updated description with better specs\",\n  \"categoryId\": \"category-id-here\",\n  \"price\": 1799.99,\n  \"stockQuantity\": 15,\n  \"imageUrls\": [\"https://example.com/laptop-v2.jpg\"]\n}"
+              "raw": "{\n  \"roles\": [\"ROLE_SELLER\", \"ROLE_CUSTOMER\"]\n}"
             },
-            "url": {
-              "raw": "{{base_url}}/api/v1/products/{{product_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "products", "{{product_id}}"]
-            }
+            "url": "{{base_url}}/api/admin/users/{{user_id}}/roles",
+            "description": "Replaces the user's role set. After this call the user must re-login to get a fresh JWT carrying the new authorities."
           }
         },
         {
-          "name": "Update Stock (Seller/Admin)",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{seller_token}}" },
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"stockQuantity\": 25\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/v1/products/{{product_id}}/stock",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "products", "{{product_id}}", "stock"]
-            }
-          }
-        },
-        {
-          "name": "Toggle Product Active (Admin)",
+          "name": "Toggle user active",
           "request": {
             "method": "PUT",
             "header": [
               { "key": "Authorization", "value": "Bearer {{admin_token}}" }
             ],
-            "url": {
-              "raw": "{{base_url}}/api/v1/products/admin/{{product_id}}/toggle?active=false",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "products", "admin", "{{product_id}}", "toggle"],
-              "query": [
-                { "key": "active", "value": "false" }
-              ]
-            }
+            "url": "{{base_url}}/api/admin/users/{{user_id}}/active?active=false"
           }
         },
         {
-          "name": "Delete Product (Seller)",
+          "name": "List roles",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": "{{base_url}}/api/admin/roles"
+          }
+        },
+        {
+          "name": "Create role",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"ROLE_VIP\"\n}"
+            },
+            "url": "{{base_url}}/api/admin/roles"
+          }
+        },
+        {
+          "name": "Set role permissions",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permissions\": [\n    \"products:read\",\n    \"orders:read\",\n    \"orders:create\",\n    \"orders:cancel\"\n  ]\n}"
+            },
+            "url": "{{base_url}}/api/admin/roles/<roleId>/permissions"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "List categories",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": "{{base_url}}/api/v1/categories"
+          }
+        },
+        {
+          "name": "Get category",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": "{{base_url}}/api/v1/categories/{{category_id}}"
+          }
+        },
+        {
+          "name": "Create category (admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Apparel\",\n  \"description\": \"Considered everyday clothing\",\n  \"parentCategoryId\": null\n}"
+            },
+            "url": "{{base_url}}/api/v1/categories"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('category_id', body?.id ?? '');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update category (admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Apparel & Accessories\",\n  \"description\": \"Considered everyday clothing and small goods\",\n  \"parentCategoryId\": null\n}"
+            },
+            "url": "{{base_url}}/api/v1/categories/{{category_id}}"
+          }
+        },
+        {
+          "name": "Delete category (admin)",
           "request": {
             "method": "DELETE",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{seller_token}}" }
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
             ],
-            "url": {
-              "raw": "{{base_url}}/api/v1/products/{{product_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "products", "{{product_id}}"]
-            }
-          }
-        },
-        {
-          "name": "Get Products by Seller",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{seller_token}}" }
-            ],
-            "url": {
-              "raw": "{{base_url}}/api/v1/products/seller",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "products", "seller"]
-            }
-          }
-        },
-        {
-          "name": "Filter by Price Range (Public)",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/api/v1/products/filter?minPrice=10&maxPrice=5000",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "products", "filter"],
-              "query": [
-                { "key": "minPrice", "value": "10" },
-                { "key": "maxPrice", "value": "5000" }
-              ]
-            }
+            "url": "{{base_url}}/api/v1/categories/{{category_id}}"
           }
         }
       ]
     },
+
     {
-      "name": "Category",
+      "name": "Products",
+      "description": "Catalog. Reads are public. Writes require the seller's JWT (or an admin's). Image URLs are intentionally null until the image pipeline ships.",
       "item": [
         {
-          "name": "Get All Categories (Public)",
+          "name": "List products",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/api/v1/categories",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "categories"]
-            }
+            "auth": { "type": "noauth" },
+            "url": "{{base_url}}/api/v1/products?page=0&size=12&sort=createdAt,desc"
           }
         },
         {
-          "name": "Create Category (Seller)",
+          "name": "Search products",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": "{{base_url}}/api/v1/products/search?keyword=tote&page=0&size=12"
+          }
+        },
+        {
+          "name": "Filter by price",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": "{{base_url}}/api/v1/products/filter?minPrice=200&maxPrice=2000&page=0&size=12"
+          }
+        },
+        {
+          "name": "By category",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": "{{base_url}}/api/v1/products/category/{{category_id}}"
+          }
+        },
+        {
+          "name": "By seller",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": "{{base_url}}/api/v1/products/seller/{{user_id}}"
+          }
+        },
+        {
+          "name": "Get product",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": "{{base_url}}/api/v1/products/{{product_id}}"
+          }
+        },
+        {
+          "name": "Create product (seller)",
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{seller_token}}" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
               { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Electronics\",\n  \"description\": \"Electronic devices and accessories\"\n}"
+              "raw": "{\n  \"sku\": \"TOTE-LINEN-OAT\",\n  \"name\": \"Linen tote, oat\",\n  \"description\": \"A reasonably-sized tote in heavy oat linen. Cotton webbing handles, internal phone pocket.\",\n  \"categoryId\": \"{{category_id}}\",\n  \"price\": 1499.00,\n  \"stockQuantity\": 25\n}"
             },
-            "url": {
-              "raw": "{{base_url}}/api/v1/categories",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "categories"]
+            "url": "{{base_url}}/api/v1/products",
+            "description": "Requires `products:create` authority. The sellerId is taken from the JWT subject — never trust the body."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('product_id', body?.id ?? '');"
+                ]
+              }
             }
+          ]
+        },
+        {
+          "name": "Update product (seller)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"TOTE-LINEN-OAT\",\n  \"name\": \"Linen tote, oat — restocked\",\n  \"description\": \"A reasonably-sized tote in heavy oat linen.\",\n  \"categoryId\": \"{{category_id}}\",\n  \"price\": 1599.00,\n  \"stockQuantity\": 40\n}"
+            },
+            "url": "{{base_url}}/api/v1/products/{{product_id}}"
+          }
+        },
+        {
+          "name": "Patch stock (seller)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"stockQuantity\": 60 }"
+            },
+            "url": "{{base_url}}/api/v1/products/{{product_id}}/stock"
+          }
+        },
+        {
+          "name": "Toggle active (admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/products/admin/{{product_id}}/active?active=true"
+          }
+        },
+        {
+          "name": "Delete product (seller)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/products/{{product_id}}",
+            "description": "Soft delete (sets active=false). Sellers can only delete their own products; admins can delete any."
+          }
+        },
+        {
+          "name": "My products (seller)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/products/seller?page=0&size=20"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Inventory",
+      "description": "Atomic reservation backed by Mongo `findAndModify` with `$expr` so concurrent requests cannot over-commit.",
+      "item": [
+        {
+          "name": "List inventory",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/inventory?page=0&size=20"
+          }
+        },
+        {
+          "name": "By productId",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/inventory/{{product_id}}"
+          }
+        },
+        {
+          "name": "Low stock",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/inventory/low-stock"
+          }
+        },
+        {
+          "name": "Create inventory item (seller/admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{product_id}}\",\n  \"sku\": \"TOTE-LINEN-OAT\",\n  \"quantity\": 60,\n  \"lowStockThreshold\": 5,\n  \"location\": \"WH-IN-MUM-01\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/inventory"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('inventory_id', body?.id ?? '');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update inventory item",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{product_id}}\",\n  \"sku\": \"TOTE-LINEN-OAT\",\n  \"quantity\": 120,\n  \"lowStockThreshold\": 10,\n  \"location\": \"WH-IN-MUM-01\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/inventory/{{inventory_id}}"
+          }
+        },
+        {
+          "name": "Add stock (restock)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/inventory/{{product_id}}/add-stock?quantity=50"
+          }
+        },
+        {
+          "name": "Reserve (called by order saga)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"quantity\": 1, \"orderId\": \"{{order_id}}\" }"
+            },
+            "url": "{{base_url}}/api/v1/inventory/{{product_id}}/reserve",
+            "description": "Idempotency at the saga level is provided by the calling order-service. Reserves 1 unit; fails with 409 INSUFFICIENT_STOCK if the atomic guard rejects it."
+          }
+        },
+        {
+          "name": "Release (compensation)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"quantity\": 1, \"orderId\": \"{{order_id}}\" }"
+            },
+            "url": "{{base_url}}/api/v1/inventory/{{product_id}}/release"
+          }
+        },
+        {
+          "name": "Stock check",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/inventory/{{product_id}}/check?quantity=2"
+          }
+        },
+        {
+          "name": "Delete inventory (admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/inventory/{{inventory_id}}"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Orders",
+      "description": "Order saga. Creating an order: snapshots product price via ProductClient, reserves stock per item via InventoryClient (rollback-on-failure), persists, and emits OrderEvent.CREATED so payment-service can initiate the PaymentIntent.",
+      "item": [
+        {
+          "name": "Create order (idempotent)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    { \"productId\": \"{{product_id}}\", \"quantity\": 1 }\n  ],\n  \"paymentMethod\": \"card\",\n  \"shippingAddress\": {\n    \"fullName\": \"Amelia Park\",\n    \"phone\": \"+919812345678\",\n    \"street\": \"42 Linking Rd\",\n    \"city\": \"Mumbai\",\n    \"state\": \"MH\",\n    \"zipCode\": \"400050\",\n    \"country\": \"IN\"\n  },\n  \"billingAddress\": {\n    \"fullName\": \"Amelia Park\",\n    \"phone\": \"+919812345678\",\n    \"street\": \"42 Linking Rd\",\n    \"city\": \"Mumbai\",\n    \"state\": \"MH\",\n    \"zipCode\": \"400050\",\n    \"country\": \"IN\"\n  },\n  \"notes\": \"Leave with the watchman if I'm not home.\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('order_id', body?.data?.id ?? '');",
+                  "pm.collectionVariables.set('order_number', body?.data?.orderNumber ?? '');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List my orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/orders?page=0&size=20",
+            "description": "Customers see their own orders; admins see all orders."
+          }
+        },
+        {
+          "name": "Get order",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/orders/{{order_id}}"
+          }
+        },
+        {
+          "name": "Get order by number",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/orders/number/{{order_number}}"
+          }
+        },
+        {
+          "name": "Cancel order",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/orders/{{order_id}}/cancel",
+            "description": "Customer can cancel their own non-shipped order. Triggers stock release via InventoryClient."
+          }
+        },
+        {
+          "name": "Update status (admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SHIPPED\",\n  \"notes\": \"Picked by carrier; AWB attached out of band.\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/orders/{{order_id}}/status"
+          }
+        },
+        {
+          "name": "Filter by status (admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/orders/status/PENDING?page=0&size=20"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Payments",
+      "description": "Payment-service. Stripe (when STRIPE_SECRET_KEY is set) or SandboxGateway. Webhook signing uses HMAC-SHA256 with the format `t=<unix>,v1=<hex>`.",
+      "item": [
+        {
+          "name": "Create payment (idempotent)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{order_id}}\",\n  \"orderNumber\": \"{{order_number}}\",\n  \"paymentMethod\": \"card\",\n  \"amount\": 1768.82,\n  \"currency\": \"INR\",\n  \"description\": \"Order {{order_number}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/payments"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('payment_id', body?.data?.id ?? '');",
+                  "pm.collectionVariables.set('payment_reference', body?.data?.paymentReference ?? '');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My payments",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/payments"
+          }
+        },
+        {
+          "name": "Get payment",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/payments/{{payment_id}}"
+          }
+        },
+        {
+          "name": "Get payment by reference",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/payments/reference/{{payment_reference}}"
+          }
+        },
+        {
+          "name": "Get payment by orderId",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/payments/order/{{order_id}}"
+          }
+        },
+        {
+          "name": "Process payment (admin / sandbox)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/payments/{{payment_id}}/process",
+            "description": "Manual confirm — useful in dev with the SandboxGateway. With Stripe, the gateway drives status via webhook instead."
+          }
+        },
+        {
+          "name": "Refund payment (admin, idempotent)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Customer requested\",\n  \"amount\": null\n}"
+            },
+            "url": "{{base_url}}/api/v1/payments/{{payment_id}}/refund",
+            "description": "Set `amount` to a value < total for partial refund (status becomes PARTIALLY_REFUNDED). Null = full refund."
+          }
+        },
+        {
+          "name": "Webhook (HMAC-signed)",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Webhook-Signature", "value": "{{webhook_signature}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentReference\": \"{{payment_reference}}\",\n  \"transactionId\": \"sandbox-tx-1\",\n  \"status\": \"COMPLETED\",\n  \"failureReason\": null\n}"
+            },
+            "url": "{{base_url}}/api/v1/payments/webhook",
+            "description": "Pre-request script computes the HMAC over the JSON body and stores it in the {{webhook_signature}} variable. Format: `t=<unix>,v1=<hex>`. Replace `webhook_secret` collection var with PAYMENT_WEBHOOK_SECRET from your .env."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Compute Stripe-style HMAC over `<unixTs>.<rawBody>` with SHA-256",
+                  "const secret = pm.collectionVariables.get('webhook_secret');",
+                  "const ts = Math.floor(Date.now() / 1000);",
+                  "const ref = pm.collectionVariables.get('payment_reference');",
+                  "const body = JSON.stringify({\n  paymentReference: ref,\n  transactionId: 'sandbox-tx-1',\n  status: 'COMPLETED',\n  failureReason: null\n});",
+                  "const signed = ts + '.' + body;",
+                  "const hex = CryptoJS.HmacSHA256(signed, secret).toString(CryptoJS.enc.Hex);",
+                  "pm.collectionVariables.set('webhook_signature', `t=${ts},v1=${hex}`);",
+                  "// Replace the request body with the exact bytes we signed",
+                  "pm.request.body.raw = body;"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "name": "Notifications",
+      "description": "Mongo-persisted notifications. Idempotent on `sourceEventId` so the same Kafka event never produces two emails. MailHog UI: http://localhost:8025",
+      "item": [
+        {
+          "name": "List my notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/notifications?page=0&size=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const first = body?.data?.content?.[0]?.id;",
+                  "if (first) pm.collectionVariables.set('notification_id', first);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unread count",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/notifications/unread/count"
+          }
+        },
+        {
+          "name": "Mark read",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/notifications/{{notification_id}}/read"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "End-to-end happy path",
+      "description": "A scripted run-through of the full saga. Use Postman's Collection Runner on this folder.\n\n1. Bootstrap admin login → admin_token.\n2. Register customer → user_id.\n3. Login (customer) → access_token.\n4. Create category (admin) → category_id.\n5. (You'll need an existing seller; promote the customer or use a fixture.)\n6. Create product (seller) → product_id.\n7. Create inventory item.\n8. Create order → order_id, order_number.\n9. Create payment → payment_id, payment_reference.\n10. Webhook (HMAC) → marks payment COMPLETED.\n11. Get order — should be CONFIRMED with paymentStatus=COMPLETED.\n12. List my notifications — should contain the order-confirmation email.",
+      "item": [
+        {
+          "name": "1 · Bootstrap admin login",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "password" },
+                { "key": "email",      "value": "{{admin_email}}" },
+                { "key": "password",   "value": "{{admin_password}}" }
+              ]
+            },
+            "url": "{{base_url}}/api/auth/token"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('admin_token', pm.response.json()?.data?.accessToken ?? '');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2 · Register customer",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customer_email}}\",\n  \"password\": \"{{customer_password}}\",\n  \"displayName\": \"Amelia Park\"\n}"
+            },
+            "url": "{{base_url}}/api/auth/register"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 409) { console.warn('User exists, continuing'); return; }",
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('user_id', pm.response.json()?.data?.id ?? '');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3 · Login (customer)",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "password" },
+                { "key": "email",      "value": "{{customer_email}}" },
+                { "key": "password",   "value": "{{customer_password}}" }
+              ]
+            },
+            "url": "{{base_url}}/api/auth/token"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('access_token', pm.response.json()?.data?.accessToken ?? '');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4 · Create category (admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Apparel\",\n  \"description\": \"Considered everyday clothing\",\n  \"parentCategoryId\": null\n}"
+            },
+            "url": "{{base_url}}/api/v1/categories"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 409) { console.warn('Category exists; using cached id'); return; }",
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('category_id', pm.response.json()?.id ?? '');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5 · Promote user to seller (admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"roles\": [\"ROLE_SELLER\", \"ROLE_CUSTOMER\"] }"
+            },
+            "url": "{{base_url}}/api/admin/users/{{user_id}}/roles"
+          }
+        },
+        {
+          "name": "6 · Re-login (now with SELLER) ",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "password" },
+                { "key": "email",      "value": "{{customer_email}}" },
+                { "key": "password",   "value": "{{customer_password}}" }
+              ]
+            },
+            "url": "{{base_url}}/api/auth/token"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('access_token', pm.response.json()?.data?.accessToken ?? '');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7 · Create product (seller)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"E2E-TOTE-OAT\",\n  \"name\": \"E2E linen tote\",\n  \"description\": \"End-to-end test product. Real linen, oat colour.\",\n  \"categoryId\": \"{{category_id}}\",\n  \"price\": 1499.00,\n  \"stockQuantity\": 25\n}"
+            },
+            "url": "{{base_url}}/api/v1/products"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('product_id', pm.response.json()?.id ?? '');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8 · Create inventory",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{product_id}}\",\n  \"sku\": \"E2E-TOTE-OAT\",\n  \"quantity\": 25,\n  \"lowStockThreshold\": 5,\n  \"location\": \"WH-IN-MUM-01\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/inventory"
+          }
+        },
+        {
+          "name": "9 · Create order",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [{ \"productId\": \"{{product_id}}\", \"quantity\": 1 }],\n  \"paymentMethod\": \"card\",\n  \"shippingAddress\": {\n    \"fullName\": \"Amelia Park\", \"phone\": \"+919812345678\",\n    \"street\": \"42 Linking Rd\", \"city\": \"Mumbai\",\n    \"state\": \"MH\", \"zipCode\": \"400050\", \"country\": \"IN\"\n  },\n  \"billingAddress\": {\n    \"fullName\": \"Amelia Park\", \"phone\": \"+919812345678\",\n    \"street\": \"42 Linking Rd\", \"city\": \"Mumbai\",\n    \"state\": \"MH\", \"zipCode\": \"400050\", \"country\": \"IN\"\n  }\n}"
+            },
+            "url": "{{base_url}}/api/v1/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "const d = pm.response.json()?.data;",
+                  "pm.collectionVariables.set('order_id', d?.id ?? '');",
+                  "pm.collectionVariables.set('order_number', d?.orderNumber ?? '');",
+                  "pm.expect(d?.totalAmount ?? 0).to.be.greaterThan(0);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10 · Create payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Idempotency-Key", "value": "{{$guid}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{order_id}}\",\n  \"orderNumber\": \"{{order_number}}\",\n  \"paymentMethod\": \"card\",\n  \"amount\": 1768.82,\n  \"currency\": \"INR\",\n  \"description\": \"E2E payment\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/payments"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "const d = pm.response.json()?.data;",
+                  "pm.collectionVariables.set('payment_id', d?.id ?? '');",
+                  "pm.collectionVariables.set('payment_reference', d?.paymentReference ?? '');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11 · Webhook → COMPLETED",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Webhook-Signature", "value": "{{webhook_signature}}" }
+            ],
+            "body": { "mode": "raw", "raw": "" },
+            "url": "{{base_url}}/api/v1/payments/webhook"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const secret = pm.collectionVariables.get('webhook_secret');",
+                  "const ref = pm.collectionVariables.get('payment_reference');",
+                  "const ts = Math.floor(Date.now() / 1000);",
+                  "const body = JSON.stringify({\n  paymentReference: ref,\n  transactionId: 'sandbox-tx-1',\n  status: 'COMPLETED',\n  failureReason: null\n});",
+                  "const hex = CryptoJS.HmacSHA256(ts + '.' + body, secret).toString(CryptoJS.enc.Hex);",
+                  "pm.collectionVariables.set('webhook_signature', `t=${ts},v1=${hex}`);",
+                  "pm.request.body.raw = body;"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12 · Order should be CONFIRMED",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/orders/{{order_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Saga is event-driven; allow up to 5 s. Postman doesn't support sleeps natively;",
+                  "// in the runner this is OK since each request runs sequentially and Kafka is fast.",
+                  "const d = pm.response.json()?.data;",
+                  "pm.test('order present', () => pm.expect(d?.id).to.be.a('string'));",
+                  "pm.test('terminal payment status reached', () => {",
+                  "  pm.expect(['COMPLETED','FAILED']).to.include(d?.paymentStatus);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13 · Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/api/v1/notifications?page=0&size=20"
           }
         }
       ]

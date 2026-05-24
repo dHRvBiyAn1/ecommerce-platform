@@ -1,11 +1,10 @@
 package com.project.order.exception;
 
-public class OrderValidationException extends RuntimeException {
-    public OrderValidationException(String message) {
-        super(message);
-    }
+import com.project.common.exception.BusinessException;
+import org.springframework.http.HttpStatus;
 
-    public OrderValidationException(String message, Throwable cause) {
-        super(message, cause);
+public class OrderValidationException extends BusinessException {
+    public OrderValidationException(String message) {
+        super(HttpStatus.BAD_REQUEST, "ORDER_VALIDATION", message);
     }
 }

@@ -1,5 +1,6 @@
 package com.project.inventory.controller;
 
+import com.project.common.constant.Permissions;
 import com.project.inventory.dto.InventoryRequest;
 import com.project.inventory.dto.InventoryResponse;
 import com.project.inventory.dto.StockReservationRequest;
@@ -32,72 +33,83 @@ public class InventoryController {
 
     private final InventoryService inventoryService;
 
+    // Reads — sellers and admins, plus order-service callers (carrying user JWT)
     @GetMapping
+    @PreAuthorize("hasAuthority('" + Permissions.INVENTORY_READ + "') or hasRole('ADMIN') or hasRole('SELLER')")
     public ResponseEntity<Page<InventoryResponse>> getAllInventory(
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return new ResponseEntity<>(inventoryService.getAllInventory(pageable), HttpStatus.OK);
+        return ResponseEntity.ok(inventoryService.getAllInventory(pageable));
     }
 
     @GetMapping("/{productId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<InventoryResponse> getByProductId(@PathVariable String productId) {
-        return new ResponseEntity<>(inventoryService.getByProductId(productId), HttpStatus.OK);
+        return ResponseEntity.ok(inventoryService.getByProductId(productId));
     }
 
     @GetMapping("/sku/{sku}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<InventoryResponse> getBySku(@PathVariable String sku) {
-        return new ResponseEntity<>(inventoryService.getBySku(sku), HttpStatus.OK);
+        return ResponseEntity.ok(inventoryService.getBySku(sku));
     }
 
     @GetMapping("/low-stock")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SELLER')")
     public ResponseEntity<List<InventoryResponse>> getLowStockItems() {
-        return new ResponseEntity<>(inventoryService.getLowStockItems(), HttpStatus.OK);
+        return ResponseEntity.ok(inventoryService.getLowStockItems());
     }
 
+    // Writes — admin & seller
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
+    @PreAuthorize("hasAuthority('" + Permissions.INVENTORY_WRITE + "')")
     public ResponseEntity<InventoryResponse> createInventory(@Valid @RequestBody InventoryRequest request) {
         return new ResponseEntity<>(inventoryService.createInventory(request), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
+    @PreAuthorize("hasAuthority('" + Permissions.INVENTORY_WRITE + "')")
     public ResponseEntity<InventoryResponse> updateInventory(@PathVariable String id,
                                                               @Valid @RequestBody InventoryRequest request) {
-        return new ResponseEntity<>(inventoryService.updateInventory(id, request), HttpStatus.OK);
+        return ResponseEntity.ok(inventoryService.updateInventory(id, request));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteInventory(@PathVariable String id) {
         inventoryService.deleteInventory(id);
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-    }
-
-    @PostMapping("/{productId}/reserve")
-    public ResponseEntity<InventoryResponse> reserveStock(@PathVariable String productId,
-                                                           @Valid @RequestBody StockReservationRequest request) {
-        return new ResponseEntity<>(
-                inventoryService.reserveStock(productId, request.getQuantity(), request.getOrderId()),
-                HttpStatus.OK);
-    }
-
-    @PostMapping("/{productId}/release")
-    public ResponseEntity<InventoryResponse> releaseStock(@PathVariable String productId,
-                                                           @Valid @RequestBody StockReservationRequest request) {
-        return new ResponseEntity<>(
-                inventoryService.releaseStock(productId, request.getQuantity(), request.getOrderId()),
-                HttpStatus.OK);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{productId}/add-stock")
+    @PreAuthorize("hasAuthority('" + Permissions.INVENTORY_WRITE + "')")
     public ResponseEntity<InventoryResponse> addStock(@PathVariable String productId,
                                                        @RequestParam int quantity) {
-        return new ResponseEntity<>(inventoryService.addStock(productId, quantity), HttpStatus.OK);
+        return ResponseEntity.ok(inventoryService.addStock(productId, quantity));
+    }
+
+    // Reservation endpoints — called by order-service inside the saga.
+    // Any authenticated user creating an order can reserve their own items;
+    // order-service propagates the user's JWT.
+    @PostMapping("/{productId}/reserve")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<InventoryResponse> reserveStock(@PathVariable String productId,
+                                                           @Valid @RequestBody StockReservationRequest request) {
+        return ResponseEntity.ok(
+                inventoryService.reserveStock(productId, request.getQuantity(), request.getOrderId()));
+    }
+
+    @PostMapping("/{productId}/release")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<InventoryResponse> releaseStock(@PathVariable String productId,
+                                                           @Valid @RequestBody StockReservationRequest request) {
+        return ResponseEntity.ok(
+                inventoryService.releaseStock(productId, request.getQuantity(), request.getOrderId()));
     }
 
     @GetMapping("/{productId}/check")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Boolean> isInStock(@PathVariable String productId,
                                               @RequestParam int quantity) {
-        return new ResponseEntity<>(inventoryService.isInStock(productId, quantity), HttpStatus.OK);
+        return ResponseEntity.ok(inventoryService.isInStock(productId, quantity));
     }
 }

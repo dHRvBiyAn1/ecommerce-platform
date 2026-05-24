@@ -1,23 +1,17 @@
-# ===== STAGE 1: Build =====
-FROM maven:3.9.6-eclipse-temurin-17 AS builder
-WORKDIR /app
+FROM eclipse-temurin:17-jdk-jammy AS layers
+WORKDIR /work
+COPY services/product-service/target/product-service-1.0.0-SNAPSHOT.jar app.jar
+RUN java -Djarmode=layertools -jar app.jar extract --destination /work/extracted
 
-COPY .mvn/ .mvn/
-COPY mvnw pom.xml ./
-RUN mvn dependency:go-offline -B
-
-COPY src ./src
-RUN mvn package -DskipTests -B
-
-# ===== STAGE 2: Run =====
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
-
-# Ubuntu/Debian syntax (not Alpine)
-RUN groupadd --system spring && useradd --system --gid spring spring
+RUN groupadd --system spring && useradd --system --gid spring spring \
+ && apt-get update && apt-get install -y --no-install-recommends curl \
+ && rm -rf /var/lib/apt/lists/*
 USER spring
-
-COPY --from=builder /app/target/*.jar app.jar
-
+COPY --from=layers /work/extracted/dependencies/ ./
+COPY --from=layers /work/extracted/spring-boot-loader/ ./
+COPY --from=layers /work/extracted/snapshot-dependencies/ ./
+COPY --from=layers /work/extracted/application/ ./
 EXPOSE 8082
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]

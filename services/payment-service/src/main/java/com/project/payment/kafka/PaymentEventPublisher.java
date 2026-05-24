@@ -1,35 +1,25 @@
 package com.project.payment.kafka;
 
+import com.project.common.constant.Topics;
 import com.project.common.event.PaymentEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Service;
 
-import java.util.concurrent.CompletableFuture;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class PaymentEventPublisher {
 
-    private static final String TOPIC = "payment-events";
-
-    private final KafkaTemplate<String, PaymentEvent> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     public void publish(PaymentEvent event) {
-        log.info("Publishing payment event to topic '{}': type={}, paymentId={}, orderId={}",
-                TOPIC, event.getType(), event.getPaymentId(), event.getOrderId());
-
-        CompletableFuture<SendResult<String, PaymentEvent>> future = kafkaTemplate.send(TOPIC, event);
-
-        future.whenComplete((result, ex) -> {
-            if (ex == null) {
-                log.info("Payment event published successfully: offset={}", result.getRecordMetadata().offset());
-            } else {
-                log.error("Failed to publish payment event: {}", ex.getMessage(), ex);
-            }
-        });
+        kafkaTemplate.send(Topics.PAYMENT_EVENTS, event.getOrderId(), event)
+                .whenComplete((res, ex) -> {
+                    if (ex != null) log.error("Failed to publish payment event {}: {}", event.getType(), ex.getMessage());
+                    else log.debug("Published payment event {} -> offset {}",
+                            event.getType(), res.getRecordMetadata().offset());
+                });
     }
 }
