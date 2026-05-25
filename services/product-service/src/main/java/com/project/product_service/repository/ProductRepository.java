@@ -16,15 +16,30 @@ public interface ProductRepository extends MongoRepository<Product, String> {
 
     Page<Product> findByActiveTrue(Pageable pageable);
 
+    Page<Product> findByActiveTrueAndApprovalStatus(
+            com.project.product_service.model.ProductApprovalStatus status, Pageable pageable);
+
     Page<Product> findByCategoryIdAndActiveTrue(String categoryId, Pageable pageable);
+
+    Page<Product> findByCategoryIdAndActiveTrueAndApprovalStatus(
+            String categoryId,
+            com.project.product_service.model.ProductApprovalStatus status,
+            Pageable pageable);
 
     Page<Product> findBySellerIdAndActiveTrue(UUID sellerId, Pageable pageable);
 
-    // Text search
-    @Query("{ $text: { $search: ?0 }, active: true }")
+    /** Sellers see their own products regardless of active flag or approval status. */
+    Page<Product> findBySellerId(UUID sellerId, Pageable pageable);
+
+    Page<Product> findByApprovalStatus(
+            com.project.product_service.model.ProductApprovalStatus status, Pageable pageable);
+
+    // Text search — only APPROVED + active are public.
+    @Query("{ $text: { $search: ?0 }, active: true, approvalStatus: 'APPROVED' }")
     Page<Product> searchByText(String keyword, Pageable pageable);
 
-    // Filter by price range
+    // Filter by price range — public listing, only APPROVED.
+    @Query("{ price: { $gte: ?0, $lte: ?1 }, active: true, approvalStatus: 'APPROVED' }")
     Page<Product> findByPriceBetweenAndActiveTrue(BigDecimal min, BigDecimal max, Pageable pageable);
 
     Optional<Product> findBySku(String sku);

@@ -2,475 +2,267 @@ name: CI
 
 on:
   push:
-    branches: [ '**' ]
+    branches: ['**']
   pull_request:
-    branches: [ '**' ]
+    branches: ['**']
 
 permissions:
   contents: read
   checks: write
   actions: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  MAVEN_OPTS: -Xmx2g -Dmaven.wagon.httpconnectionManager.ttlSeconds=60
 
 jobs:
+  # ---------------------------------------------------------------
+  # Detect what actually changed in this PR / push so we can skip
+  # cold paths. Backend builds the whole reactor regardless (cheap
+  # and avoids cross-module breakage going undetected); the frontend
+  # job only fires when frontend files change.
+  # ---------------------------------------------------------------
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      auth-service: ${{ steps.filter.outputs.auth-service }}
+      api-gateway: ${{ steps.filter.outputs.api-gateway }}
       config-server: ${{ steps.filter.outputs.config-server }}
       discovery-server: ${{ steps.filter.outputs.discovery-server }}
-      api-gateway: ${{ steps.filter.outputs.api-gateway }}
-      auth-service: ${{ steps.filter.outputs.auth-service }}
       product-service: ${{ steps.filter.outputs.product-service }}
       inventory-service: ${{ steps.filter.outputs.inventory-service }}
       order-service: ${{ steps.filter.outputs.order-service }}
       payment-service: ${{ steps.filter.outputs.payment-service }}
       notification-service: ${{ steps.filter.outputs.notification-service }}
-      frontend: ${{ steps.filter.outputs.frontend }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Detect changed services
-        id: filter
+      - uses: actions/checkout@v4
+      - id: filter
         uses: dorny/paths-filter@v3
         with:
           filters: |
+            backend:
+              - 'pom.xml'
+              - 'services/**'
+              - 'config-repo/**'
+              - 'docker/**'
+              - '.mvn/**'
+              - 'mvnw'
+            auth-service:
+              - 'services/auth-service/**'
+              - 'services/common/**'
+            api-gateway:
+              - 'services/api-gateway/**'
+              - 'services/common/**'
             config-server:
               - 'services/config-server/**'
             discovery-server:
               - 'services/discovery-server/**'
-            api-gateway:
-              - 'services/api-gateway/**'
-            auth-service:
-              - 'services/auth-service/**'
             product-service:
               - 'services/product-service/**'
+              - 'services/common/**'
             inventory-service:
               - 'services/inventory-service/**'
+              - 'services/common/**'
             order-service:
               - 'services/order-service/**'
+              - 'services/common/**'
             payment-service:
               - 'services/payment-service/**'
+              - 'services/common/**'
             notification-service:
               - 'services/notification-service/**'
+              - 'services/common/**'
             frontend:
               - 'frontend/ecommerce-app/**'
 
-  build-config-server:
+  # ---------------------------------------------------------------
+  # Single multi-module Maven reactor build. This is the canonical
+  # way to build a project where every leaf module depends on
+  # `common`: install everything in one shot from the repo root.
+  # Per-service `mvn verify` from inside services/<svc>/ does not
+  # work because `common` would have to be pre-installed.
+  # ---------------------------------------------------------------
+  backend:
     needs: detect-changes
-    if: needs.detect-changes.outputs.config-server == 'true'
+    if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       checks: write
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-          cache: maven
-      - name: Build config-server
-        working-directory: ./services/config-server
-        run: mvn clean verify
-      - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v5
-        if: always()
-        with:
-          report_paths: '**/target/surefire-reports/TEST-*.xml'
 
-  build-discovery-server:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.discovery-server == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
           cache: maven
-      - name: Build discovery-server
-        working-directory: ./services/discovery-server
-        run: mvn clean verify
-      - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v5
-        if: always()
-        with:
-          report_paths: '**/target/surefire-reports/TEST-*.xml'
 
-  build-api-gateway:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.api-gateway == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-          cache: maven
-      - name: Build api-gateway
-        working-directory: ./services/api-gateway
-        run: mvn clean verify
-      - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v5
-        if: always()
-        with:
-          report_paths: '**/target/surefire-reports/TEST-*.xml'
-
-  build-auth-service:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.auth-service == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_DB: ecommerce
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: root
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U postgres"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-          cache: maven
-      - name: Wait for Postgres
+      - name: Show versions
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client
-          until pg_isready -h localhost -p 5432 -U postgres; do sleep 1; done
-        env:
-          PGPASSWORD: root
-      - name: Build auth-service
-        working-directory: ./services/auth-service
-        env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/ecommerce
-          SPRING_DATASOURCE_USERNAME: postgres
-          SPRING_DATASOURCE_PASSWORD: root
-          SPRING_CONFIG_IMPORT: "optional:configserver:"
-          SPRING_CLOUD_CONFIG_ENABLED: "false"
-          JWT_ACCESS_TOKEN_EXPIRATION: 900000
-          JWT_REFRESH_TOKEN_EXPIRATION: 604800000
-        run: mvn clean verify
-      - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v5
+          java -version
+          ./mvnw -v
+
+      - name: Compile + package the whole reactor
+        # Skip tests in this step so cross-module compile errors are
+        # surfaced fast. `verify` runs in the next step.
+        run: ./mvnw -B -ntp -DskipTests -T 1C install
+
+      - name: Run tests for the whole reactor
+        # `-fae` keeps going on the first failure so we see every
+        # broken module in one CI run.
+        run: ./mvnw -B -ntp -fae -T 1C verify
+
+      - name: Publish JUnit reports
         if: always()
+        uses: mikepenz/action-junit-report@v5
         with:
           report_paths: '**/target/surefire-reports/TEST-*.xml'
+          fail_on_failure: false
+          require_tests: false
 
-  build-product-service:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.product-service == 'true'
+      - name: Upload jars (for image build job)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jars
+          retention-days: 1
+          path: |
+            services/*/target/*-1.0.0-SNAPSHOT.jar
+            !services/*/target/*.jar.original
+
+  # ---------------------------------------------------------------
+  # Docker image build per service that actually changed. Only fires
+  # for the matrix entries whose path filter matched. Pushes are not
+  # configured yet; flip `push: true` and add a registry step when
+  # ready.
+  # ---------------------------------------------------------------
+  images:
+    needs: [detect-changes, backend]
+    if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-    services:
-      mongodb:
-        image: mongo:6
-        env:
-          MONGO_INITDB_ROOT_USERNAME: root
-          MONGO_INITDB_ROOT_PASSWORD: root
-        ports:
-          - 27017:27017
-        options: >-
-          --health-cmd="mongosh --eval 'db.runCommand({ ping: 1 })'"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: auth-service
+            changed: ${{ needs.detect-changes.outputs.auth-service }}
+          - service: api-gateway
+            changed: ${{ needs.detect-changes.outputs.api-gateway }}
+          - service: config-server
+            changed: ${{ needs.detect-changes.outputs.config-server }}
+          - service: discovery-server
+            changed: ${{ needs.detect-changes.outputs.discovery-server }}
+          - service: product-service
+            changed: ${{ needs.detect-changes.outputs.product-service }}
+          - service: inventory-service
+            changed: ${{ needs.detect-changes.outputs.inventory-service }}
+          - service: order-service
+            changed: ${{ needs.detect-changes.outputs.order-service }}
+          - service: payment-service
+            changed: ${{ needs.detect-changes.outputs.payment-service }}
+          - service: notification-service
+            changed: ${{ needs.detect-changes.outputs.notification-service }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-          cache: maven
-      - name: Wait for MongoDB
-        run: |
-          for i in {1..30}; do
-            nc -z localhost 27017 && echo "MongoDB is up" && exit 0
-            echo "Waiting for MongoDB..."
-            sleep 2
-          done
-          exit 1
-      - name: Build product-service
-        working-directory: ./services/product-service
-        env:
-          SPRING_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
-          SPRING_CONFIG_IMPORT: "optional:configserver:"
-          SPRING_CLOUD_CONFIG_ENABLED: "false"
-          SPRING_APPLICATION_NAME: product-service
-        run: mvn clean verify
-      - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v5
-        if: always()
-        with:
-          report_paths: '**/target/surefire-reports/TEST-*.xml'
+      - if: matrix.changed != 'true'
+        run: echo "Skipping ${{ matrix.service }} — no changes."
 
-  build-inventory-service:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.inventory-service == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-    services:
-      mongodb:
-        image: mongo:6
-        env:
-          MONGO_INITDB_ROOT_USERNAME: root
-          MONGO_INITDB_ROOT_PASSWORD: root
-        ports:
-          - 27017:27017
-        options: >-
-          --health-cmd="mongosh --eval 'db.runCommand({ ping: 1 })'"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-          cache: maven
-      - name: Wait for MongoDB
-        run: |
-          for i in {1..30}; do
-            nc -z localhost 27017 && echo "MongoDB is up" && exit 0
-            echo "Waiting for MongoDB..."
-            sleep 2
-          done
-          exit 1
-      - name: Build inventory-service
-        working-directory: ./services/inventory-service
-        env:
-          SPRING_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
-          SPRING_CONFIG_IMPORT: "optional:configserver:"
-          SPRING_CLOUD_CONFIG_ENABLED: "false"
-          SPRING_APPLICATION_NAME: inventory-service
-        run: mvn clean verify
-      - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v5
-        if: always()
-        with:
-          report_paths: '**/target/surefire-reports/TEST-*.xml'
+      - if: matrix.changed == 'true'
+        uses: actions/checkout@v4
 
-  build-order-service:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.order-service == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-    services:
-      mongodb:
-        image: mongo:6
-        env:
-          MONGO_INITDB_ROOT_USERNAME: root
-          MONGO_INITDB_ROOT_PASSWORD: root
-        ports:
-          - 27017:27017
-        options: >-
-          --health-cmd="mongosh --eval 'db.runCommand({ ping: 1 })'"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - if: matrix.changed == 'true'
+        name: Download backend jars
+        uses: actions/download-artifact@v4
         with:
-          distribution: temurin
-          java-version: 17
-          cache: maven
-      - name: Wait for MongoDB
-        run: |
-          for i in {1..30}; do
-            nc -z localhost 27017 && echo "MongoDB is up" && exit 0
-            echo "Waiting for MongoDB..."
-            sleep 2
-          done
-          exit 1
-      - name: Install common library
-        working-directory: ./services/common
-        run: mvn clean install -DskipTests
-      - name: Build order-service
-        working-directory: ./services/order-service
-        env:
-          SPRING_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
-          SPRING_CONFIG_IMPORT: "optional:configserver:"
-          SPRING_CLOUD_CONFIG_ENABLED: "false"
-          SPRING_APPLICATION_NAME: order-service
-        run: mvn clean verify
-      - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v5
-        if: always()
-        with:
-          report_paths: '**/target/surefire-reports/TEST-*.xml'
+          name: backend-jars
+          path: services/
 
-  build-payment-service:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.payment-service == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-    services:
-      mongodb:
-        image: mongo:6
-        env:
-          MONGO_INITDB_ROOT_USERNAME: root
-          MONGO_INITDB_ROOT_PASSWORD: root
-        ports:
-          - 27017:27017
-        options: >-
-          --health-cmd="mongosh --eval 'db.runCommand({ ping: 1 })'"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-          cache: maven
-      - name: Wait for MongoDB
-        run: |
-          for i in {1..30}; do
-            nc -z localhost 27017 && echo "MongoDB is up" && exit 0
-            echo "Waiting for MongoDB..."
-            sleep 2
-          done
-          exit 1
-      - name: Install common library
-        working-directory: ./services/common
-        run: mvn clean install -DskipTests
-      - name: Build payment-service
-        working-directory: ./services/payment-service
-        env:
-          SPRING_MONGODB_URI: mongodb://root:root@localhost:27017/ecommerce?authSource=admin
-          SPRING_CONFIG_IMPORT: "optional:configserver:"
-          SPRING_CLOUD_CONFIG_ENABLED: "false"
-          SPRING_APPLICATION_NAME: payment-service
-        run: mvn clean verify
-      - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v5
-        if: always()
-        with:
-          report_paths: '**/target/surefire-reports/TEST-*.xml'
+      - if: matrix.changed == 'true'
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-  build-notification-service:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.notification-service == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - if: matrix.changed == 'true'
+        name: Build image
+        uses: docker/build-push-action@v6
         with:
-          distribution: temurin
-          java-version: 17
-          cache: maven
-      - name: Build notification-service
-        working-directory: ./services/notification-service
-        run: mvn clean verify
-      - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v5
-        if: always()
-        with:
-          report_paths: '**/target/surefire-reports/TEST-*.xml'
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          push: false
+          load: true
+          tags: ecommerce/${{ matrix.service }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,scope=${{ matrix.service }},mode=max
 
-  build-frontend:
+  # ---------------------------------------------------------------
+  # Frontend: type-check + production build.
+  # ---------------------------------------------------------------
+  frontend:
     needs: detect-changes
     if: needs.detect-changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    defaults:
+      run:
+        working-directory: frontend/ecommerce-app
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: frontend/ecommerce-app/package-lock.json
-      - name: Install dependencies
-        working-directory: ./frontend/ecommerce-app
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci --legacy-peer-deps
-          else
-            npm install --legacy-peer-deps
-          fi
-      - name: Build and Test
-        working-directory: ./frontend/ecommerce-app
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Type-check
+        run: npx tsc -b --noEmit
+      - name: Build
         run: npm run build
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/ecommerce-app/dist
+          retention-days: 7
 
-  sonar-analysis:
-    needs: [build-auth-service, build-product-service, build-inventory-service, build-order-service, build-payment-service, build-notification-service, build-config-server, build-discovery-server, build-api-gateway]
-    if: always() && !cancelled()
+  # ---------------------------------------------------------------
+  # SonarCloud is optional — only runs on PRs/pushes when the
+  # SONAR_TOKEN secret is configured. Failing this job won't fail CI.
+  # ---------------------------------------------------------------
+  sonar:
+    needs: backend
+    if: |
+      success() &&
+      needs.detect-changes.outputs.backend == 'true' &&
+      github.event_name == 'push'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-      pull-requests: write
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
           cache: maven
-      - name: Install all modules
-        run: mvn -B install -DskipTests -q
-      - name: SonarCloud analysis
+      - name: SonarCloud
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -z "$SONAR_TOKEN" ]; then
-            echo "SONAR_TOKEN not set — skipping SonarCloud analysis"
+          if [ -z "${SONAR_TOKEN:-}" ]; then
+            echo "SONAR_TOKEN not set — skipping SonarCloud analysis."
             exit 0
           fi
-          mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar -DskipTests \
+          ./mvnw -B -ntp -DskipTests install
+          ./mvnw -B -ntp \
+            org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
             -Dsonar.projectKey=ecommerce-platform \
             -Dsonar.organization=${{ github.repository_owner }} \
             -Dsonar.host.url=https://sonarcloud.io \
-            -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
-            -Dsonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml
+            -Dsonar.token=$SONAR_TOKEN

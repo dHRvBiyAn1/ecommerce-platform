@@ -1,5 +1,6 @@
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,14 +8,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { DataTable } from "@/components/data-table";
 import { addStock, listInventory } from "@/api/inventory";
+import type { InventoryItem } from "@/api/types";
 import { compact } from "@/lib/utils";
 
 export const AdminInventoryPage: React.FC = () => {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "inventory"],
-    queryFn: () => listInventory(0, 50),
+    queryFn: () => listInventory(0, 200),
   });
 
   const restock = useMutation({
@@ -26,6 +29,72 @@ export const AdminInventoryPage: React.FC = () => {
     },
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
   });
+
+  const columns = React.useMemo<ColumnDef<InventoryItem>[]>(
+    () => [
+      {
+        accessorKey: "sku",
+        header: "SKU",
+        cell: ({ row }) => <span className="font-mono text-xs">{row.original.sku}</span>,
+      },
+      {
+        accessorKey: "quantity",
+        header: "On hand",
+        cell: ({ row }) => <span className="font-mono text-xs">{compact(row.original.quantity)}</span>,
+      },
+      {
+        accessorKey: "reservedQuantity",
+        header: "Reserved",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">{compact(row.original.reservedQuantity)}</span>
+        ),
+      },
+      {
+        accessorKey: "availableQuantity",
+        header: "Available",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">{compact(row.original.availableQuantity)}</span>
+        ),
+      },
+      {
+        accessorKey: "lowStockThreshold",
+        header: "Threshold",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">{row.original.lowStockThreshold}</span>
+        ),
+      },
+      {
+        // Derived state for sort + filter; uses availableQuantity vs threshold.
+        id: "status",
+        header: "Status",
+        accessorFn: (r) =>
+          r.availableQuantity === 0
+            ? "Out of stock"
+            : r.quantity <= r.lowStockThreshold
+              ? "Low"
+              : "Healthy",
+        cell: ({ getValue }) => {
+          const label = getValue<string>();
+          const variant: any =
+            label === "Out of stock" ? "destructive" : label === "Low" ? "warning" : "success";
+          return <Badge variant={variant}>{label}</Badge>;
+        },
+      },
+      {
+        id: "restock",
+        header: "Add stock",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <RestockForm
+            onSubmit={(qty) =>
+              restock.mutate({ productId: row.original.productId, qty })
+            }
+          />
+        ),
+      },
+    ],
+    [restock],
+  );
 
   return (
     <div className="space-y-8">
@@ -43,78 +112,41 @@ export const AdminInventoryPage: React.FC = () => {
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="border-b text-left text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  <tr>
-                    <th className="p-4 font-medium">SKU</th>
-                    <th className="p-4 font-medium">On hand</th>
-                    <th className="p-4 font-medium">Reserved</th>
-                    <th className="p-4 font-medium">Available</th>
-                    <th className="p-4 font-medium">Threshold</th>
-                    <th className="p-4 font-medium">Status</th>
-                    <th className="p-4 font-medium">Add stock</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(data?.content ?? []).map((row) => (
-                    <InventoryRow key={row.id} row={row} onRestock={(qty) => restock.mutate({ productId: row.productId, qty })} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+        <DataTable
+          columns={columns}
+          data={data?.content ?? []}
+          searchColumn="sku"
+          searchPlaceholder="Search by SKU…"
+          pageSize={20}
+          emptyState="No inventory rows match your search."
+        />
       )}
     </div>
   );
 };
 
-const InventoryRow: React.FC<{
-  row: import("@/api/types").InventoryItem;
-  onRestock: (qty: number) => void;
-}> = ({ row, onRestock }) => {
+const RestockForm: React.FC<{ onSubmit: (qty: number) => void }> = ({ onSubmit }) => {
   const [qty, setQty] = React.useState<string>("10");
-  const status =
-    row.availableQuantity === 0
-      ? { label: "Out of stock", variant: "destructive" as const }
-      : row.quantity <= row.lowStockThreshold
-      ? { label: "Low", variant: "warning" as const }
-      : { label: "Healthy", variant: "success" as const };
-
   return (
-    <tr className="border-b last:border-b-0 hover:bg-secondary/40">
-      <td className="p-4 font-mono text-xs">{row.sku}</td>
-      <td className="p-4 font-mono text-xs">{compact(row.quantity)}</td>
-      <td className="p-4 font-mono text-xs">{compact(row.reservedQuantity)}</td>
-      <td className="p-4 font-mono text-xs">{compact(row.availableQuantity)}</td>
-      <td className="p-4 font-mono text-xs">{row.lowStockThreshold}</td>
-      <td className="p-4">
-        <Badge variant={status.variant}>{status.label}</Badge>
-      </td>
-      <td className="p-4">
-        <form
-          className="inline-flex items-center gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const n = Number(qty);
-            if (n > 0) onRestock(n);
-          }}
-        >
-          <Input
-            value={qty}
-            onChange={(e) => setQty(e.target.value)}
-            className="h-9 w-20"
-            type="number"
-            min={1}
-          />
-          <Button size="sm" type="submit" variant="outline">
-            <Plus className="h-3.5 w-3.5" /> Add
-          </Button>
-        </form>
-      </td>
-    </tr>
+    <form
+      className="inline-flex items-center gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const n = Number(qty);
+        if (n > 0) onSubmit(n);
+      }}
+    >
+      <Input
+        value={qty}
+        onChange={(e) => setQty(e.target.value)}
+        className="h-9 w-20"
+        type="number"
+        min={1}
+        aria-label="Quantity to add"
+      />
+      <Button size="sm" type="submit" variant="outline">
+        <Plus className="h-3.5 w-3.5" /> Add
+      </Button>
+    </form>
   );
 };

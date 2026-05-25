@@ -2,11 +2,13 @@ import * as React from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   ChevronLeft,
+  ClipboardCheck,
   LayoutDashboard,
   ListChecks,
   LogOut,
   Menu,
   Package,
+  ShieldCheck,
   ShoppingBag,
   Users,
 } from "lucide-react";
@@ -36,6 +38,8 @@ const ITEMS: {
   { to: "/admin/inventory", label: "Inventory", icon: ListChecks },
   { to: "/admin/orders", label: "Orders", icon: ShoppingBag },
   { to: "/admin/users", label: "Users", icon: Users, admin: true },
+  { to: "/admin/seller-applications", label: "Seller applications", icon: ShieldCheck, admin: true },
+  { to: "/admin/product-approvals", label: "Product approvals", icon: ClipboardCheck, admin: true },
 ];
 
 export const AdminLayout: React.FC = () => {

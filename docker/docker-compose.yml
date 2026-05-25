@@ -15,15 +15,15 @@ services:
     image: postgres:15-alpine
     container_name: postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-ecommerce}
-      POSTGRES_USER: ${POSTGRES_USER:-ecommerce}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_postgres}
+      POSTGRES_DB: ${APP_DB_NAME:-ecommerce}
+      POSTGRES_USER: ${APP_DB_USER:-ecommerce}
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD:-change_me_postgres}
     ports: ["5433:5432"]
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks: [ecommerce-network]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ecommerce}"]
+      test: ["CMD-SHELL", "pg_isready -U ${APP_DB_USER:-ecommerce}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -189,9 +189,9 @@ services:
     ports: ["8081:8081"]
     environment:
       <<: *svc-common-env
-      POSTGRES_USER: ${POSTGRES_USER:-ecommerce}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-ecommerce}
+      POSTGRES_USER: ${APP_DB_USER:-ecommerce}
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD:-change_me_postgres}
+      POSTGRES_DB: ${APP_DB_NAME:-ecommerce}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       AUTH_RSA_PRIVATE_KEY_LOCATION: ${AUTH_RSA_PRIVATE_KEY_LOCATION:-file:/run/secrets/auth-private.pem}
@@ -295,6 +295,35 @@ services:
       mongodb: {condition: service_healthy}
       kafka: {condition: service_healthy}
       mailhog: {condition: service_started}
+      config-server: {condition: service_healthy}
+      discovery-server: {condition: service_healthy}
+    networks: [ecommerce-network]
+
+  cart-service:
+    build: {context: .., dockerfile: services/cart-service/Dockerfile}
+    container_name: cart-service
+    ports: ["8087:8087"]
+    environment:
+      <<: *svc-common-env
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-ecommerce}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-change_me_mongo}
+    depends_on:
+      mongodb: {condition: service_healthy}
+      config-server: {condition: service_healthy}
+      discovery-server: {condition: service_healthy}
+    networks: [ecommerce-network]
+
+  coupon-service:
+    build: {context: .., dockerfile: services/coupon-service/Dockerfile}
+    container_name: coupon-service
+    ports: ["8088:8088"]
+    environment:
+      <<: *svc-common-env
+      POSTGRES_USER: ${APP_DB_USER:-ecommerce}
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD:-change_me_postgres}
+      POSTGRES_DB: ${APP_DB_NAME:-ecommerce}
+    depends_on:
+      postgres: {condition: service_healthy}
       config-server: {condition: service_healthy}
       discovery-server: {condition: service_healthy}
     networks: [ecommerce-network]

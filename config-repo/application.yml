@@ -1,13 +1,48 @@
-# Centralized config served to other services. Empty for now; per-service settings
-# live alongside this file (auth-service.yml, order-service.yml, ...).
+# Defaults applied to every service that fetches from this config-server.
+# Per-service files (auth-service.yml, product-service.yml, ...) override.
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://discovery-server:8761/eureka/}
+    registerWithEureka: true
+    fetchRegistry: true
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    producer:
+      acks: all
+      retries: 2147483647
+      properties:
+        enable.idempotence: true
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# Sample-data seeders: each service runs its DataInitializer on startup
+# only when both `seed.enabled=true` AND its target collection/table is empty.
+# Default true for dev; flip to false in production via env.
+seed:
+  enabled: ${SEED_ENABLED:true}
 
 logging:
   level:
     com.project: INFO
     org.springframework.cloud.config: INFO
+    org.springframework.cloud.netflix.eureka: WARN

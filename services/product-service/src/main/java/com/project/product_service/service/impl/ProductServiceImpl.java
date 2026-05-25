@@ -38,7 +38,10 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Cacheable(value = "products")
     public Page<ProductResponse> getAllActiveProducts(Pageable pageable) {
-        return productRepository.findByActiveTrue(pageable).map(this::mapToResponse);
+        return productRepository
+                .findByActiveTrueAndApprovalStatus(
+                        com.project.product_service.model.ProductApprovalStatus.APPROVED, pageable)
+                .map(this::mapToResponse);
     }
 
     @Override
@@ -47,13 +50,24 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
         if (!product.isActive()) throw new ResourceNotFoundException("Product", id);
+        // Public reads only see APPROVED. Owner / admin views go through other paths.
+        if (product.getApprovalStatus() != null
+                && product.getApprovalStatus()
+                != com.project.product_service.model.ProductApprovalStatus.APPROVED) {
+            throw new ResourceNotFoundException("Product", id);
+        }
         return mapToResponse(product);
     }
 
     @Override
     @Cacheable(value = "products")
     public Page<ProductResponse> getProductsByCategory(String categoryId, Pageable pageable) {
-        return productRepository.findByCategoryIdAndActiveTrue(categoryId, pageable).map(this::mapToResponse);
+        return productRepository
+                .findByCategoryIdAndActiveTrueAndApprovalStatus(
+                        categoryId,
+                        com.project.product_service.model.ProductApprovalStatus.APPROVED,
+                        pageable)
+                .map(this::mapToResponse);
     }
 
     @Override
@@ -77,12 +91,19 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public Page<ProductResponse> getProductsBySeller(UUID sellerId, Pageable pageable) {
-        return productRepository.findBySellerIdAndActiveTrue(sellerId, pageable).map(this::mapToResponse);
+        // Sellers see ALL their products, regardless of active flag or approval status.
+        return productRepository.findBySellerId(sellerId, pageable).map(this::mapToResponse);
     }
 
     @Override
     @CacheEvict(value = "products", allEntries = true)
     public ProductResponse createProduct(ProductRequest request) {
+        return createProduct(request, false);
+    }
+
+    @Override
+    @CacheEvict(value = "products", allEntries = true)
+    public ProductResponse createProduct(ProductRequest request, boolean isAdmin) {
         categoryService.getCategory(request.getCategoryId());
         if (productRepository.findBySku(request.getSku()).isPresent()) {
             throw new DuplicateResourceException("SKU already exists: " + request.getSku());
@@ -99,9 +120,21 @@ public class ProductServiceImpl implements ProductService {
         product.setImageUrls(null);
         product.setSellerId(request.getSellerId());
         product.setActive(true);
+        // Admin-created products are auto-approved; seller-created start PENDING.
+        product.setApprovalStatus(isAdmin
+                ? com.project.product_service.model.ProductApprovalStatus.APPROVED
+                : com.project.product_service.model.ProductApprovalStatus.PENDING);
+        if (isAdmin) {
+            product.setReviewedAt(java.time.LocalDateTime.now());
+            product.setReviewedBy(request.getSellerId()); // treat the creator as reviewer
+        }
 
         product = productRepository.save(product);
-        syncToElasticsearch(product);
+        // Only push APPROVED to ES so the public catalog stays clean.
+        if (product.getApprovalStatus()
+                == com.project.product_service.model.ProductApprovalStatus.APPROVED) {
+            syncToElasticsearch(product);
+        }
         eventPublisher.publishCreated(product);
         return mapToResponse(product);
     }
@@ -123,13 +156,62 @@ public class ProductServiceImpl implements ProductService {
         product.setCategoryId(request.getCategoryId());
         product.setPrice(request.getPrice());
         product.setStockQuantity(request.getStockQuantity());
+
+        // Seller edits to APPROVED listings revert them to PENDING for re-review.
+        // Admins can edit without resetting approval.
+        if (!isAdmin && product.getApprovalStatus()
+                == com.project.product_service.model.ProductApprovalStatus.APPROVED) {
+            product.setApprovalStatus(com.project.product_service.model.ProductApprovalStatus.PENDING);
+            product.setRejectionReason(null);
+            product.setReviewedAt(null);
+            product.setReviewedBy(null);
+            // Pull from ES while we wait for re-review.
+            removeFromElasticsearch(id);
+        }
+
         product = productRepository.save(product);
-        syncToElasticsearch(product);
+        if (product.getApprovalStatus()
+                == com.project.product_service.model.ProductApprovalStatus.APPROVED) {
+            syncToElasticsearch(product);
+        }
 
         eventPublisher.publishUpdated(product);
         if (priceChanged) eventPublisher.publishPriceChanged(product);
 
         return mapToResponse(product);
+    }
+
+    @Override
+    @CacheEvict(value = "products", allEntries = true)
+    public ProductResponse setApprovalStatus(String id,
+                                             com.project.product_service.model.ProductApprovalStatus status,
+                                             UUID adminId,
+                                             String rejectionReason) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", id));
+        if (status == com.project.product_service.model.ProductApprovalStatus.PENDING) {
+            throw new IllegalArgumentException("Cannot manually set status back to PENDING");
+        }
+        product.setApprovalStatus(status);
+        product.setRejectionReason(
+                status == com.project.product_service.model.ProductApprovalStatus.REJECTED
+                        ? rejectionReason : null);
+        product.setReviewedAt(java.time.LocalDateTime.now());
+        product.setReviewedBy(adminId);
+        product = productRepository.save(product);
+        if (status == com.project.product_service.model.ProductApprovalStatus.APPROVED) {
+            syncToElasticsearch(product);
+        } else {
+            removeFromElasticsearch(id);
+        }
+        log.info("Product {} {} by admin {}", id, status, adminId);
+        return mapToResponse(product);
+    }
+
+    @Override
+    public Page<ProductResponse> listByApprovalStatus(
+            com.project.product_service.model.ProductApprovalStatus status, Pageable pageable) {
+        return productRepository.findByApprovalStatus(status, pageable).map(this::mapToResponse);
     }
 
     @Override
@@ -148,9 +230,12 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @CacheEvict(value = "products", allEntries = true)
-    public ProductResponse setProductActiveStatus(String id, boolean active) {
+    public ProductResponse setProductActiveStatus(String id, boolean active, UUID sellerId, boolean isAdmin) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
+        if (!isAdmin && !product.getSellerId().equals(sellerId)) {
+            throw new ForbiddenOperationException("You do not own this product");
+        }
         product.setActive(active);
         product = productRepository.save(product);
         if (active) syncToElasticsearch(product); else removeFromElasticsearch(id);
@@ -214,6 +299,9 @@ public class ProductServiceImpl implements ProductService {
         response.setImageUrls(product.getImageUrls());
         response.setSellerId(product.getSellerId());
         response.setActive(product.isActive());
+        response.setApprovalStatus(product.getApprovalStatus() == null
+                ? null : product.getApprovalStatus().name());
+        response.setRejectionReason(product.getRejectionReason());
         return response;
     }
 }

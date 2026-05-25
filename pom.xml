@@ -31,14 +31,14 @@
         <module>services/order-service</module>
         <module>services/payment-service</module>
         <module>services/notification-service</module>
+        <module>services/cart-service</module>
+        <module>services/coupon-service</module>
         <!--
           Modules below are scaffolded but not yet implemented. Uncomment as each
           service is built so the multi-module build doesn't fail on missing
           children.
-            <module>services/cart-service</module>
             <module>services/wishlist-service</module>
             <module>services/review-service</module>
-            <module>services/coupon-service</module>
             <module>services/tax-service</module>
             <module>services/shipping-service</module>
             <module>services/seller-service</module>

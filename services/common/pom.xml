@@ -16,6 +16,14 @@
     <name>common</name>
     <description>Shared common library for ecommerce platform</description>
 
+    <!--
+      Every Spring dependency here is `provided` so it compiles against the
+      common library but does NOT leak to consuming services. The consumer
+      decides which Spring starters its runtime classpath actually includes.
+      The previous unscoped data-jpa, openfeign and data-redis entries were
+      pulling JPA into MongoDB-only services and crashing them on startup
+      with "DataSourceAutoConfiguration: 'url' attribute is not specified".
+    -->
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -28,10 +36,7 @@
             <artifactId>spring-boot-starter-security</artifactId>
             <scope>provided</scope>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
@@ -47,6 +52,20 @@
         <dependency>
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Needed by FeignAuthForwardingConfig but only on the consumer when it actually calls Feign. -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Needed by IdempotencyService but only on the consumer when it injects StringRedisTemplate. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -71,13 +90,5 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-openfeign</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
-        </dependency>      
     </dependencies>
 </project>

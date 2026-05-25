@@ -16,7 +16,9 @@ export default defineConfig({
     proxy: {
       "/api": { target: API_TARGET, changeOrigin: true },
       "/.well-known": { target: API_TARGET, changeOrigin: true },
-      "/oauth2": { target: API_TARGET, changeOrigin: true },
+      // Only proxy the Spring Security OAuth2 endpoints, NOT /oauth2/redirect
+      // which is a frontend SPA route handled by React Router.
+      "/oauth2/authorization": { target: API_TARGET, changeOrigin: true },
       "/login/oauth2": { target: API_TARGET, changeOrigin: true },
     },
   },
