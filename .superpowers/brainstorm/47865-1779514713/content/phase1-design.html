@@ -1,0 +1,68 @@
+<h2>Phase 1 — Foundation: PrimeNG + Sakai Layout</h2>
+<p class="subtitle">Install PrimeNG stack, remove Zard, create Sakai layout shell</p>
+
+<div class="section">
+  <h3>1. Install PrimeNG Dependencies</h3>
+  <p>Replace Zard UI stack with PrimeNG ecosystem:</p>
+  <div style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-family:monospace;font-size:13px;margin:8px 0;white-space:pre-wrap">
+npm install primeng primeicons @primeuix/themes @tailwindcss/postcss tailwindcss-primeui
+  </div>
+  <p>Remove Zard UI (shared/components/*) and unused deps: class-variance-authority, clsx, tailwind-merge, ngx-sonner, embla-carousel*</p>
+</div>
+
+<div class="section">
+  <h3>2. PrimeNG Config (app.config.ts)</h3>
+  <div style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-family:monospace;font-size:13px;margin:8px 0;white-space:pre-wrap">
+import Aura from '@primeuix/themes/aura';
+import { providePrimeNG } from 'primeng/config';
+
+providers: [
+  providePrimeNG({
+    theme: {
+      preset: Aura,
+      options: { darkModeSelector: '.app-dark' }
+    }
+  })
+]
+  </div>
+</div>
+
+<div class="section">
+  <h3>3. Sakai Layout Structure</h3>
+  <p>Mirror Sakai's component tree but adapted for our e-commerce routes:</p>
+  <div style="background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:8px;font-family:monospace;font-size:13px;margin:8px 0;white-space:pre-wrap">
+app-layout (wrapper for ALL pages)
+├── app-topbar — logo, nav links, cart badge, user dropdown
+├── app-sidebar — collapsible sidebar with menu items
+│   ├── Dashboard
+│   ├── Products
+│   ├── Orders
+│   └── ...role-based items
+├── router-outlet (page content)
+└── app-footer
+  </div>
+</div>
+
+<div class="section">
+  <h3>4. Sidebar Behavior</h3>
+  <p>Sakai has 2 menu modes: <strong>static</strong> (fixed sidebar) and <strong>overlay</strong> (sidebar overlays content).<br>
+     We'll use <strong>overlay on public pages</strong> (sidebar hidden by default, hamburger to show) and <strong>static on admin/seller</strong>.</p>
+</div>
+
+<div class="section">
+  <h3>5. Remove Zard Completely</h3>
+  <ul>
+    <li>Delete <code>src/app/shared/components/</code> (45 component dirs)</li>
+    <li>Remove <code>provideZard()</code> from app.config.ts</li>
+    <li>Remove all <code>&lt;z-*&gt;</code> component references</li>
+    <li>Update <code>styles.css</code> — replace Zard CSS variables with PrimeUI theme tokens</li>
+  </ul>
+</div>
+
+<div class="section">
+  <h3>6. Icon Strategy</h3>
+  <p>Replace <code>@ng-icons/lucide</code> with <strong>PrimeIcons</strong> (built-in, tree-shakable).<br>
+     Use <code>&lt;i class="pi pi-shopping-cart"&gt;&lt;/i&gt;</code> syntax.</p>
+</div>
+
+<p style="margin-top:16px;padding:12px;background:var(--accent);border-radius:8px;text-align:center"><strong>Does Phase 1 design look right to you?</strong></p>

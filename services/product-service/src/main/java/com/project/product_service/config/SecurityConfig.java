@@ -1,42 +1,55 @@
 package com.project.product_service.config;
 
+import com.project.common.security.JwtAuthenticationConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfigurationSource;
 
-import com.project.product_service.Security.HeaderAuthenticationFilter;
-
-import lombok.RequiredArgsConstructor;
-
+/**
+ * Resource server. Read endpoints (GET /api/v1/products/**, /api/v1/categories/**)
+ * are public; writes require an authenticated JWT and the appropriate authority.
+ *
+ * <p>The X-User-Id / X-Roles / HeaderAuthenticationFilter trust model has been
+ * removed. The Authorization Bearer token from the gateway is verified against
+ * auth-service's JWKS.
+ */
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity
-@RequiredArgsConstructor
+@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
-
-    private final HeaderAuthenticationFilter headerAuthenticationFilter;
-    private final CorsConfigurationSource corsConfigurationSource;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource))
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(authz -> authz
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/v1/products/**", "/api/v1/categories/**").permitAll()
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(Customizer.withDefaults())
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        // Health, OpenAPI, JWKS, prometheus
+                        .requestMatchers(
+                                "/actuator/health/**",
+                                "/actuator/info",
+                                "/actuator/prometheus",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).permitAll()
+                        // Public catalog reads
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/products",
+                                "/api/v1/products/**",
+                                "/api/v1/categories",
+                                "/api/v1/categories/**"
+                        ).permitAll()
                         .anyRequest().authenticated())
-                .addFilterBefore(headerAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .httpBasic(httpBasic -> httpBasic.disable());
+                .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(new JwtAuthenticationConverter())));
         return http.build();
     }
 }

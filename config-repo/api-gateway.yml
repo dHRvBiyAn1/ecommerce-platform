@@ -1,0 +1,115 @@
+server:
+  port: 8080
+
+spring:
+  cloud:
+    gateway:
+      mvc:
+        routes:
+          - id: auth-service
+            uri: lb://auth-service
+            predicates:
+              - Path=/api/auth/**, /api/users/**, /api/user/**, /api/admin/**, /oauth2/**, /login/oauth2/**, /.well-known/**
+
+          - id: product-service
+            uri: lb://product-service
+            predicates:
+              - Path=/api/v1/products/**, /api/v1/categories/**
+
+          - id: inventory-service
+            uri: lb://inventory-service
+            predicates:
+              - Path=/api/v1/inventory/**
+
+          - id: order-service
+            uri: lb://order-service
+            predicates:
+              - Path=/api/v1/orders/**
+
+          - id: payment-service
+            uri: lb://payment-service
+            predicates:
+              - Path=/api/v1/payments/**
+
+          - id: notification-service
+            uri: lb://notification-service
+            predicates:
+              - Path=/api/v1/notifications/**
+
+          - id: cart-service
+            uri: lb://cart-service
+            predicates:
+              - Path=/api/v1/cart/**
+
+          - id: wishlist-service
+            uri: lb://wishlist-service
+            predicates:
+              - Path=/api/v1/wishlist/**
+
+          - id: review-service
+            uri: lb://review-service
+            predicates:
+              - Path=/api/v1/reviews/**, /api/v1/qa/**
+
+          - id: coupon-service
+            uri: lb://coupon-service
+            predicates:
+              - Path=/api/v1/coupons/**
+
+          - id: tax-service
+            uri: lb://tax-service
+            predicates:
+              - Path=/api/v1/tax/**
+
+          - id: shipping-service
+            uri: lb://shipping-service
+            predicates:
+              - Path=/api/v1/shipping/**, /api/v1/rma/**
+
+          - id: seller-service
+            uri: lb://seller-service
+            predicates:
+              - Path=/api/v1/seller/**
+
+          - id: cms-service
+            uri: lb://cms-service
+            predicates:
+              - Path=/api/v1/cms/**
+
+          - id: admin-bff
+            uri: lb://admin-bff
+            predicates:
+              - Path=/api/admin-bff/**
+
+          - id: analytics-service
+            uri: lb://analytics-service
+            predicates:
+              - Path=/api/v1/analytics/**
+
+          - id: recommendation-service
+            uri: lb://recommendation-service
+            predicates:
+              - Path=/api/v1/recommendations/**
+
+# Bucket4j-based rate limiting; tunable per route via headers and IP/user.
+gateway:
+  rate-limit:
+    default:
+      capacity: 100
+      refill-tokens: 100
+      refill-period-seconds: 60
+    auth:
+      capacity: 20
+      refill-tokens: 20
+      refill-period-seconds: 60
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,gateway
+
+logging:
+  level:
+    com.project.gateway: INFO
+    org.springframework.cloud.gateway: INFO

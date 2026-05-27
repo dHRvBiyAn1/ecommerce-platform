@@ -1,0 +1,76 @@
+<h2>Phase 2 — Page Migrations: Zard → PrimeNG</h2>
+<p class="subtitle">Replace all Zard components with PrimeNG equivalents</p>
+
+<div class="section">
+  <h3>Component Mapping</h3>
+  <table style="width:100%;border-collapse:collapse;font-size:13px;margin:8px 0">
+    <tr style="border-bottom:1px solid var(--border)">
+      <th style="text-align:left;padding:6px 8px">Zard Component</th>
+      <th style="text-align:left;padding:6px 8px">PrimeNG Replacement</th>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 8px"><code>z-button</code></td>
+      <td style="padding:6px 8px"><code>&lt;p-button&gt;</code></td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 8px"><code>z-input</code></td>
+      <td style="padding:6px 8px"><code>&lt;input pInputText&gt;</code></td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 8px"><code>z-badge</code></td>
+      <td style="padding:6px 8px"><code>&lt;p-badge&gt;</code></td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 8px"><code>z-card</code></td>
+      <td style="padding:6px 8px"><code>&lt;p-card&gt;</code></td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 8px"><code>z-table</code></td>
+      <td style="padding:6px 8px"><code>&lt;p-table&gt;</code></td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 8px"><code>z-dropdown-menu</code></td>
+      <td style="padding:6px 8px"><code>&lt;p-menu&gt; / &lt;p-tieredMenu&gt;</code></td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 8px"><code>z-layout/header/content/footer</code></td>
+      <td style="padding:6px 8px">Sakai custom layout (app-layout)</td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 8px"><code>&lt;z-toast&gt;</code> + ngx-sonner</td>
+      <td style="padding:6px 8px"><code>&lt;p-toast&gt;</code> + MessageService</td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 8px"><code>&lt;z-sidebar&gt;</code></td>
+      <td style="padding:6px 8px">Sakai sidebar component</td>
+    </tr>
+  </table>
+</div>
+
+<div class="section">
+  <h3>Public Pages (Home, Products, Cart, etc.)</h3>
+  <p>Use <strong>Sakai overlay mode</strong> — sidebar collapsed by default, accessible via hamburger.<br>
+     Topbar shows: logo, "Products" nav link, cart icon with p-badge, user dropdown.<br>
+     Content area is full-width. No admin sidebar cluttering the storefront.</p>
+</div>
+
+<div class="section">
+  <h3>Admin/Seller Pages</h3>
+  <p>Use <strong>Sakai static mode</strong> — fixed left sidebar (256px) visible at all times.<br>
+     Topbar shows: hamburger (toggle sidebar), logo, page title, user avatar dropdown.</p>
+</div>
+
+<div class="section">
+  <h3>Toast System</h3>
+  <p>Replace ngx-sonner with PrimeNG's built-in <code>&lt;p-toast&gt;</code> component.<br>
+     Inject <code>MessageService</code> for showing success/error/info toasts.<br>
+     Update the auth interceptor and role guard accordingly.</p>
+</div>
+
+<div class="section">
+  <h3>Icon Migration</h3>
+  <p>Replace <code>&lt;ng-icon name="lucideShoppingCart"&gt;</code> with <code>&lt;i class="pi pi-shopping-cart"&gt;&lt;/i&gt;</code>.<br>
+    PrimeIcons are built-in with PrimeNG — no extra install or providers needed.</p>
+</div>
+
+<p style="margin-top:16px;padding:12px;background:var(--accent);border-radius:8px;text-align:center"><strong>Does this component mapping and page strategy look right?</strong></p>

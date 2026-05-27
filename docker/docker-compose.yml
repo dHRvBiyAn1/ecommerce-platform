@@ -1,21 +1,29 @@
-version: '3.8'
+version: "3.9"
+
+# ============================================================================
+# Local development stack. Pulls credentials from ../.env (copy from .env.example).
+# Bring up: `make up` from the repo root, or `docker compose --env-file ../.env up`.
+# ============================================================================
+
+x-network: &default-network
+  networks:
+    - ecommerce-network
 
 services:
+  # ---------- Datastores ----------
   postgres:
     image: postgres:15-alpine
     container_name: postgres
     environment:
-      POSTGRES_DB: ecommerce
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: root
-    ports:
-      - "5433:5432"
+      POSTGRES_DB: ${POSTGRES_DB:-ecommerce}
+      POSTGRES_USER: ${POSTGRES_USER:-ecommerce}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_postgres}
+    ports: ["5433:5432"]
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - ecommerce-network
+    networks: [ecommerce-network]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ecommerce}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,59 +32,67 @@ services:
     image: mongo:6.0
     container_name: mongodb
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: root
-    ports:
-      - "27017:27017"
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-ecommerce}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-change_me_mongo}
+    ports: ["27017:27017"]
     volumes:
       - mongo_data:/data/db
-    networks:
-      - ecommerce-network
+    networks: [ecommerce-network]
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok || quit(1)"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 30s
 
   redis:
     image: redis:7-alpine
     container_name: redis
-    ports:
-      - "6379:6379"
-    networks:
-      - ecommerce-network
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-change_me_redis}"]
+    ports: ["6379:6379"]
+    networks: [ecommerce-network]
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-change_me_redis}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports: ["9200:9200"]
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks: [ecommerce-network]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  # ---------- Messaging ----------
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
     container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
-    networks:
-      - ecommerce-network
+    networks: [ecommerce-network]
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo srvr | nc -w 2 localhost 2181 | grep Mode"]
+      test: ["CMD-SHELL", "echo srvr | nc -w 2 localhost 2181 | grep Mode"]
       interval: 10s
-      timeout: 10s
       retries: 10
-      start_period: 30s
 
   kafka:
     image: confluentinc/cp-kafka:7.4.0
     container_name: kafka
     depends_on:
-      zookeeper:
-        condition: service_healthy
-    ports:
-      - "9092:29092"
+      zookeeper: {condition: service_healthy}
+    ports: ["9092:29092"]
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -86,107 +102,250 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-    networks:
-      - ecommerce-network
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks: [ecommerce-network]
     healthcheck:
       test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
       interval: 15s
-      timeout: 10s
-      retries: 5
+      retries: 10
       start_period: 30s
 
-  discovery-server:
-    build:
-      context: ../services/discovery-server
-      dockerfile: Dockerfile
-    container_name: discovery-server
+  kafka-init:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka-init
+    depends_on:
+      kafka: {condition: service_healthy}
+    entrypoint:
+      - bash
+      - -c
+      - |
+        for topic in user-events product-events order-events inventory-events \
+                     payment-events notification-events cart-events review-events \
+                     coupon-events shipping-events audit-events; do
+          kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic "$$topic" --partitions 3 --replication-factor 1
+          # DLT for poison-pill messages
+          kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic "$$topic.DLT" --partitions 3 --replication-factor 1
+        done
+        echo "Kafka topics ready"
+    networks: [ecommerce-network]
+
+  # ---------- Mail (dev SMTP catcher) ----------
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: mailhog
     ports:
-      - "8761:8761"
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-    networks:
-      - ecommerce-network
+      - "1025:1025"      # SMTP
+      - "8025:8025"      # Web UI: http://localhost:8025
+    networks: [ecommerce-network]
+
+  # ---------- Platform infra services ----------
+  discovery-server:
+    build: {context: .., dockerfile: services/discovery-server/Dockerfile}
+    container_name: discovery-server
+    ports: ["8761:8761"]
+    networks: [ecommerce-network]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 30s
 
   config-server:
-    build:
-      context: ../services/config-server
-      dockerfile: Dockerfile
+    build: {context: .., dockerfile: services/config-server/Dockerfile}
     container_name: config-server
-    ports:
-      - "8888:8888"
+    ports: ["8888:8888"]
     environment:
-      SPRING_PROFILES_ACTIVE: docker
+      SPRING_PROFILES_ACTIVE: native,docker
     depends_on:
-      discovery-server:
-        condition: service_healthy
-    networks:
-      - ecommerce-network
+      discovery-server: {condition: service_healthy}
     volumes:
-      - ../config-repo:/config-repo
+      - ../config-repo:/config-repo:ro
+    networks: [ecommerce-network]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 40s
+
+  api-gateway:
+    build: {context: .., dockerfile: services/api-gateway/Dockerfile}
+    container_name: api-gateway
+    ports: ["8080:8080"]
+    environment: &svc-common-env
+      SPRING_PROFILES_ACTIVE: docker
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-change_me_redis}
+      JWK_SET_URI: http://auth-service:8081/.well-known/jwks.json
+    depends_on:
+      discovery-server: {condition: service_healthy}
+      config-server: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [ecommerce-network]
 
   auth-service:
-    build:
-      context: ../services/auth-service
-      dockerfile: Dockerfile
+    build: {context: .., dockerfile: services/auth-service/Dockerfile}
     container_name: auth-service
-    ports:
-      - "8081:8081"
+    ports: ["8081:8081"]
     environment:
-      SPRING_PROFILES_ACTIVE: docker
+      <<: *svc-common-env
+      POSTGRES_USER: ${POSTGRES_USER:-ecommerce}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-ecommerce}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      AUTH_RSA_PRIVATE_KEY_LOCATION: ${AUTH_RSA_PRIVATE_KEY_LOCATION:-file:/run/secrets/auth-private.pem}
+      AUTH_RSA_PUBLIC_KEY_LOCATION: ${AUTH_RSA_PUBLIC_KEY_LOCATION:-file:/run/secrets/auth-public.pem}
+      AUTH_RSA_KID: ${AUTH_RSA_KID:-auth-key-dev}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:4200}
+    secrets:
+      - auth-private.pem
+      - auth-public.pem
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-      config-server:
-        condition: service_healthy
-      discovery-server:
-        condition: service_healthy
-    networks:
-      - ecommerce-network
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+      config-server: {condition: service_healthy}
+      discovery-server: {condition: service_healthy}
+    networks: [ecommerce-network]
 
   product-service:
-    build:
-      context: ../services/product-service
-      dockerfile: Dockerfile
+    build: {context: .., dockerfile: services/product-service/Dockerfile}
     container_name: product-service
-    ports:
-      - "8082:8082"
+    ports: ["8082:8082"]
     environment:
-      SPRING_DATA_MONGODB_URI: mongodb://root:root@mongodb:27017/product_db?authSource=admin
-      SPRING_MONGODB_URI: mongodb://root:root@mongodb:27017/product_db?authSource=admin
-      SPRING_PROFILES_ACTIVE: docker
+      <<: *svc-common-env
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-ecommerce}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-change_me_mongo}
     depends_on:
-      mongodb:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-      config-server:
-        condition: service_healthy
-      discovery-server:
-        condition: service_healthy
-    networks:
-      - ecommerce-network
+      mongodb: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+      elasticsearch: {condition: service_healthy}
+      config-server: {condition: service_healthy}
+      discovery-server: {condition: service_healthy}
+    networks: [ecommerce-network]
+
+  inventory-service:
+    build: {context: .., dockerfile: services/inventory-service/Dockerfile}
+    container_name: inventory-service
+    ports: ["8083:8083"]
+    environment:
+      <<: *svc-common-env
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-ecommerce}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-change_me_mongo}
+    depends_on:
+      mongodb: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+      config-server: {condition: service_healthy}
+      discovery-server: {condition: service_healthy}
+    networks: [ecommerce-network]
+
+  order-service:
+    build: {context: .., dockerfile: services/order-service/Dockerfile}
+    container_name: order-service
+    ports: ["8084:8084"]
+    environment:
+      <<: *svc-common-env
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-ecommerce}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-change_me_mongo}
+    depends_on:
+      mongodb: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      config-server: {condition: service_healthy}
+      discovery-server: {condition: service_healthy}
+    networks: [ecommerce-network]
+
+  payment-service:
+    build: {context: .., dockerfile: services/payment-service/Dockerfile}
+    container_name: payment-service
+    ports: ["8085:8085"]
+    environment:
+      <<: *svc-common-env
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-ecommerce}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-change_me_mongo}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-}
+    depends_on:
+      mongodb: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      config-server: {condition: service_healthy}
+      discovery-server: {condition: service_healthy}
+    networks: [ecommerce-network]
+
+  notification-service:
+    build: {context: .., dockerfile: services/notification-service/Dockerfile}
+    container_name: notification-service
+    ports: ["8086:8086"]
+    environment:
+      <<: *svc-common-env
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-ecommerce}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-change_me_mongo}
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+    depends_on:
+      mongodb: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+      mailhog: {condition: service_started}
+      config-server: {condition: service_healthy}
+      discovery-server: {condition: service_healthy}
+    networks: [ecommerce-network]
+
+  # ---------- Observability stack (lightweight) ----------
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: prometheus
+    ports: ["9090:9090"]
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks: [ecommerce-network]
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    container_name: grafana
+    ports: ["3000:3000"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks: [ecommerce-network]
+
+  loki:
+    image: grafana/loki:3.2.1
+    container_name: loki
+    ports: ["3100:3100"]
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    networks: [ecommerce-network]
+
+  tempo:
+    image: grafana/tempo:2.6.0
+    container_name: tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./observability/tempo.yaml:/etc/tempo.yaml:ro
+    networks: [ecommerce-network]
+
+secrets:
+  auth-private.pem:
+    file: ../.secrets/keys/private.pem
+  auth-public.pem:
+    file: ../.secrets/keys/public.pem
 
 volumes:
   postgres_data:
   mongo_data:
+  elasticsearch_data:
+  grafana_data:
 
 networks:
   ecommerce-network:
+    driver: bridge

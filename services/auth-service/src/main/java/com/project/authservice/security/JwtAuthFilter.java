@@ -1,10 +1,13 @@
 package com.project.authservice.security;
 
 import com.project.authservice.service.JwtService;
+import com.project.authservice.service.TokenBlacklistService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -15,56 +18,65 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+/**
+ * Validates self-issued JWTs on auth-service's own protected endpoints (/api/user,
+ * /api/admin, /api/auth/change-password). Other backend services use Spring's
+ * standard OAuth2 resource server filter chain (see common.security.ResourceServerSecurityConfig)
+ * which fetches our JWKS.
+ */
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
-
-    public JwtAuthFilter(JwtService jwtService) {
-        this.jwtService = jwtService;
-    }
+    private final TokenBlacklistService blacklist;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
+        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
+            chain.doFilter(request, response);
             return;
         }
 
         String token = authHeader.substring(7);
 
         try {
+            if (blacklist.isBlacklisted(token)) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.getWriter().write("Token revoked");
+                return;
+            }
+        } catch (Exception e) {
+            log.warn("Blacklist check failed; falling through: {}", e.getMessage());
+        }
+
+        try {
             if (jwtService.validateToken(token)) {
-                String email = jwtService.getEmailFromToken(token);
+                String userId = jwtService.getUserIdFromToken(token);
                 Set<String> roles = jwtService.getRolesFromToken(token);
                 Set<String> permissions = jwtService.getPermissionsFromToken(token);
 
-                List<GrantedAuthority> authorities = roles.stream()
-                        .map(SimpleGrantedAuthority::new)
-                        .collect(Collectors.toList());
+                List<GrantedAuthority> authorities = new ArrayList<>();
+                roles.forEach(r -> authorities.add(new SimpleGrantedAuthority(r)));
+                permissions.forEach(p -> authorities.add(new SimpleGrantedAuthority(p)));
 
-                authorities.addAll(permissions.stream()
-                        .map(SimpleGrantedAuthority::new)
-                        .toList());
-
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        email, null, authorities);
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                UsernamePasswordAuthenticationToken auth =
+                        new UsernamePasswordAuthenticationToken(userId, null, authorities);
+                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(auth);
             }
         } catch (Exception e) {
-            // Token validation failed, ignore and proceed. Security rules will block
-            // unauthenticated requests.
+            log.debug("JWT validation failed: {}", e.getMessage());
         }
 
-        filterChain.doFilter(request, response);
+        chain.doFilter(request, response);
     }
 }

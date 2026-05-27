@@ -2,5 +2,32 @@ server:
   port: 8082
 
 spring:
-  mongodb:
-    uri: mongodb://root:root@mongodb:27017/product_db?authSource=admin
+  data:
+    mongodb:
+      uri: mongodb://${MONGO_INITDB_ROOT_USERNAME:ecommerce}:${MONGO_INITDB_ROOT_PASSWORD:change_me_mongo}@${MONGO_HOST:mongodb}:${MONGO_PORT:27017}/product_db?authSource=admin
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  elasticsearch:
+    uris: http://${ELASTICSEARCH_HOST:elasticsearch}:${ELASTICSEARCH_PORT:9200}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWK_SET_URI:http://auth-service:8081/.well-known/jwks.json}
+
+elasticsearch:
+  host: ${ELASTICSEARCH_HOST:elasticsearch}
+  port: ${ELASTICSEARCH_PORT:9200}
+
+# We override the common ResourceServerSecurityConfig with product-service's own
+# (read endpoints public). Disabled here to avoid duplicate filter chains.
+common:
+  security:
+    resource-server:
+      enabled: false
+
+logging:
+  level:
+    com.project.product_service: INFO
