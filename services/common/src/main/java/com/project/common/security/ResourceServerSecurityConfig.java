@@ -43,7 +43,7 @@ import java.util.Arrays;
 @ConditionalOnProperty(value = "common.security.resource-server.enabled", havingValue = "true", matchIfMissing = true)
 public class ResourceServerSecurityConfig {
 
-    @Value("${cors.allowed-origins:http://localhost:4200,http://localhost:3000}")
+    @Value("${cors.allowed-origins:http://localhost:5173,http://localhost:5174}")
     private String allowedOrigins;
 
     @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri:}")

@@ -4,16 +4,16 @@ server:
 spring:
   data:
     mongodb:
-      uri: mongodb://${MONGO_INITDB_ROOT_USERNAME:ecommerce}:${MONGO_INITDB_ROOT_PASSWORD:change_me_mongo}@${MONGO_HOST:mongodb}:${MONGO_PORT:27017}/inventory_db?authSource=admin
+      uri: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@${MONGO_HOST}:${MONGO_PORT}/inventory_db?authSource=admin
     redis:
-      host: ${REDIS_HOST:redis}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
   security:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: ${JWK_SET_URI:http://auth-service:8081/.well-known/jwks.json}
+          jwk-set-uri: ${JWK_SET_URI}
 
 common:
   security:

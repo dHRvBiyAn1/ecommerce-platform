@@ -9,7 +9,7 @@ import { toast } from "sonner";
  * Landing page for the OAuth2 redirect.
  *
  * The backend's CustomOAuth2SuccessHandler redirects here as:
- *   http://localhost:4200/oauth2/redirect#token=<jwt>
+ *   http://localhost:5173/oauth2/redirect#token=<jwt>
  *
  * We extract the token from the URL fragment (never sent to the server),
  * store it, fetch the user profile, then navigate to the intended destination.

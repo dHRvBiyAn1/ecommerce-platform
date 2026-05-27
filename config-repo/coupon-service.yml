@@ -3,9 +3,9 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB:ecommerce}
-    username: ${POSTGRES_USER:ecommerce}
-    password: ${POSTGRES_PASSWORD:change_me_postgres}
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB_NAME}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -31,7 +31,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: ${JWK_SET_URI:http://auth-service:8081/.well-known/jwks.json}
+          jwk-set-uri: ${JWK_SET_URI}
 
 common:
   security:

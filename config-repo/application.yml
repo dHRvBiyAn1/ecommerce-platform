@@ -4,7 +4,7 @@
 eureka:
   client:
     serviceUrl:
-      defaultZone: ${EUREKA_DEFAULT_ZONE:http://discovery-server:8761/eureka/}
+      defaultZone: ${EUREKA_DEFAULT_ZONE}
     registerWithEureka: true
     fetchRegistry: true
   instance:
@@ -14,7 +14,7 @@ eureka:
 
 spring:
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
     producer:
       acks: all
       retries: 2147483647
@@ -39,7 +39,7 @@ management:
 # only when both `seed.enabled=true` AND its target collection/table is empty.
 # Default true for dev; flip to false in production via env.
 seed:
-  enabled: ${SEED_ENABLED:true}
+  enabled: ${SEED_ENABLED}
 
 logging:
   level:
