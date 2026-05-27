@@ -1,8 +1,7 @@
-version: "3.9"
-
 # ============================================================================
-# Local development stack. Pulls credentials from ../.env (copy from .env.example).
-# Bring up: `make up` from the repo root, or `docker compose --env-file ../.env up`.
+# Local development stack. Pulls credentials from .env at the repo root.
+# Bring up from the repo root:
+#   docker compose --env-file .env -f docker/docker-compose.yml up -d
 # ============================================================================
 
 x-shared-network: &shared-network
@@ -175,8 +174,13 @@ services:
     ports: ["8080:8080"]
     environment: &svc-common-env
       SPRING_PROFILES_ACTIVE: docker
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      EUREKA_DEFAULT_ZONE: ${EUREKA_DEFAULT_ZONE}
       JWK_SET_URI: http://auth-service:8081/.well-known/jwks.json
+      SEED_ENABLED: ${SEED_ENABLED}
     depends_on:
       discovery-server: {condition: service_healthy}
       config-server: {condition: service_healthy}
@@ -191,12 +195,18 @@ services:
       <<: *svc-common-env
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB_NAME}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB_NAME: ${POSTGRES_DB_NAME}
       ADMIN_EMAIL: ${AUTH_ADMIN_EMAIL}
       ADMIN_PASSWORD: ${AUTH_ADMIN_PASSWORD}
+      AUTH_ADMIN_DISPLAY_NAME: ${AUTH_ADMIN_DISPLAY_NAME}
+      SECURE_COOKIES: ${SECURE_COOKIES}
       AUTH_RSA_PRIVATE_KEY_LOCATION: ${AUTH_RSA_PRIVATE_KEY_LOCATION}
       AUTH_RSA_PUBLIC_KEY_LOCATION: ${AUTH_RSA_PUBLIC_KEY_LOCATION}
       AUTH_RSA_KID: ${AUTH_RSA_KID}
+      AUTH_RSA_PREVIOUS_PUBLIC_KEY_LOCATION: ${AUTH_RSA_PREVIOUS_PUBLIC_KEY_LOCATION}
+      AUTH_RSA_PREVIOUS_KID: ${AUTH_RSA_PREVIOUS_KID}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
@@ -219,8 +229,12 @@ services:
     ports: ["8082:8082"]
     environment:
       <<: *svc-common-env
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_ROOT_USER: ${MONGO_ROOT_USER}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_HOST: ${MONGO_HOST}
+      MONGO_PORT: ${MONGO_PORT}
+      ELASTICSEARCH_HOST: ${ELASTICSEARCH_HOST}
+      ELASTICSEARCH_PORT: ${ELASTICSEARCH_PORT}
     depends_on:
       mongodb: {condition: service_healthy}
       redis: {condition: service_healthy}
@@ -236,8 +250,10 @@ services:
     ports: ["8083:8083"]
     environment:
       <<: *svc-common-env
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_ROOT_USER: ${MONGO_ROOT_USER}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_HOST: ${MONGO_HOST}
+      MONGO_PORT: ${MONGO_PORT}
     depends_on:
       mongodb: {condition: service_healthy}
       redis: {condition: service_healthy}
@@ -252,8 +268,10 @@ services:
     ports: ["8084:8084"]
     environment:
       <<: *svc-common-env
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_ROOT_USER: ${MONGO_ROOT_USER}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_HOST: ${MONGO_HOST}
+      MONGO_PORT: ${MONGO_PORT}
     depends_on:
       mongodb: {condition: service_healthy}
       kafka: {condition: service_healthy}
@@ -268,8 +286,10 @@ services:
     ports: ["8085:8085"]
     environment:
       <<: *svc-common-env
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_ROOT_USER: ${MONGO_ROOT_USER}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_HOST: ${MONGO_HOST}
+      MONGO_PORT: ${MONGO_PORT}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
       PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET}
@@ -287,10 +307,16 @@ services:
     ports: ["8086:8086"]
     environment:
       <<: *svc-common-env
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_ROOT_USER: ${MONGO_ROOT_USER}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_HOST: ${MONGO_HOST}
+      MONGO_PORT: ${MONGO_PORT}
       SMTP_HOST: mailhog
       SMTP_PORT: "1025"
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      EMAIL_FROM: ${EMAIL_FROM}
+      WAREHOUSE_EMAIL: ${WAREHOUSE_EMAIL}
     depends_on:
       mongodb: {condition: service_healthy}
       kafka: {condition: service_healthy}
@@ -305,8 +331,10 @@ services:
     ports: ["8087:8087"]
     environment:
       <<: *svc-common-env
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_ROOT_USER: ${MONGO_ROOT_USER}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_HOST: ${MONGO_HOST}
+      MONGO_PORT: ${MONGO_PORT}
     depends_on:
       mongodb: {condition: service_healthy}
       config-server: {condition: service_healthy}
@@ -321,7 +349,9 @@ services:
       <<: *svc-common-env
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB_NAME}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB_NAME: ${POSTGRES_DB_NAME}
     depends_on:
       postgres: {condition: service_healthy}
       config-server: {condition: service_healthy}

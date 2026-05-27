@@ -12,6 +12,9 @@ target/
 .settings/
 .project
 .classpath
+.opencode/
+.superpowers/
+.agents/
 *.swp
 *.swo
 
@@ -22,7 +25,6 @@ Thumbs.db
 # Node / Angular
 node_modules/
 dist/
-frontend/ecommerce-app/.angular/
 
 # Local env / secrets — NEVER COMMIT
 .env
