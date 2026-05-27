@@ -59,12 +59,20 @@ public class DataInitializer implements CommandLineRunner {
     @Value("${admin.display-name:Platform Admin}")
     private String adminDisplayName;
 
+    @Value("${seed.enabled:false}")
+    private boolean seedEnabled;
+    @Value("${seed.user-password:Password1!}")
+    private String seedUserPassword;
+
     @Override
     @Transactional
     public void run(String... args) {
         seedPermissions();
         Map<String, Role> roles = seedRoles();
         seedAdmin(roles.get(Roles.ADMIN));
+        if (seedEnabled) {
+            seedSampleUsers(roles);
+        }
     }
 
     private void seedPermissions() {
@@ -172,5 +180,62 @@ public class DataInitializer implements CommandLineRunner {
         userCredentialRepository.save(cred);
 
         log.info("Bootstrap admin created: {}", adminEmail);
+    }
+
+    /**
+     * Idempotent seed of 20 customers + 5 sellers + 1 support user with
+     * deterministic UUIDs from {@link com.project.common.sampledata.SampleIds}.
+     * All sample users share the same password (default {@code Password1!})
+     * for ease of manual testing. Skipped when seed.enabled=false.
+     */
+    private void seedSampleUsers(Map<String, Role> roles) {
+        long existing = userRepository.count();
+        if (existing > 5) {
+            log.info("Sample users: skipping (user table has {} rows already)", existing);
+            return;
+        }
+        log.info("Sample users: seeding {} customers + {} sellers + 1 support",
+                com.project.common.sampledata.SampleIds.CUSTOMERS.size(),
+                com.project.common.sampledata.SampleIds.SELLERS.size());
+
+        String hash = passwordEncoder.encode(seedUserPassword);
+
+        for (var u : com.project.common.sampledata.SampleIds.CUSTOMERS) {
+            createIfMissing(u.id(), u.email(), u.displayName(), roles.get(Roles.CUSTOMER), hash);
+        }
+        for (var u : com.project.common.sampledata.SampleIds.SELLERS) {
+            createIfMissing(u.id(), u.email(), u.displayName(),
+                    roles.get(Roles.SELLER), roles.get(Roles.CUSTOMER), hash);
+        }
+        var support = com.project.common.sampledata.SampleIds.SUPPORT;
+        createIfMissing(support.id(), support.email(), support.displayName(),
+                roles.get(Roles.SUPPORT), hash);
+
+        log.info("Sample users seeded. Login with any sample email + password '{}'", seedUserPassword);
+    }
+
+    private void createIfMissing(java.util.UUID id, String email, String displayName,
+                                 Role role, String hash) {
+        createIfMissing(id, email, displayName, role, null, hash);
+    }
+
+    private void createIfMissing(java.util.UUID id, String email, String displayName,
+                                 Role primaryRole, Role secondaryRole, String hash) {
+        if (userRepository.existsByEmail(email) || userRepository.existsById(id)) return;
+
+        User user = new User();
+        user.setId(id);
+        user.setEmail(email);
+        user.setDisplayName(displayName);
+        user.setActive(true);
+        user.getRoles().add(primaryRole);
+        if (secondaryRole != null) user.getRoles().add(secondaryRole);
+        user = userRepository.save(user);
+
+        UserCredential cred = new UserCredential();
+        cred.setUser(user);
+        cred.setAuthProvider(AuthProvider.LOCAL);
+        cred.setPasswordHash(hash);
+        userCredentialRepository.save(cred);
     }
 }

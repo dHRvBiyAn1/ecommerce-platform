@@ -3,13 +3,16 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { Seo } from "@/components/seo";
 import { login, me } from "@/api/auth";
+import { getAuthProviders } from "@/api/discovery";
 import { useAuthStore } from "@/stores/auth";
 
 const Schema = z.object({
@@ -50,6 +53,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-fade-in">
+      <Seo title="Sign in" />
       <div>
         <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
           Welcome back
@@ -134,14 +138,43 @@ export const LoginPage: React.FC = () => {
         <span className="h-px flex-1 bg-border" />
       </div>
 
+      <SocialLoginButtons />
+    </div>
+  );
+};
+
+const SocialLoginButtons: React.FC = () => {
+  const { data, isLoading } = useQuery({
+    queryKey: ["auth", "providers"],
+    queryFn: getAuthProviders,
+    staleTime: 10 * 60_000,
+  });
+
+  if (isLoading) {
+    return (
       <div className="grid grid-cols-2 gap-3">
-        <Button variant="outline" asChild>
-          <a href="/oauth2/authorization/google">Google</a>
-        </Button>
-        <Button variant="outline" asChild>
-          <a href="/oauth2/authorization/github">GitHub</a>
-        </Button>
+        <div className="h-10 animate-pulse rounded-md bg-muted" />
+        <div className="h-10 animate-pulse rounded-md bg-muted" />
       </div>
+    );
+  }
+
+  const providers = data?.providers ?? [];
+  if (providers.length === 0) {
+    return (
+      <p className="rounded-md border bg-muted/40 px-3 py-2 text-center text-xs text-muted-foreground">
+        Social login isn't configured on this server. Use email + password above.
+      </p>
+    );
+  }
+
+  return (
+    <div className={`grid gap-3 ${providers.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+      {providers.map((p) => (
+        <Button key={p.id} variant="outline" asChild>
+          <a href={p.authorizationUrl}>{p.label}</a>
+        </Button>
+      ))}
     </div>
   );
 };

@@ -92,7 +92,9 @@ public class ProductController {
     public ResponseEntity<ProductResponse> createProduct(@Valid @RequestBody ProductRequest request) {
         UUID sellerId = CurrentUser.requireId();
         request.setSellerId(sellerId);
-        return new ResponseEntity<>(productService.createProduct(request), HttpStatus.CREATED);
+        return new ResponseEntity<>(
+                productService.createProduct(request, CurrentUser.isAdmin()),
+                HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
@@ -120,9 +122,39 @@ public class ProductController {
         return ResponseEntity.ok(productService.updateStock(id, request.stockQuantity()));
     }
 
-    @PutMapping("/admin/{id}/active")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{id}/active")
+    @PreAuthorize("hasAuthority('" + Permissions.PRODUCTS_UPDATE + "')")
     public ResponseEntity<ProductResponse> toggleProductActive(@PathVariable String id, @RequestParam boolean active) {
-        return ResponseEntity.ok(productService.setProductActiveStatus(id, active));
+        return ResponseEntity.ok(productService.setProductActiveStatus(
+                id, active, CurrentUser.requireId(), CurrentUser.isAdmin()));
+    }
+
+    /** Admin moderation: approve a pending product. */
+    @PutMapping("/{id}/approve")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ProductResponse> approveProduct(@PathVariable String id) {
+        return ResponseEntity.ok(productService.setApprovalStatus(
+                id, com.project.product_service.model.ProductApprovalStatus.APPROVED,
+                CurrentUser.requireId(), null));
+    }
+
+    /** Admin moderation: reject a pending product with a reason. */
+    @PutMapping("/{id}/reject")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ProductResponse> rejectProduct(
+            @PathVariable String id,
+            @RequestParam String reason) {
+        return ResponseEntity.ok(productService.setApprovalStatus(
+                id, com.project.product_service.model.ProductApprovalStatus.REJECTED,
+                CurrentUser.requireId(), reason));
+    }
+
+    /** Admin moderation list — paged products filtered by approval status. */
+    @GetMapping("/admin/by-status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Page<ProductResponse>> listByApprovalStatus(
+            @RequestParam com.project.product_service.model.ProductApprovalStatus status,
+            @PageableDefault(size = 50) Pageable pageable) {
+        return ResponseEntity.ok(productService.listByApprovalStatus(status, pageable));
     }
 }

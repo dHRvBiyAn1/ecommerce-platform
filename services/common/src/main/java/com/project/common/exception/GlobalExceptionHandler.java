@@ -15,6 +15,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -66,6 +67,29 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex,
                                                                   HttpServletRequest req) {
         return build(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED", ex.getMessage(), req, null, null);
+    }
+
+    /**
+     * Spring 6 raises {@link NoResourceFoundException} (instead of falling through
+     * to the default 404 handler) when no controller mapping matches and the path
+     * also doesn't resolve to a static resource. Treat it as a clean 404.
+     *
+     * <p>Most common trigger in this codebase: hitting
+     * {@code /oauth2/authorization/google} on a deployment where Google client
+     * credentials aren't configured, so the OAuth2Login filter chain isn't
+     * installed.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException ex, HttpServletRequest req) {
+        String path = req.getRequestURI();
+        String code = "NOT_FOUND";
+        String message = "Endpoint not found: " + path;
+        if (path != null && (path.startsWith("/oauth2/") || path.startsWith("/login/oauth2/"))) {
+            code = "OAUTH2_PROVIDER_NOT_CONFIGURED";
+            message = "OAuth2 social login isn't configured on this server. " +
+                    "Set GOOGLE_CLIENT_ID / GITHUB_CLIENT_ID env vars and restart auth-service to enable.";
+        }
+        return build(HttpStatus.NOT_FOUND, code, message, req, null, null);
     }
 
     @ExceptionHandler(BadCredentialsException.class)

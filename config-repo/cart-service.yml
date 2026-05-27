@@ -1,0 +1,22 @@
+server:
+  port: 8087
+
+spring:
+  data:
+    mongodb:
+      uri: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@${MONGO_HOST}:${MONGO_PORT}/cart_db?authSource=admin
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWK_SET_URI}
+
+# Disable common's auto resource-server config; cart-service does it locally.
+common:
+  security:
+    resource-server:
+      enabled: false
+
+logging:
+  level:
+    com.project.cart: INFO

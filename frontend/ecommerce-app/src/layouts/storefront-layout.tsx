@@ -8,6 +8,7 @@ import {
   Search,
   Settings,
   ShoppingBag,
+  Store,
   User2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -210,6 +211,16 @@ export const StorefrontLayout: React.FC = () => {
                       <DropdownMenuItem asChild>
                         <Link to="/admin">
                           <Settings className="h-4 w-4" /> Seller / admin
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  {!isSeller && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link to="/account/become-seller">
+                          <Store className="h-4 w-4" /> Become a seller
                         </Link>
                       </DropdownMenuItem>
                     </>

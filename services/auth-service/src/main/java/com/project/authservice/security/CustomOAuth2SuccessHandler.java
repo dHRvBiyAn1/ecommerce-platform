@@ -31,7 +31,7 @@ public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler 
     @Value("${security.cookies.secure:true}")
     private boolean secureCookie;
 
-    @Value("${app.frontend-base-url:http://localhost:4200}")
+    @Value("${app.frontend-base-url:http://localhost:5173}")
     private String frontendBaseUrl;
 
     @Value("${app.oauth2-redirect-path:/oauth2/redirect}")

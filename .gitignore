@@ -26,12 +26,14 @@ frontend/ecommerce-app/.angular/
 
 # Local env / secrets — NEVER COMMIT
 .env
+.env.example
 .env.local
 .env.*.local
 .secrets/
 *.pem
 !**/test/**/*.pem
 config-repo/secrets/
+agents.md
 
 # Test outputs
 coverage/

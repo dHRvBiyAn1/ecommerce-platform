@@ -56,10 +56,19 @@ export interface UserProfile {
   email: string;
   displayName: string | null;
   imageUrl: string | null;
+  phone?: string | null;
   active: boolean;
   createdAt?: string;
   roles: string[];
   permissions: string[];
+  shippingAddress?: Address | null;
+  billingAddress?: Address | null;
+  /**
+   * True iff the user has a LOCAL credential. False for OAuth2-only users
+   * (e.g. Google) — the frontend uses this to hide the change-password card
+   * since they have no password to change.
+   */
+  hasPassword?: boolean;
 }
 
 export interface RegistrationRequest {
@@ -81,6 +90,9 @@ export interface Product {
   imageUrls: string[] | null;
   sellerId: string;
   active: boolean;
+  /** Marketplace moderation status. New seller products default to PENDING. */
+  approvalStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
+  rejectionReason?: string | null;
 }
 
 export interface Category {
@@ -148,13 +160,13 @@ export interface OrderItem {
 }
 
 export interface Address {
-  fullName: string;
-  phone: string;
-  street: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  country: string;
+  fullName?: string | null;
+  phone?: string | null;
+  street?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zipCode?: string | null;
+  country?: string | null;
 }
 
 export interface Order {

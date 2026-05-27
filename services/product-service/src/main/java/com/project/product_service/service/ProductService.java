@@ -22,11 +22,26 @@ public interface ProductService {
 
     ProductResponse createProduct(ProductRequest request);
 
+    /** Used when an admin creates a product directly so it auto-approves. */
+    ProductResponse createProduct(ProductRequest request, boolean isAdmin);
+
     ProductResponse updateProduct(String id, ProductRequest request, boolean isAdmin);
+
+    /** Admin moderation: APPROVE or REJECT a pending product. */
+    ProductResponse setApprovalStatus(
+            String id,
+            com.project.product_service.model.ProductApprovalStatus status,
+            UUID adminId,
+            String rejectionReason);
+
+    /** Admin moderation list — by approval status. */
+    Page<ProductResponse> listByApprovalStatus(
+            com.project.product_service.model.ProductApprovalStatus status,
+            Pageable pageable);
 
     void deleteProduct(String id, UUID sellerId, boolean isAdmin);
 
-    ProductResponse setProductActiveStatus(String id, boolean active);
+    ProductResponse setProductActiveStatus(String id, boolean active, UUID sellerId, boolean isAdmin);
 
     ProductResponse updateStock(String id, Integer stockQuantity);
 

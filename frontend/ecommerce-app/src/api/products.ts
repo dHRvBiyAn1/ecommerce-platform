@@ -90,9 +90,37 @@ export async function deleteProduct(id: string): Promise<void> {
 
 export async function setProductActive(id: string, active: boolean): Promise<Product> {
   const { data } = await client.put<Product>(
-    `/v1/products/admin/${id}/active`,
+    `/v1/products/${id}/active`,
     null,
     { params: { active } },
+  );
+  return data;
+}
+
+// ---- Admin moderation ----
+
+export async function approveProduct(id: string): Promise<Product> {
+  const { data } = await client.put<Product>(`/v1/products/${id}/approve`);
+  return data;
+}
+
+export async function rejectProduct(id: string, reason: string): Promise<Product> {
+  const { data } = await client.put<Product>(
+    `/v1/products/${id}/reject`,
+    null,
+    { params: { reason } },
+  );
+  return data;
+}
+
+/** Admin: list products by approvalStatus (PENDING / APPROVED / REJECTED). */
+export async function listByApprovalStatus(
+  status: "PENDING" | "APPROVED" | "REJECTED",
+  q: ProductQuery = {},
+): Promise<SpringPage<Product>> {
+  const { data } = await client.get<SpringPage<Product>>(
+    "/v1/products/admin/by-status",
+    { params: { status, page: q.page ?? 0, size: q.size ?? 50 } },
   );
   return data;
 }

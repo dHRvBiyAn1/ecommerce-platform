@@ -77,7 +77,14 @@ export const OrdersPage: React.FC = () => {
                         {o.orderNumber}
                       </Link>
                       <StatusBadge status={o.status} />
-                      <Badge variant="outline">{o.paymentStatus ?? "—"}</Badge>
+                      {/*
+                        Payment-status badge only shows when it adds new information
+                        — i.e. when it differs from the order status. Avoids the
+                        "PENDING / PENDING" duplicate that customers found confusing.
+                      */}
+                      {o.paymentStatus && o.paymentStatus !== o.status && (
+                        <Badge variant="outline">{o.paymentStatus}</Badge>
+                      )}
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
                       Placed {formatDate(o.createdAt)} · {o.items.length} item

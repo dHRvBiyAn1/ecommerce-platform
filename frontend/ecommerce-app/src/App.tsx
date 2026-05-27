@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/components/protected-route";
 // Auth — likely first hop, keep eager for snappier login.
 import { LoginPage } from "@/pages/auth/login";
 import { RegisterPage } from "@/pages/auth/register";
+import { OAuth2RedirectPage } from "@/pages/auth/oauth2-redirect";
 import { HomePage } from "@/pages/storefront/home";
 
 // Code-split everything else to keep the initial bundle small.
@@ -26,6 +27,9 @@ const AdminProductFormPage = lazy(() => import("@/pages/admin/product-form").the
 const AdminInventoryPage = lazy(() => import("@/pages/admin/inventory").then((m) => ({ default: m.AdminInventoryPage })));
 const AdminOrdersPage = lazy(() => import("@/pages/admin/orders").then((m) => ({ default: m.AdminOrdersPage })));
 const AdminUsersPage = lazy(() => import("@/pages/admin/users").then((m) => ({ default: m.AdminUsersPage })));
+const AdminSellerApplicationsPage = lazy(() => import("@/pages/admin/seller-applications").then((m) => ({ default: m.AdminSellerApplicationsPage })));
+const AdminProductApprovalsPage = lazy(() => import("@/pages/admin/product-approvals").then((m) => ({ default: m.AdminProductApprovalsPage })));
+const BecomeSellerPage = lazy(() => import("@/pages/account/become-seller").then((m) => ({ default: m.BecomeSellerPage })));
 const NotFoundPage = lazy(() => import("@/pages/not-found").then((m) => ({ default: m.NotFoundPage })));
 
 export default function App() {
@@ -36,6 +40,9 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
       </Route>
+
+      {/* OAuth2 social login callback — outside AuthLayout so it has no chrome */}
+      <Route path="/oauth2/redirect" element={<OAuth2RedirectPage />} />
 
       {/* Storefront */}
       <Route element={<StorefrontLayout />}>
@@ -102,6 +109,14 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/account/become-seller"
+          element={
+            <ProtectedRoute>
+              <BecomeSellerPage />
+            </ProtectedRoute>
+          }
+        />
       </Route>
 
       {/* Admin */}
@@ -119,6 +134,8 @@ export default function App() {
         <Route path="/admin/inventory" element={<AdminInventoryPage />} />
         <Route path="/admin/orders" element={<AdminOrdersPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/seller-applications" element={<AdminSellerApplicationsPage />} />
+        <Route path="/admin/product-approvals" element={<AdminProductApprovalsPage />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />

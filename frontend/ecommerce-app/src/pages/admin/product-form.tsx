@@ -86,10 +86,12 @@ export const AdminProductFormPage: React.FC = () => {
 
   const create = useMutation({
     mutationFn: createProduct,
-    onSuccess: (p) => {
+    onSuccess: () => {
       toast.success("Product created");
       qc.invalidateQueries({ queryKey: ["admin", "my-products"] });
-      navigate(`/admin/products/${p.id}`, { replace: true });
+      // Sellers and admins both land on the list after creating, so they
+      // can immediately see the new row in context.
+      navigate("/admin/products", { replace: true });
     },
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
   });
@@ -99,6 +101,7 @@ export const AdminProductFormPage: React.FC = () => {
     onSuccess: () => {
       toast.success("Product updated");
       qc.invalidateQueries({ queryKey: ["admin", "my-products"] });
+      navigate("/admin/products", { replace: true });
     },
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
   });

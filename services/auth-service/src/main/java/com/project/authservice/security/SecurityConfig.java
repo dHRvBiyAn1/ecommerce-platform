@@ -40,6 +40,7 @@ public class SecurityConfig {
                                 "/api/auth/magic-link/request",
                                 "/api/auth/magic-link/verify"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/providers").permitAll()
                         // OAuth2 social login + JWKS + actuator + OpenAPI
                         .requestMatchers(
                                 "/.well-known/jwks.json",

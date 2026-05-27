@@ -43,4 +43,19 @@ public class Product {
     // private Map<String, Object> attributes;
 
     private boolean active = true; // for soft delete / visibility
+
+    /**
+     * Marketplace moderation status. New seller-listed products default to
+     * {@link ProductApprovalStatus#PENDING}; admin-created products are
+     * auto-APPROVED. Public catalog endpoints filter by APPROVED.
+     */
+    @Indexed
+    private ProductApprovalStatus approvalStatus = ProductApprovalStatus.PENDING;
+
+    /** Free-text reason populated when the admin rejects the listing. */
+    private String rejectionReason;
+
+    private java.time.LocalDateTime reviewedAt;
+
+    private UUID reviewedBy;
 }

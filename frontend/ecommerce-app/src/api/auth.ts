@@ -45,7 +45,7 @@ export async function me(): Promise<UserProfile> {
 }
 
 export async function updateProfile(
-  patch: Partial<Pick<UserProfile, "displayName" | "imageUrl">>,
+  patch: Partial<Pick<UserProfile, "displayName" | "imageUrl" | "phone" | "shippingAddress" | "billingAddress">>,
 ): Promise<UserProfile> {
   const { data } = await client.put<ApiResponse<UserProfile>>(
     "/user/profile",

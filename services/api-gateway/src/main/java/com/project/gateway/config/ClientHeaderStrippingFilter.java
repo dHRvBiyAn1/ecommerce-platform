@@ -33,7 +33,7 @@ public class ClientHeaderStrippingFilter {
     );
 
     @Bean
-    public Filter clientHeaderStrippingFilter() {
+    public Filter stripClientIdentityHeadersFilter() {
         return new Filter() {
             @Override
             public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
@@ -65,8 +65,8 @@ public class ClientHeaderStrippingFilter {
     }
 
     @Bean
-    public org.springframework.boot.web.servlet.FilterRegistrationBean<Filter> headerStripperRegistration(Filter clientHeaderStrippingFilter) {
-        org.springframework.boot.web.servlet.FilterRegistrationBean<Filter> bean = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(clientHeaderStrippingFilter);
+    public org.springframework.boot.web.servlet.FilterRegistrationBean<Filter> headerStripperRegistration(Filter stripClientIdentityHeadersFilter) {
+        org.springframework.boot.web.servlet.FilterRegistrationBean<Filter> bean = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(stripClientIdentityHeadersFilter);
         bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
         bean.addUrlPatterns("/*");
         return bean;
