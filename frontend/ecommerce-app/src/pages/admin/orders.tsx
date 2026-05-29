@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { PageSpinner } from "@/components/ui/spinner";
 import { ProductArt } from "@/components/product-art";
-import { DataTable } from "@/components/data-table";
+import { DataTable } from "@/components/ui/data-table";
 import { listAllOrders, updateOrderStatus } from "@/api/orders";
 import type { Order, OrderStatus } from "@/api/types";
 import { useAuthStore } from "@/stores/auth";

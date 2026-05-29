@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { DataTable } from "@/components/data-table";
+import { DataTable } from "@/components/ui/data-table";
 import {
   approveSellerApplication,
   listSellerApplications,

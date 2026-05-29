@@ -1,0 +1,7 @@
+logging:
+  level:
+    com.project: DEBUG
+    org.springframework.web: INFO
+
+seed:
+  enabled: true

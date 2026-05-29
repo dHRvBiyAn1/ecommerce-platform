@@ -8,6 +8,7 @@ import { ProductArt } from "@/components/product-art";
 import { useCart } from "@/stores/cart";
 import { useAuthStore } from "@/stores/auth";
 import { formatMoney } from "@/lib/utils";
+import { toast } from "sonner";
 
 const FREE_SHIPPING = 499;
 const SHIPPING_COST = 49;
@@ -68,7 +69,13 @@ export const CartPage: React.FC = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => remove(l.productId)}
+                    onClick={async () => {
+                      try {
+                        await remove(l.productId);
+                      } catch (err: any) {
+                        toast.error(err?.message ?? "Failed to remove item");
+                      }
+                    }}
                     className="rounded p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                     aria-label="Remove"
                   >
@@ -79,7 +86,13 @@ export const CartPage: React.FC = () => {
                   <div className="inline-flex items-center rounded-md border">
                     <button
                       type="button"
-                      onClick={() => setQuantity(l.productId, l.quantity - 1)}
+                      onClick={async () => {
+                        try {
+                          await setQuantity(l.productId, l.quantity - 1);
+                        } catch (err: any) {
+                          toast.error(err?.message ?? "Failed to update quantity");
+                        }
+                      }}
                       className="grid h-8 w-8 place-items-center"
                       aria-label="Decrement"
                     >
@@ -90,7 +103,13 @@ export const CartPage: React.FC = () => {
                     </span>
                     <button
                       type="button"
-                      onClick={() => setQuantity(l.productId, l.quantity + 1)}
+                      onClick={async () => {
+                        try {
+                          await setQuantity(l.productId, l.quantity + 1);
+                        } catch (err: any) {
+                          toast.error(err?.message ?? "Failed to update quantity");
+                        }
+                      }}
                       className="grid h-8 w-8 place-items-center"
                       aria-label="Increment"
                     >

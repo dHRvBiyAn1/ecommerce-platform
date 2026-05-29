@@ -17,7 +17,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ProductArt } from "@/components/product-art";
-import { DataTable } from "@/components/data-table";
+import { DataTable } from "@/components/ui/data-table";
 import { approveProduct, listByApprovalStatus, rejectProduct } from "@/api/products";
 import type { Product } from "@/api/types";
 import { formatMoney } from "@/lib/utils";

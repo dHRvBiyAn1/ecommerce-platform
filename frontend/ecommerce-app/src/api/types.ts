@@ -249,3 +249,45 @@ export interface Notification {
   readAt?: string;
   sourceEventId?: string;
 }
+
+// ---- Cart ----
+
+export interface CartItem {
+  productId: string;
+  sku: string;
+  productName: string;
+  imageUrl: string | null;
+  unitPrice: number;
+  quantity: number;
+}
+
+export interface Cart {
+  id: string;
+  userId: string;
+  items: CartItem[];
+  currency: string;
+  appliedCouponCode?: string | null;
+  appliedDiscountAmount?: number;
+  subtotal: number;
+  total: number;
+  itemCount: number;
+  updatedAt: string;
+}
+
+export interface AddCartItemRequest {
+  productId: string;
+  sku: string;
+  productName: string;
+  imageUrl?: string | null;
+  unitPrice: number;
+  quantity: number;
+  currency?: string;
+}
+
+export interface UpdateQuantityRequest {
+  quantity: number;
+}
+
+export interface ApplyCouponRequest {
+  code: string;
+}

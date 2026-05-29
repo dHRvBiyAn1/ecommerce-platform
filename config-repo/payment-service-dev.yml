@@ -1,0 +1,3 @@
+stripe:
+  # Dummy override for dev, real key still injected via env if present
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET_DEV:dummy_dev_secret}

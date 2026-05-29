@@ -13,6 +13,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { changePassword, me, updateProfile } from "@/api/auth";
 import type { Address, UserProfile } from "@/api/types";
 import { useAuthStore } from "@/stores/auth";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { User, Shield, MapPin, Activity, BadgeCheck, Phone, Mail } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -71,55 +73,169 @@ export const ProfilePage: React.FC = () => {
   const profile = useQuery({ queryKey: ["me"], queryFn: me });
   const data = profile.data;
 
+  const initials = data
+    ? (data.displayName ?? data.email)
+        .split(" ")
+        .map((s) => s.charAt(0).toUpperCase())
+        .slice(0, 2)
+        .join("")
+    : "?";
+
   return (
-    <div className="container py-12">
-      <header className="mb-8">
-        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Account</p>
-        <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight">Profile</h1>
+    <div className="container relative py-12">
+      {/* Decorative ambient gradients */}
+      <div className="absolute inset-0 -z-10 flex justify-center overflow-hidden">
+        <div className="h-96 w-[600px] rounded-full bg-accent/5 blur-3xl" />
+        <div className="ml-96 h-80 w-80 rounded-full bg-destructive/5 blur-3xl" />
+      </div>
+
+      <header className="mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Account settings</p>
+          <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight">Profile</h1>
+        </div>
       </header>
 
       {profile.isLoading ? (
         <Spinner />
       ) : data ? (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <IdentityCard
-            data={data}
-            onSaved={(u) => {
-              setUser(u);
-              qc.setQueryData(["me"], u);
-            }}
-          />
+        <div className="space-y-8">
+          {/* Bento Header Grid */}
+          <div className="grid gap-6 md:grid-cols-3">
+            {/* Bento Block 1: User Profile Header (Glassmorphic) */}
+            <div className="md:col-span-2 relative overflow-hidden rounded-2xl border border-white/10 bg-card/45 p-6 shadow-xl backdrop-blur-md flex flex-col justify-between sm:flex-row sm:items-center gap-6">
+              <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-accent/10 blur-2xl" />
+              <div className="flex items-center gap-6 min-w-0">
+                {data.imageUrl ? (
+                  <img
+                    src={data.imageUrl}
+                    alt={data.displayName ?? "Profile"}
+                    className="h-20 w-20 rounded-full object-cover ring-2 ring-accent/30"
+                  />
+                ) : (
+                  <div className="grid h-20 w-20 place-items-center rounded-full bg-accent/15 text-accent font-display text-2xl font-bold">
+                    {initials}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="inline-flex items-center gap-2">
+                    <h2 className="font-display text-2xl font-bold tracking-tight truncate">
+                      {data.displayName ?? "Dear Member"}
+                    </h2>
+                    {data.roles?.includes("ADMIN") && (
+                      <span className="inline-flex items-center gap-1 rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">
+                        <BadgeCheck className="h-3.5 w-3.5" /> Staff
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1 truncate">
+                    <Mail className="h-3.5 w-3.5" /> {data.email}
+                  </p>
+                  {data.phone && (
+                    <p className="text-sm text-muted-foreground flex items-center gap-2 mt-0.5 truncate">
+                      <Phone className="h-3.5 w-3.5" /> {data.phone}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
 
-          {/*
-            Hide the change-password card for users without a LOCAL credential
-            (e.g. signed in via Google). They have no password to change.
-          */}
-          {data.hasPassword !== false && <PasswordCard />}
+            {/* Bento Block 2: Quick Status Info */}
+            <div className="rounded-2xl border border-white/10 bg-card/40 p-6 shadow-xl backdrop-blur-md flex flex-col justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-muted-foreground font-mono">Platform Access</p>
+                <div className="mt-3 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Authorized roles</span>
+                    <span className="font-medium text-foreground">{data.roles?.join(", ") || "Member"}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Auth method</span>
+                    <span className="font-medium text-foreground">{data.hasPassword === false ? "Google SSO" : "Local Password"}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-2 text-xs text-muted-foreground">
+                <Activity className="h-3.5 w-3.5 text-accent animate-pulse" />
+                <span>Account status: Healthy</span>
+              </div>
+            </div>
+          </div>
 
-          <AddressCard
-            title="Shipping address"
-            description="We'll ship every order here unless you choose another at checkout."
-            value={data.shippingAddress ?? null}
-            onSave={(addr) =>
-              updateProfile({ shippingAddress: addr }).then((u) => {
-                qc.setQueryData(["me"], u);
-                setUser(u);
-              })
-            }
-          />
+          {/* Bento Tabs Container */}
+          <Tabs defaultValue="identity" className="w-full">
+            <TabsList className="w-full justify-start border-b border-white/10 bg-transparent h-auto p-0 mb-8 rounded-none gap-8">
+              <TabsTrigger
+                value="identity"
+                className="bg-transparent border-b-2 border-transparent rounded-none px-1 py-3 text-sm font-medium tracking-wide text-muted-foreground data-[state=active]:border-accent data-[state=active]:text-foreground data-[state=active]:bg-transparent shadow-none"
+              >
+                <User className="mr-2 h-4 w-4" /> Personal info
+              </TabsTrigger>
+              {data.hasPassword !== false && (
+                <TabsTrigger
+                  value="security"
+                  className="bg-transparent border-b-2 border-transparent rounded-none px-1 py-3 text-sm font-medium tracking-wide text-muted-foreground data-[state=active]:border-accent data-[state=active]:text-foreground data-[state=active]:bg-transparent shadow-none"
+                >
+                  <Shield className="mr-2 h-4 w-4" /> Security
+                </TabsTrigger>
+              )}
+              <TabsTrigger
+                value="addresses"
+                className="bg-transparent border-b-2 border-transparent rounded-none px-1 py-3 text-sm font-medium tracking-wide text-muted-foreground data-[state=active]:border-accent data-[state=active]:text-foreground data-[state=active]:bg-transparent shadow-none"
+              >
+                <MapPin className="mr-2 h-4 w-4" /> Address book
+              </TabsTrigger>
+            </TabsList>
 
-          <AddressCard
-            title="Billing address"
-            description="Used on invoices and receipts."
-            value={data.billingAddress ?? null}
-            copyFromValue={data.shippingAddress ?? null}
-            onSave={(addr) =>
-              updateProfile({ billingAddress: addr }).then((u) => {
-                qc.setQueryData(["me"], u);
-                setUser(u);
-              })
-            }
-          />
+            <TabsContent value="identity" className="mt-0 focus-visible:ring-0">
+              <div className="max-w-2xl">
+                <IdentityCard
+                  data={data}
+                  onSaved={(u) => {
+                    setUser(u);
+                    qc.setQueryData(["me"], u);
+                  }}
+                />
+              </div>
+            </TabsContent>
+
+            {data.hasPassword !== false && (
+              <TabsContent value="security" className="mt-0 focus-visible:ring-0">
+                <div className="max-w-2xl">
+                  <PasswordCard />
+                </div>
+              </TabsContent>
+            )}
+
+            <TabsContent value="addresses" className="mt-0 focus-visible:ring-0">
+              <div className="grid gap-6 md:grid-cols-2">
+                <AddressCard
+                  title="Shipping address"
+                  description="We'll ship every order here unless you choose another at checkout."
+                  value={data.shippingAddress ?? null}
+                  onSave={(addr) =>
+                    updateProfile({ shippingAddress: addr }).then((u) => {
+                      qc.setQueryData(["me"], u);
+                      setUser(u);
+                    })
+                  }
+                />
+
+                <AddressCard
+                  title="Billing address"
+                  description="Used on invoices and receipts."
+                  value={data.billingAddress ?? null}
+                  copyFromValue={data.shippingAddress ?? null}
+                  onSave={(addr) =>
+                    updateProfile({ billingAddress: addr }).then((u) => {
+                      qc.setQueryData(["me"], u);
+                      setUser(u);
+                    })
+                  }
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       ) : null}
     </div>
@@ -164,7 +280,7 @@ const IdentityCard: React.FC<{
     .join("");
 
   return (
-    <Card>
+    <Card className="backdrop-blur-md bg-card/45 border border-white/10 shadow-xl rounded-2xl transition-all duration-300 hover:border-accent/20">
       <CardHeader>
         <CardTitle>Identity</CardTitle>
       </CardHeader>
@@ -267,7 +383,7 @@ const PasswordCard: React.FC = () => {
   });
 
   return (
-    <Card>
+    <Card className="backdrop-blur-md bg-card/45 border border-white/10 shadow-xl rounded-2xl transition-all duration-300 hover:border-accent/20">
       <CardHeader>
         <CardTitle>Change password</CardTitle>
       </CardHeader>
@@ -349,7 +465,7 @@ const AddressCard: React.FC<{
   };
 
   return (
-    <Card>
+    <Card className="backdrop-blur-md bg-card/45 border border-white/10 shadow-xl rounded-2xl transition-all duration-300 hover:border-accent/20">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         {description && (

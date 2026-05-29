@@ -13,17 +13,14 @@ import com.project.order.dto.OrderResponse;
 import com.project.order.dto.OrderStatusUpdateRequest;
 import com.project.order.dto.ShippingAddressRequest;
 import com.project.order.exception.OrderValidationException;
-import com.project.order.kafka.OrderEventPublisher;
-import com.project.order.model.BillingAddress;
-import com.project.order.model.Order;
-import com.project.order.model.OrderItem;
-import com.project.order.model.OrderStatus;
-import com.project.order.model.PaymentStatus;
-import com.project.order.model.ShippingAddress;
+import com.project.order.model.*;
 import com.project.order.repository.OrderRepository;
+import com.project.order.repository.OutboxEventRepository;
 import com.project.order.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -39,74 +36,60 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
-/**
- * Saga coordinator for the order lifecycle.
- *
- * <p>Order creation flow:
- * <ol>
- *   <li>Idempotency check against Redis</li>
- *   <li>Fetch every product via {@link ProductClient}; snapshot price/sku/sellerId</li>
- *   <li>Compute totals (subtotal, GST, shipping, discount). Tax engine TBD.</li>
- *   <li>Reserve stock for every item via {@link InventoryClient}; on failure, release
- *       any already-reserved items and abort.</li>
- *   <li>Persist the order with status PENDING / PAYMENT_PENDING.</li>
- *   <li>Emit {@code OrderEvent.CREATED} so payment-service can create the PaymentIntent.</li>
- * </ol>
- *
- * <p>Subsequent state transitions are driven by the {@code payment-events} Kafka
- * consumer ({@code PaymentEventListener}) which calls {@link #onPaymentResult}.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
-    private final OrderEventPublisher eventPublisher;
+    private final OutboxEventRepository outboxEventRepository;
     private final ProductClient productClient;
     private final InventoryClient inventoryClient;
     private final StringRedisTemplate redis;
 
-    // GST is computed in tax-service in the production flow; for now use a placeholder
-    // 18% rate that the tax-service will later replace.
+    @Autowired
+    @Lazy
+    private OrderServiceImpl self;
+
     private static final BigDecimal TAX_RATE = new BigDecimal("0.18");
     private static final BigDecimal SHIPPING_COST = new BigDecimal("49.00");
     private static final BigDecimal FREE_SHIPPING_THRESHOLD = new BigDecimal("499.00");
     private static final String DEFAULT_CURRENCY = "INR";
 
     @Override
-    @Transactional
     public OrderResponse createOrder(OrderRequest request, UUID userId, String userEmail, String idempotencyKey) {
         if (request.getItems() == null || request.getItems().isEmpty()) {
             throw new OrderValidationException("Order must contain at least one item");
         }
 
         // Idempotency: same idempotency key from same user returns the existing order.
+        String lockKey = null;
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-            String key = "order:idemp:" + userId + ":" + idempotencyKey;
-            String existingId = redis.opsForValue().get(key);
+            lockKey = "order:idemp:" + userId + ":" + idempotencyKey;
+            String existingId = redis.opsForValue().get(lockKey);
             if (existingId != null) {
                 return mapToResponse(orderRepository.findById(existingId).orElseThrow(
                         () -> new ResourceNotFoundException("Order", existingId)));
             }
             // Acquire idempotency lock for 10 minutes
-            Boolean acquired = redis.opsForValue().setIfAbsent(key, "PENDING", Duration.ofMinutes(10));
+            Boolean acquired = redis.opsForValue().setIfAbsent(lockKey, "PENDING", Duration.ofMinutes(10));
             if (!Boolean.TRUE.equals(acquired)) {
                 throw new OrderValidationException("Duplicate order request in flight");
             }
         }
 
-        // 1. Fetch product snapshots, validate active and stock available
+        // 1. Fetch product snapshots (Feign HTTP I/O - OUTSIDE TRANSACTION)
         List<OrderItem> items = new ArrayList<>();
         for (OrderItemRequest item : request.getItems()) {
             ProductSummary p;
             try {
                 p = productClient.getProduct(item.getProductId());
             } catch (Exception e) {
-                throw new OrderValidationException(
-                        "Product not found: " + item.getProductId());
+                if (lockKey != null) redis.delete(lockKey);
+                throw new OrderValidationException("Product not found: " + item.getProductId());
             }
             if (!p.isActive()) {
+                if (lockKey != null) redis.delete(lockKey);
                 throw new OrderValidationException("Product not available: " + p.getId());
             }
             BigDecimal unitPrice = p.getPrice();
@@ -130,7 +113,6 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal shippingCost = subtotal.compareTo(FREE_SHIPPING_THRESHOLD) >= 0
                 ? BigDecimal.ZERO.setScale(2) : SHIPPING_COST;
         BigDecimal discount = BigDecimal.ZERO.setScale(2);
-        // Coupons resolved by coupon-service (not yet wired); pass through code only.
         BigDecimal totalAmount = subtotal.add(taxAmount).add(shippingCost).subtract(discount);
 
         Order order = new Order();
@@ -154,11 +136,11 @@ public class OrderServiceImpl implements OrderService {
         order.setCreatedAt(LocalDateTime.now());
         order.setUpdatedAt(LocalDateTime.now());
 
-        // Persist BEFORE reservation so we have a stable orderId for the inventory call.
-        order = orderRepository.save(order);
+        // 2. Persist initially (IN TRANSACTION)
+        order = self.saveInitialOrder(order, idempotencyKey, userId);
         String orderId = order.getId();
 
-        // 2. Reserve stock for every item, with rollback on failure.
+        // 3. Reserve stock for every item (Feign HTTP I/O - OUTSIDE TRANSACTION)
         List<OrderItem> reserved = new ArrayList<>();
         try {
             for (OrderItem item : items) {
@@ -169,6 +151,7 @@ public class OrderServiceImpl implements OrderService {
         } catch (Exception e) {
             log.warn("Reservation failed for order {}: {}. Rolling back already-reserved items.",
                     orderId, e.getMessage());
+            // Compensate
             for (OrderItem item : reserved) {
                 try {
                     inventoryClient.release(item.getProductId(),
@@ -178,21 +161,48 @@ public class OrderServiceImpl implements OrderService {
                             item.getProductId(), item.getQuantity(), ex.getMessage());
                 }
             }
-            order.setStatus(OrderStatus.CANCELLED);
-            order.setCancelledAt(LocalDateTime.now());
-            order.setUpdatedAt(LocalDateTime.now());
-            orderRepository.save(order);
+            // Update status to CANCELLED in a separate transaction
+            self.cancelOrderInternal(orderId);
             throw new OrderValidationException("Insufficient stock to fulfil this order");
         }
 
-        // 3. Emit OrderCreated event so payment-service can initiate the PaymentIntent.
-        eventPublisher.publishCreated(order);
+        // 4. Stock reservation succeeded - trigger outbox event (IN TRANSACTION)
+        self.saveOutboxEvent(orderId, "CREATED");
 
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             redis.opsForValue().set("order:idemp:" + userId + ":" + idempotencyKey, orderId, Duration.ofHours(24));
         }
 
-        return mapToResponse(order);
+        return mapToResponse(orderRepository.findById(orderId).orElse(order));
+    }
+
+    @Transactional
+    public Order saveInitialOrder(Order order, String idempotencyKey, UUID userId) {
+        return orderRepository.save(order);
+    }
+
+    @Transactional
+    public void saveOutboxEvent(String aggregateId, String eventType) {
+        OutboxEvent event = OutboxEvent.builder()
+                .aggregateType("ORDER")
+                .aggregateId(aggregateId)
+                .eventType(eventType)
+                .status("PENDING")
+                .createdAt(LocalDateTime.now())
+                .build();
+        outboxEventRepository.save(event);
+    }
+
+    @Transactional
+    public void cancelOrderInternal(String orderId) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order != null) {
+            order.setStatus(OrderStatus.CANCELLED);
+            order.setCancelledAt(LocalDateTime.now());
+            order.setUpdatedAt(LocalDateTime.now());
+            orderRepository.save(order);
+            saveOutboxEvent(orderId, "CANCELLED");
+        }
     }
 
     @Override
@@ -238,12 +248,11 @@ public class OrderServiceImpl implements OrderService {
             default -> { /* no-op */ }
         }
         order = orderRepository.save(order);
-        eventPublisher.publishStatusChanged(order);
+        saveOutboxEvent(orderId, "STATUS_CHANGED");
         return mapToResponse(order);
     }
 
     @Override
-    @Transactional
     public OrderResponse cancelOrder(String orderId, UUID userId, boolean isAdmin) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
@@ -253,7 +262,8 @@ public class OrderServiceImpl implements OrderService {
         if (order.getStatus() == OrderStatus.SHIPPED || order.getStatus() == OrderStatus.DELIVERED) {
             throw new OrderValidationException("Cannot cancel a shipped or delivered order");
         }
-        // Compensation: release any reserved stock.
+
+        // Compensation: release any reserved stock (Feign HTTP I/O - OUTSIDE TRANSACTION)
         for (OrderItem item : order.getItems()) {
             try {
                 inventoryClient.release(item.getProductId(),
@@ -263,33 +273,25 @@ public class OrderServiceImpl implements OrderService {
                         item.getProductId(), item.getQuantity(), e.getMessage());
             }
         }
-        order.setStatus(OrderStatus.CANCELLED);
-        order.setCancelledAt(LocalDateTime.now());
-        order.setUpdatedAt(LocalDateTime.now());
-        order = orderRepository.save(order);
-        eventPublisher.publishCancelled(order);
-        return mapToResponse(order);
+
+        self.cancelOrderInternal(orderId);
+        return mapToResponse(orderRepository.findById(orderId).orElse(order));
     }
 
     @Override
-    @Transactional
     public void onPaymentResult(String orderId, String paymentId, PaymentStatus paymentStatus) {
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
             log.warn("Received payment result for unknown order {}", orderId);
             return;
         }
-        order.setPaymentId(paymentId);
-        order.setPaymentStatus(paymentStatus);
-        order.setUpdatedAt(LocalDateTime.now());
+
         switch (paymentStatus) {
             case COMPLETED -> {
-                order.setStatus(OrderStatus.CONFIRMED);
-                order.setPaidAt(LocalDateTime.now());
-                eventPublisher.publishPaymentCompleted(order);
+                self.onPaymentCompletedInternal(orderId, paymentId);
             }
             case FAILED -> {
-                // Compensation: release reserved stock and cancel
+                // Compensation: release reserved stock (Feign HTTP I/O - OUTSIDE TRANSACTION)
                 for (OrderItem item : order.getItems()) {
                     try {
                         inventoryClient.release(item.getProductId(),
@@ -298,16 +300,66 @@ public class OrderServiceImpl implements OrderService {
                         log.error("Stock release on payment-failure failed: {}", e.getMessage());
                     }
                 }
-                order.setStatus(OrderStatus.CANCELLED);
-                order.setCancelledAt(LocalDateTime.now());
-                eventPublisher.publishPaymentFailed(order);
+                self.onPaymentFailedInternal(orderId, paymentId);
             }
             case REFUNDED, PARTIALLY_REFUNDED -> {
-                eventPublisher.publishStatusChanged(order);
+                self.onPaymentRefundedInternal(orderId, paymentId, paymentStatus);
             }
-            default -> { /* PENDING — no transition */ }
+            default -> { 
+                self.updatePaymentStatusInternal(orderId, paymentId, paymentStatus);
+            }
         }
-        orderRepository.save(order);
+    }
+
+    @Transactional
+    public void onPaymentCompletedInternal(String orderId, String paymentId) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order != null) {
+            order.setPaymentId(paymentId);
+            order.setPaymentStatus(PaymentStatus.COMPLETED);
+            order.setStatus(OrderStatus.CONFIRMED);
+            order.setPaidAt(LocalDateTime.now());
+            order.setUpdatedAt(LocalDateTime.now());
+            orderRepository.save(order);
+            saveOutboxEvent(orderId, "PAYMENT_COMPLETED");
+        }
+    }
+
+    @Transactional
+    public void onPaymentFailedInternal(String orderId, String paymentId) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order != null) {
+            order.setPaymentId(paymentId);
+            order.setPaymentStatus(PaymentStatus.FAILED);
+            order.setStatus(OrderStatus.CANCELLED);
+            order.setCancelledAt(LocalDateTime.now());
+            order.setUpdatedAt(LocalDateTime.now());
+            orderRepository.save(order);
+            saveOutboxEvent(orderId, "PAYMENT_FAILED");
+        }
+    }
+
+    @Transactional
+    public void onPaymentRefundedInternal(String orderId, String paymentId, PaymentStatus paymentStatus) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order != null) {
+            order.setPaymentId(paymentId);
+            order.setPaymentStatus(paymentStatus);
+            order.setUpdatedAt(LocalDateTime.now());
+            orderRepository.save(order);
+            saveOutboxEvent(orderId, "STATUS_CHANGED");
+        }
+    }
+
+    @Transactional
+    public void updatePaymentStatusInternal(String orderId, String paymentId, PaymentStatus paymentStatus) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order != null) {
+            order.setPaymentId(paymentId);
+            order.setPaymentStatus(paymentStatus);
+            order.setUpdatedAt(LocalDateTime.now());
+            orderRepository.save(order);
+        }
     }
 
     private String generateOrderNumber() {

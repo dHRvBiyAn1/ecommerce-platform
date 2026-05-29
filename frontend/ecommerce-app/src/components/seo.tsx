@@ -17,6 +17,7 @@ const TAGLINE =
  */
 export const Seo: React.FC<SeoProps> = ({ title, description, ogImage, noindex }) => {
   React.useEffect(() => {
+    const originalTitle = document.title;
     const fullTitle = title ? `${title} · ${BRAND}` : `${BRAND} — ${TAGLINE}`;
     document.title = fullTitle;
 
@@ -31,6 +32,10 @@ export const Seo: React.FC<SeoProps> = ({ title, description, ogImage, noindex }
     setMeta("twitter:description", description ?? TAGLINE);
 
     setMeta("robots", noindex ? "noindex,nofollow" : "index,follow");
+
+    return () => {
+      document.title = originalTitle;
+    };
   }, [title, description, ogImage, noindex]);
 
   return null;

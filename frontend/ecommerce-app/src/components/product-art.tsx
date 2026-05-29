@@ -1,11 +1,13 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { gradientFromSeed } from "@/lib/utils";
+import { Spotlight } from "@/components/bits/spotlight";
 
 interface ProductArtProps extends React.HTMLAttributes<HTMLDivElement> {
   seed: string;
   ratio?: "square" | "portrait" | "wide";
   label?: string;
+  imageUrl?: string | null;
 }
 
 /**
@@ -18,6 +20,7 @@ export const ProductArt: React.FC<ProductArtProps> = ({
   seed,
   ratio = "square",
   label,
+  imageUrl,
   className,
   ...rest
 }) => {
@@ -30,23 +33,35 @@ export const ProductArt: React.FC<ProductArtProps> = ({
       : "aspect-square";
 
   return (
-    <div
+    <Spotlight
+      color="rgba(255, 255, 255, 0.15)"
+      size={200}
       className={cn(
         "relative overflow-hidden rounded-xl bg-grain ring-1 ring-black/5",
         ratioClass,
         className,
       )}
-      style={{
-        backgroundImage: `linear-gradient(${angle}deg, ${from}, ${to}), url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.06 0"/></filter><rect width="100%" height="100%" filter="url(%23n)"/></svg>')`,
-        backgroundBlendMode: "soft-light",
-      }}
+      style={
+        imageUrl
+          ? {
+              backgroundImage: `url(${imageUrl})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }
+          : {
+              backgroundImage: `linear-gradient(${angle}deg, ${from}, ${to}), url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.06 0"/></filter><rect width="100%" height="100%" filter="url(%23n)"/></svg>')`,
+              backgroundBlendMode: "soft-light",
+            }
+      }
       {...rest}
     >
       {/* Subtle decorative geometry: an off-center oval frosted shape */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/15 blur-2xl"
-      />
+      {!imageUrl && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/15 blur-2xl"
+        />
+      )}
       <div
         aria-hidden
         className="pointer-events-none absolute bottom-6 left-6 right-6 flex items-end justify-between text-[10px] uppercase tracking-[0.18em] text-white/80 mix-blend-overlay"
@@ -54,6 +69,6 @@ export const ProductArt: React.FC<ProductArtProps> = ({
         <span className="font-mono">SKU · {seed.slice(-6).toUpperCase()}</span>
         {label && <span className="font-display font-medium">{label}</span>}
       </div>
-    </div>
+    </Spotlight>
   );
 };

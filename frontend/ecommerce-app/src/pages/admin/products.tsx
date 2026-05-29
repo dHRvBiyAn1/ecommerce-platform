@@ -6,13 +6,15 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Spinner } from "@/components/ui/spinner";
 import { ProductArt } from "@/components/product-art";
-import { DataTable } from "@/components/data-table";
-import { deleteProduct, myProducts, setProductActive } from "@/api/products";
+import { DataTable } from "@/components/ui/data-table";
+import { deleteProduct, myProducts, listProducts, setProductActive } from "@/api/products";
+import { useAuthStore } from "@/stores/auth";
 import type { Product } from "@/api/types";
 import { toast } from "sonner";
 import { formatMoney } from "@/lib/utils";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { ScrollAnimation } from "@/components/ui/scroll-animation";
 
 /** Below this many units we colour the badge "warning"; 0 is "destructive". */
 const LOW_STOCK_THRESHOLD = 5;
@@ -53,10 +55,11 @@ const ApprovalBadge: React.FC<{ status?: string | null }> = ({ status }) => {
 
 export const AdminProductsPage: React.FC = () => {
   const qc = useQueryClient();
+  const isAdmin = useAuthStore((s) => s.isAdmin());
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin", "my-products"],
-    queryFn: () => myProducts({ size: 200 }),
+    queryKey: ["admin", "my-products", isAdmin ? "all" : "mine"],
+    queryFn: () => (isAdmin ? listProducts({ size: 200 }) : myProducts({ size: 200 })),
   });
 
   const remove = useMutation({
@@ -162,20 +165,22 @@ export const AdminProductsPage: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <header className="flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Catalog</p>
-          <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">My products</h1>
-        </div>
-        <Button asChild variant="accent">
-          <Link to="/admin/products/new">
-            <Plus className="h-4 w-4" /> New product
-          </Link>
-        </Button>
-      </header>
+      <ScrollAnimation type="fade">
+        <header className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Catalog</p>
+            <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">My products</h1>
+          </div>
+          <Button asChild variant="accent">
+            <Link to="/admin/products/new">
+              <Plus className="h-4 w-4" /> New product
+            </Link>
+          </Button>
+        </header>
+      </ScrollAnimation>
 
       {isLoading ? (
-        <Spinner label="Loading…" />
+        <TableSkeleton columns={6} rows={5} />
       ) : (data?.content ?? []).length === 0 ? (
         <Card>
           <CardContent className="p-10 text-center">

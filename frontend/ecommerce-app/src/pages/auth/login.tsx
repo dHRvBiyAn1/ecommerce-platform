@@ -14,6 +14,7 @@ import { Seo } from "@/components/seo";
 import { login, me } from "@/api/auth";
 import { getAuthProviders } from "@/api/discovery";
 import { useAuthStore } from "@/stores/auth";
+import { useCart } from "@/stores/cart";
 
 const Schema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -27,6 +28,7 @@ export const LoginPage: React.FC = () => {
   const location = useLocation() as { state?: { from?: string } };
   const setAccessToken = useAuthStore((s) => s.setAccessToken);
   const setUser = useAuthStore((s) => s.setUser);
+  const fetchCart = useCart((s) => s.fetch);
 
   const [show, setShow] = React.useState(false);
   const {
@@ -44,6 +46,7 @@ export const LoginPage: React.FC = () => {
       setAccessToken(tokens.accessToken);
       const profile = await me();
       setUser(profile);
+      await fetchCart();
       toast.success(`Welcome back, ${profile.displayName ?? profile.email}`);
       navigate(location.state?.from ?? "/", { replace: true });
     } catch (err: any) {
