@@ -8,17 +8,37 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { DataTable } from "@/components/data-table";
+import { DataTable } from "@/components/ui/data-table";
 import { addStock, listInventory } from "@/api/inventory";
+import { myProducts } from "@/api/products";
+import { useAuthStore } from "@/stores/auth";
 import type { InventoryItem } from "@/api/types";
 import { compact } from "@/lib/utils";
 
 export const AdminInventoryPage: React.FC = () => {
   const qc = useQueryClient();
+  const isAdmin = useAuthStore((s) => s.isAdmin());
+
+  const sellerProductsQuery = useQuery({
+    queryKey: ["admin", "seller-products"],
+    queryFn: () => myProducts({ size: 1000 }),
+    enabled: !isAdmin,
+  });
+
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "inventory"],
     queryFn: () => listInventory(0, 200),
   });
+
+  const filteredData = React.useMemo(() => {
+    if (!data?.content) return [];
+    if (isAdmin) return data.content;
+
+    const sellerProductIds = new Set(
+      (sellerProductsQuery.data?.content ?? []).map((p) => p.id)
+    );
+    return data.content.filter((item) => sellerProductIds.has(item.productId));
+  }, [data, isAdmin, sellerProductsQuery.data]);
 
   const restock = useMutation({
     mutationFn: ({ productId, qty }: { productId: string; qty: number }) =>
@@ -103,9 +123,9 @@ export const AdminInventoryPage: React.FC = () => {
         <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">Inventory</h1>
       </header>
 
-      {isLoading ? (
+      {isLoading || (!isAdmin && sellerProductsQuery.isLoading) ? (
         <Spinner />
-      ) : (data?.content ?? []).length === 0 ? (
+      ) : filteredData.length === 0 ? (
         <Card>
           <CardContent className="p-10 text-center text-sm text-muted-foreground">
             No inventory rows yet. Each product needs an inventory item before it can be reserved.
@@ -114,7 +134,7 @@ export const AdminInventoryPage: React.FC = () => {
       ) : (
         <DataTable
           columns={columns}
-          data={data?.content ?? []}
+          data={filteredData}
           searchColumn="sku"
           searchPlaceholder="Search by SKU…"
           pageSize={20}

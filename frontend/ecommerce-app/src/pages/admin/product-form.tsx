@@ -34,6 +34,7 @@ const Schema = z.object({
   categoryId: z.string().min(1),
   price: z.coerce.number().positive(),
   stockQuantity: z.coerce.number().int().nonnegative(),
+  imageUrl: z.string().url().or(z.literal("")).optional(),
 });
 
 type Values = z.infer<typeof Schema>;
@@ -67,6 +68,7 @@ export const AdminProductFormPage: React.FC = () => {
       categoryId: "",
       price: 0,
       stockQuantity: 0,
+      imageUrl: "",
     },
   });
 
@@ -80,12 +82,19 @@ export const AdminProductFormPage: React.FC = () => {
         categoryId: existing.data.categoryId,
         price: existing.data.price,
         stockQuantity: existing.data.stockQuantity,
+        imageUrl: existing.data.imageUrls?.[0] ?? "",
       });
     }
   }, [existing.data, reset]);
 
   const create = useMutation({
-    mutationFn: createProduct,
+    mutationFn: (v: Values) => {
+      const { imageUrl, ...rest } = v;
+      return createProduct({
+        ...rest,
+        imageUrls: imageUrl ? [imageUrl] : [],
+      });
+    },
     onSuccess: () => {
       toast.success("Product created");
       qc.invalidateQueries({ queryKey: ["admin", "my-products"] });
@@ -97,7 +106,13 @@ export const AdminProductFormPage: React.FC = () => {
   });
 
   const update = useMutation({
-    mutationFn: (v: Values) => updateProduct(id!, v),
+    mutationFn: (v: Values) => {
+      const { imageUrl, ...rest } = v;
+      return updateProduct(id!, {
+        ...rest,
+        imageUrls: imageUrl ? [imageUrl] : [],
+      });
+    },
     onSuccess: () => {
       toast.success("Product updated");
       qc.invalidateQueries({ queryKey: ["admin", "my-products"] });
@@ -108,6 +123,7 @@ export const AdminProductFormPage: React.FC = () => {
 
   const sku = watch("sku");
   const name = watch("name");
+  const imageUrl = watch("imageUrl");
 
   return (
     <div className="space-y-8">
@@ -154,6 +170,9 @@ export const AdminProductFormPage: React.FC = () => {
               <Field label="Name" error={errors.name?.message} className="sm:col-span-2">
                 <Input {...register("name")} placeholder="Linen tote, oat" />
               </Field>
+              <Field label="Image URL" error={errors.imageUrl?.message} className="sm:col-span-2">
+                <Input {...register("imageUrl")} placeholder="https://images.unsplash.com/photo-..." />
+              </Field>
               <Field label="Price (INR)" error={errors.price?.message}>
                 <Input type="number" step="0.01" {...register("price")} />
               </Field>
@@ -193,6 +212,7 @@ export const AdminProductFormPage: React.FC = () => {
               seed={sku || "preview"}
               ratio="portrait"
               label={name || "Untitled"}
+              imageUrl={imageUrl}
             />
             <div className="mt-4 space-y-1">
               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
@@ -202,8 +222,7 @@ export const AdminProductFormPage: React.FC = () => {
                 {name || "Untitled product"}
               </p>
               <p className="text-xs text-muted-foreground">
-                Image URLs are intentionally null for now — every product gets a
-                deterministic gradient identity.
+                Live previewing abstract gradient identity or custom photo if specified.
               </p>
             </div>
           </CardContent>

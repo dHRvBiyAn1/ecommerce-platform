@@ -29,6 +29,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useAuthStore } from "@/stores/auth";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCart } from "@/stores/cart";
 import { logout } from "@/api/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -36,6 +37,7 @@ import { SkipToContent } from "@/components/skip-to-content";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { cn, initials } from "@/lib/utils";
 import { toast } from "sonner";
+import { Spotlight } from "@/components/bits/spotlight";
 
 const NAV = [
   { to: "/products", label: "Shop" },
@@ -46,14 +48,23 @@ const NAV = [
 export const StorefrontLayout: React.FC = () => {
   const brand = import.meta.env.VITE_BRAND_NAME ?? "Étoile";
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = React.useState("");
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   const isAuthed = useAuthStore((s) => s.isAuthenticated());
   const user = useAuthStore((s) => s.user);
   const isSeller = useAuthStore((s) => s.isSeller());
-  const clear = useAuthStore((s) => s.clear);
+  const clearAuth = useAuthStore((s) => s.clear);
+  const clearCart = useCart((s) => s.clear);
+  const fetchCart = useCart((s) => s.fetch);
   const cartCount = useCart((s) => s.totalItems());
+
+  React.useEffect(() => {
+    if (isAuthed) {
+      fetchCart();
+    }
+  }, [isAuthed, fetchCart]);
 
   function onSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -68,7 +79,9 @@ export const StorefrontLayout: React.FC = () => {
     } catch {
       /* swallow — clear locally anyway */
     } finally {
-      clear();
+      clearAuth();
+      await clearCart();
+      queryClient.clear();
       toast.success("Signed out");
       navigate("/");
     }
@@ -91,10 +104,14 @@ export const StorefrontLayout: React.FC = () => {
         </div>
       </div>
 
-      <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-        <div className="container flex h-16 items-center gap-3 sm:gap-6">
-          <Link to="/" className="flex items-center gap-2 shrink-0" aria-label={`${brand} home`}>
-            <span className="grid h-9 w-9 place-items-center rounded-md bg-primary font-display text-lg font-bold text-accent">
+      <Spotlight
+        color="rgba(var(--accent-rgb), 0.05)"
+        size={300}
+        className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70"
+      >
+        <header className="container flex h-16 items-center gap-3 sm:gap-6">
+          <Link to="/" className="group flex items-center gap-2 shrink-0" aria-label={`${brand} home`}>
+            <span className="grid h-9 w-9 place-items-center rounded-md bg-primary font-display text-lg font-bold text-accent transition-transform group-hover:scale-105">
               {brand[0]}
             </span>
             <span className="hidden font-display text-xl font-semibold tracking-tight sm:inline">
@@ -109,7 +126,7 @@ export const StorefrontLayout: React.FC = () => {
                 to={n.to}
                 className={({ isActive }) =>
                   cn(
-                    "rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary",
+                    "rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-secondary active:scale-95",
                     isActive && "text-foreground",
                   )
                 }
@@ -252,8 +269,8 @@ export const StorefrontLayout: React.FC = () => {
               <Menu className="h-5 w-5" />
             </Button>
           </div>
-        </div>
-      </header>
+        </header>
+      </Spotlight>
 
       {/* Mobile sheet menu */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>

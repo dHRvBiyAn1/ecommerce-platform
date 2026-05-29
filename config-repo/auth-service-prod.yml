@@ -1,0 +1,6 @@
+security:
+  cookies:
+    secure: true
+
+jwt:
+  access-token-expiration: 900000 # 15 min for prod

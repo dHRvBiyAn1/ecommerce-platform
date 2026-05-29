@@ -1,0 +1,3 @@
+stripe:
+  # Expect real secret to be injected
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET}

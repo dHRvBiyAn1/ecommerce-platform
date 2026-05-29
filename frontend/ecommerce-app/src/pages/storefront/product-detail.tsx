@@ -1,11 +1,11 @@
 import * as React from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
 import { ChevronLeft, Heart, ShieldCheck, ShoppingBag, Truck } from "lucide-react";
 import { getProduct } from "@/api/products";
 import { ProductArt } from "@/components/product-art";
-import { PageSpinner } from "@/components/ui/spinner";
+import { ScrollAnimation } from "@/components/ui/scroll-animation";
+import { ProductDetailSkeleton } from "@/components/skeletons/product-detail-skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,6 +16,7 @@ import { formatMoney } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const ProductDetailPage: React.FC = () => {
+  const navigate = useNavigate();
   const { id = "" } = useParams();
   const { data: product, isLoading, isError } = useQuery({
     queryKey: ["product", id],
@@ -26,7 +27,7 @@ export const ProductDetailPage: React.FC = () => {
   const add = useCart((s) => s.add);
   const [qty, setQty] = React.useState(1);
 
-  if (isLoading) return <PageSpinner />;
+  if (isLoading) return <ProductDetailSkeleton />;
   if (isError || !product) {
     return (
       <div className="container py-24 text-center">
@@ -41,11 +42,15 @@ export const ProductDetailPage: React.FC = () => {
 
   const inStock = product.stockQuantity > 0;
 
-  function addToCart() {
-    add(product!, qty);
-    toast.success(`${product!.name} added to cart`, {
-      action: { label: "View cart", onClick: () => (window.location.href = "/cart") },
-    });
+  async function addToCart() {
+    try {
+      await add(product!, qty);
+      toast.success(`${product!.name} added to cart`, {
+        action: { label: "View cart", onClick: () => navigate("/cart") },
+      });
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to add to cart. Please try again.");
+    }
   }
 
   return (
@@ -61,94 +66,93 @@ export const ProductDetailPage: React.FC = () => {
 
       <div className="mt-4 grid gap-8 sm:mt-6 lg:grid-cols-2 lg:gap-12">
         {/* Visual: stack of art tiles for editorial feel */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="grid grid-cols-2 gap-3"
-        >
-          <ProductArt
-            seed={product.sku}
-            ratio="portrait"
-            className="col-span-2"
-            label={product.name}
-          />
-          <ProductArt seed={`${product.sku}-a`} ratio="square" />
-          <ProductArt seed={`${product.sku}-b`} ratio="square" />
-        </motion.div>
-
-        <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            SKU · {product.sku}
-          </p>
-          <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl">
-            {product.name}
-          </h1>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <span className="font-mono text-2xl">{formatMoney(product.price)}</span>
-            {!inStock ? (
-              <Badge variant="destructive">Sold out</Badge>
-            ) : product.stockQuantity < 5 ? (
-              <Badge variant="warning">Only {product.stockQuantity} left</Badge>
-            ) : (
-              <Badge variant="success">In stock</Badge>
-            )}
+        <ScrollAnimation type="slide-right">
+          <div className="grid grid-cols-2 gap-3">
+            <ProductArt
+              seed={product.sku}
+              ratio="portrait"
+              className="col-span-2"
+              label={product.name}
+            />
+            <ProductArt seed={`${product.sku}-a`} ratio="square" />
+            <ProductArt seed={`${product.sku}-b`} ratio="square" />
           </div>
+        </ScrollAnimation>
 
-          <p className="mt-6 max-w-prose text-balance text-muted-foreground">
-            {product.description}
-          </p>
+        <ScrollAnimation type="slide-left">
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              SKU · {product.sku}
+            </p>
+            <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl">
+              {product.name}
+            </h1>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <span className="font-mono text-2xl">{formatMoney(product.price)}</span>
+              {!inStock ? (
+                <Badge variant="destructive">Sold out</Badge>
+              ) : product.stockQuantity < 5 ? (
+                <Badge variant="warning">Only {product.stockQuantity} left</Badge>
+              ) : (
+                <Badge variant="success">In stock</Badge>
+              )}
+            </div>
 
-          {/* Desktop add-to-cart inline */}
-          <div className="mt-8 hidden flex-wrap items-center gap-3 md:flex">
-            <QtyStepper qty={qty} setQty={setQty} max={product.stockQuantity} />
-            <Button
-              variant="accent"
-              size="lg"
-              className="flex-1 min-w-[12rem]"
-              disabled={!inStock}
-              onClick={addToCart}
-            >
-              <ShoppingBag className="h-4 w-4" />
-              {inStock ? "Add to cart" : "Sold out"}
-            </Button>
-            <Button size="lg" variant="outline" aria-label="Save to wishlist">
-              <Heart className="h-4 w-4" />
-            </Button>
+            <p className="mt-6 max-w-prose text-balance text-muted-foreground">
+              {product.description}
+            </p>
+
+            {/* Desktop add-to-cart inline */}
+            <div className="mt-8 hidden flex-wrap items-center gap-3 md:flex">
+              <QtyStepper qty={qty} setQty={setQty} max={product.stockQuantity} />
+              <Button
+                variant="accent"
+                size="lg"
+                className="flex-1 min-w-[12rem]"
+                disabled={!inStock}
+                onClick={addToCart}
+              >
+                <ShoppingBag className="h-4 w-4" />
+                {inStock ? "Add to cart" : "Sold out"}
+              </Button>
+              <Button size="lg" variant="outline" aria-label="Save to wishlist">
+                <Heart className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="mt-6 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2 md:mt-8">
+              <Pill icon={Truck} label="Free shipping over ₹499" />
+              <Pill icon={ShieldCheck} label="30-day returns" />
+            </div>
+
+            <Separator className="my-8 md:my-10" />
+
+            <Tabs defaultValue="details">
+              <TabsList>
+                <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="shipping">Shipping</TabsTrigger>
+                <TabsTrigger value="returns">Returns</TabsTrigger>
+              </TabsList>
+              <TabsContent value="details" className="prose prose-sm max-w-none">
+                <p>{product.description}</p>
+                <ul className="mt-3 list-disc pl-5 text-sm text-muted-foreground">
+                  <li>
+                    Seller id: <span className="font-mono">{product.sellerId}</span>
+                  </li>
+                  <li>
+                    Category: <span className="font-mono">{product.categoryId}</span>
+                  </li>
+                </ul>
+              </TabsContent>
+              <TabsContent value="shipping" className="text-sm text-muted-foreground">
+                Standard shipping in 3–5 business days. Free over ₹499. We carbon-offset all parcels.
+              </TabsContent>
+              <TabsContent value="returns" className="text-sm text-muted-foreground">
+                30-day returns. Original packaging encouraged but not required.
+              </TabsContent>
+            </Tabs>
           </div>
-
-          <div className="mt-6 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2 md:mt-8">
-            <Pill icon={Truck} label="Free shipping over ₹499" />
-            <Pill icon={ShieldCheck} label="30-day returns" />
-          </div>
-
-          <Separator className="my-8 md:my-10" />
-
-          <Tabs defaultValue="details">
-            <TabsList>
-              <TabsTrigger value="details">Details</TabsTrigger>
-              <TabsTrigger value="shipping">Shipping</TabsTrigger>
-              <TabsTrigger value="returns">Returns</TabsTrigger>
-            </TabsList>
-            <TabsContent value="details" className="prose prose-sm max-w-none">
-              <p>{product.description}</p>
-              <ul className="mt-3 list-disc pl-5 text-sm text-muted-foreground">
-                <li>
-                  Seller id: <span className="font-mono">{product.sellerId}</span>
-                </li>
-                <li>
-                  Category: <span className="font-mono">{product.categoryId}</span>
-                </li>
-              </ul>
-            </TabsContent>
-            <TabsContent value="shipping" className="text-sm text-muted-foreground">
-              Standard shipping in 3–5 business days. Free over ₹499. We carbon-offset all parcels.
-            </TabsContent>
-            <TabsContent value="returns" className="text-sm text-muted-foreground">
-              30-day returns. Original packaging encouraged but not required.
-            </TabsContent>
-          </Tabs>
-        </div>
+        </ScrollAnimation>
       </div>
 
       {/* Sticky mobile bottom bar */}

@@ -13,7 +13,7 @@ import {
 import { useAuthStore } from "@/stores/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
-import { listProducts } from "@/api/products";
+import { listProducts, myProducts } from "@/api/products";
 import { listMyOrders } from "@/api/orders";
 import { getLowStock } from "@/api/inventory";
 import { formatMoney, formatDate } from "@/lib/utils";
@@ -22,7 +22,10 @@ export const AdminDashboardPage: React.FC = () => {
   const user = useAuthStore((s) => s.user);
   const isAdmin = useAuthStore((s) => s.isAdmin());
 
-  const products = useQuery({ queryKey: ["admin", "products"], queryFn: () => listProducts({ size: 5 }) });
+  const products = useQuery({
+    queryKey: ["admin", "products", isAdmin ? "all" : "mine"],
+    queryFn: () => (isAdmin ? listProducts({ size: 5 }) : myProducts({ size: 5 })),
+  });
   const orders = useQuery({ queryKey: ["admin", "orders"], queryFn: () => listMyOrders(0, 5) });
   const lowStock = useQuery({
     queryKey: ["admin", "low-stock"],

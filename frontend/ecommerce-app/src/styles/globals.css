@@ -3,6 +3,9 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
   :root {
     /* Editorial palette: refined-luxury black + pink */
     --background: 0 0% 98%;            /* #FAFAFA */

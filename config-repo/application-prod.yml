@@ -1,0 +1,7 @@
+logging:
+  level:
+    com.project: INFO
+    org.springframework.web: WARN
+
+seed:
+  enabled: false

@@ -78,12 +78,17 @@ export default {
           from: { transform: "translateX(0)" },
           to: { transform: "translateX(-50%)" },
         },
+        "slow-spin": {
+          from: { transform: "rotate(0deg)" },
+          to: { transform: "rotate(360deg)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both",
         marquee: "marquee 40s linear infinite",
+        "slow-spin": "slow-spin 10s linear infinite",
       },
       backgroundImage: {
         // Editorial: subtle film grain over backgrounds for depth

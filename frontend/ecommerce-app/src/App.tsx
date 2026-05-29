@@ -1,9 +1,10 @@
 import { lazy } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, Outlet } from "react-router-dom";
 import { StorefrontLayout } from "@/layouts/storefront-layout";
 import { AuthLayout } from "@/layouts/auth-layout";
 import { AdminLayout } from "@/layouts/admin-layout";
-import { ProtectedRoute } from "@/components/protected-route";
+import { ProtectedRoute } from "@/components/auth/protected-route";
+import { CustomerOnlyRoute } from "@/components/auth/customer-only-route";
 
 // Auth — likely first hop, keep eager for snappier login.
 import { LoginPage } from "@/pages/auth/login";
@@ -47,26 +48,36 @@ export default function App() {
       {/* Storefront */}
       <Route element={<StorefrontLayout />}>
         <Route path="/" element={<HomePage />} />
-        <Route path="/products" element={<CatalogPage />} />
-        <Route path="/products/:id" element={<ProductDetailPage />} />
-        <Route path="/categories/:id" element={<CatalogPage />} />
-        <Route path="/cart" element={<CartPage />} />
+
+        {/* Customer Only Storefront Pages */}
         <Route
-          path="/checkout"
           element={
-            <ProtectedRoute>
-              <CheckoutPage />
-            </ProtectedRoute>
+            <CustomerOnlyRoute>
+              <Outlet />
+            </CustomerOnlyRoute>
           }
-        />
-        <Route
-          path="/order-success/:id"
-          element={
-            <ProtectedRoute>
-              <OrderSuccessPage />
-            </ProtectedRoute>
-          }
-        />
+        >
+          <Route path="/products" element={<CatalogPage />} />
+          <Route path="/products/:id" element={<ProductDetailPage />} />
+          <Route path="/categories/:id" element={<CatalogPage />} />
+          <Route path="/cart" element={<CartPage />} />
+          <Route
+            path="/checkout"
+            element={
+              <ProtectedRoute>
+                <CheckoutPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/order-success/:id"
+            element={
+              <ProtectedRoute>
+                <OrderSuccessPage />
+              </ProtectedRoute>
+            }
+          />
+        </Route>
 
         {/* Account */}
         <Route

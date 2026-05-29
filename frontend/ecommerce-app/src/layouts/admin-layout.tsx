@@ -13,6 +13,8 @@ import {
   Users,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth";
+import { useCart } from "@/stores/cart";
+import { useQueryClient } from "@tanstack/react-query";
 import { logout } from "@/api/auth";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -44,9 +46,11 @@ const ITEMS: {
 
 export const AdminLayout: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const isAdmin = useAuthStore((s) => s.isAdmin());
-  const clear = useAuthStore((s) => s.clear);
+  const clearAuth = useAuthStore((s) => s.clear);
+  const clearCart = useCart((s) => s.clear);
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   const items = ITEMS.filter((i) => !i.admin || isAdmin);
@@ -57,7 +61,9 @@ export const AdminLayout: React.FC = () => {
     } catch {
       /* ignore */
     } finally {
-      clear();
+      clearAuth();
+      await clearCart();
+      queryClient.clear();
       navigate("/");
     }
   }

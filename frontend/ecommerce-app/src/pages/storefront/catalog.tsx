@@ -1,7 +1,6 @@
 import * as React from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
 import { SlidersHorizontal } from "lucide-react";
 import {
   listCategories,
@@ -11,7 +10,6 @@ import {
   searchProducts,
 } from "@/api/products";
 import { ProductArt } from "@/components/product-art";
-import { Skeleton } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +30,8 @@ import {
 } from "@/components/ui/sheet";
 import { Seo } from "@/components/seo";
 import { formatMoney } from "@/lib/utils";
+import { ScrollAnimation } from "@/components/ui/scroll-animation";
+import { ProductCardSkeleton } from "@/components/skeletons/product-card-skeleton";
 
 const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: "createdAt,desc", label: "Newest" },
@@ -146,53 +146,57 @@ export const CatalogPage: React.FC = () => {
         }
       />
 
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4 sm:mb-10">
-        <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            Catalog
-          </p>
-          <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl">
-            {keyword
-              ? `Results for “${keyword}”`
-              : routeCategoryId
-              ? "Category"
-              : "All products"}
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {data?.totalElements ?? 0} items
-          </p>
-        </div>
+      <ScrollAnimation type="fade">
+        <header className="mb-6 flex flex-wrap items-end justify-between gap-4 sm:mb-10">
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              Catalog
+            </p>
+            <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl">
+              {keyword
+                ? `Results for “${keyword}”`
+                : routeCategoryId
+                ? "Category"
+                : "All products"}
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {data?.totalElements ?? 0} items
+            </p>
+          </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setFilterOpen(true)}
-            className="lg:hidden"
-          >
-            <SlidersHorizontal className="h-4 w-4" /> Filters
-          </Button>
-          <Select
-            value={sort}
-            onValueChange={(v) => patchParams({ sort: v, keyword: keyword || null })}
-          >
-            <SelectTrigger className="w-40 sm:w-48">
-              <SelectValue placeholder="Sort" />
-            </SelectTrigger>
-            <SelectContent>
-              {SORT_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </header>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setFilterOpen(true)}
+              className="lg:hidden"
+            >
+              <SlidersHorizontal className="h-4 w-4" /> Filters
+            </Button>
+            <Select
+              value={sort}
+              onValueChange={(v) => patchParams({ sort: v, keyword: keyword || null })}
+            >
+              <SelectTrigger className="w-40 sm:w-48">
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </header>
+      </ScrollAnimation>
 
       <div className="grid gap-10 lg:grid-cols-[16rem_1fr]">
         <aside className="hidden lg:block" aria-label="Filters">
-          {Filters}
+          <ScrollAnimation type="slide-right">
+            {Filters}
+          </ScrollAnimation>
         </aside>
 
         {/* Mobile filter sheet */}
@@ -209,11 +213,7 @@ export const CatalogPage: React.FC = () => {
           {isFetching && products.length === 0 ? (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="space-y-3">
-                  <Skeleton className="aspect-[3/4] w-full" />
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-4 w-1/3" />
-                </div>
+                <ProductCardSkeleton key={i} />
               ))}
             </div>
           ) : products.length === 0 ? (
@@ -232,11 +232,11 @@ export const CatalogPage: React.FC = () => {
             <>
               <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3">
                 {products.map((p, i) => (
-                  <motion.div
+                  <ScrollAnimation
                     key={p.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: Math.min(i * 0.03, 0.3) }}
+                    type="slide-up"
+                    delay={Math.min((i % 3) * 0.05, 0.3)}
+                    viewport={{ once: true, amount: 0.1 }}
                   >
                     <Link to={`/products/${p.id}`} className="group block">
                       <ProductArt
@@ -265,7 +265,7 @@ export const CatalogPage: React.FC = () => {
                         ) : null}
                       </div>
                     </Link>
-                  </motion.div>
+                  </ScrollAnimation>
                 ))}
               </div>
 
