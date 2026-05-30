@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 
-const API_TARGET = process.env.VITE_API_PROXY_TARGET ?? "http://localhost:8080";
+const API_TARGET = process.env.VITE_API_PROXY_TARGET ?? "http://api-gateway:8080";
 
 export default defineConfig({
   plugins: [react()],
@@ -14,6 +14,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      "/v1": { target: API_TARGET, changeOrigin: true },   // ← add this line
       "/api": { target: API_TARGET, changeOrigin: true },
       "/.well-known": { target: API_TARGET, changeOrigin: true },
       // Only proxy the Spring Security OAuth2 endpoints, NOT /oauth2/redirect

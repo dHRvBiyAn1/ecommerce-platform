@@ -47,13 +47,13 @@ const TAX_RATE = 0.18;
 
 export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
-  const { lines, subtotal, clear } = useCart();
+  const { lines, subtotal, clear, couponCode, discountAmount } = useCart();
   const user = useAuthStore((s) => s.user);
 
   const sub = subtotal();
   const tax = sub * TAX_RATE;
   const shipping = sub >= FREE_SHIPPING ? 0 : SHIPPING_COST;
-  const total = sub + tax + shipping;
+  const total = Math.max(0, sub + tax + shipping - (discountAmount || 0));
 
   const idempotencyKey = React.useMemo(() => crypto.randomUUID(), []);
 
@@ -83,6 +83,7 @@ export const CheckoutPage: React.FC = () => {
       const order = await createOrder(
         {
           items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
+          couponCode: couponCode || undefined,
           shippingAddress: {
             fullName: values.fullName,
             phone: values.phone,
@@ -228,6 +229,9 @@ export const CheckoutPage: React.FC = () => {
               label="Shipping"
               value={shipping === 0 ? <span className="text-emerald-600">Free</span> : formatMoney(shipping)}
             />
+            {discountAmount > 0 && (
+              <Row label="Discount" value={<span className="text-emerald-600">-{formatMoney(discountAmount)}</span>} />
+            )}
             <Separator />
             <Row label="Total" value={formatMoney(total)} bold />
             <Button type="submit" variant="accent" size="lg" className="w-full" disabled={isSubmitting || place.isPending}>

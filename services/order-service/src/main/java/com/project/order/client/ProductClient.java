@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable;
  * fetch the authoritative price/SKU/sellerId for each line item, which we
  * snapshot into the Order so later product-price changes don't rewrite history.
  */
-@FeignClient(name = "product-service", path = "/api/v1/products")
+@FeignClient(name = "product-service", path = "/api/v1/products", fallbackFactory = ProductClientFallbackFactory.class)
 public interface ProductClient {
 
     @GetMapping("/{id}")

@@ -83,6 +83,11 @@ public class SellerApplication {
     @Column(name = "reviewed_by", columnDefinition = "uuid")
     private UUID reviewedBy;
 
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name = "business_metadata", columnDefinition = "jsonb")
+    @Builder.Default
+    private java.util.Map<String, Object> businessMetadata = new java.util.HashMap<>();
+
     @PrePersist
     void ensureId() {
         if (id == null) id = UUID.randomUUID();

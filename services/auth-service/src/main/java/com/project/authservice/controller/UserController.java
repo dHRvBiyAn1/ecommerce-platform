@@ -49,24 +49,11 @@ public class UserController {
         if (request.getImageUrl() != null) user.setImageUrl(request.getImageUrl());
         if (request.getPhone() != null) user.setPhone(request.getPhone());
         if (request.getShippingAddress() != null) {
-            user.setShippingAddress(toEntity(request.getShippingAddress()));
+            user.setShippingAddress(userMapper.toAddressEntity(request.getShippingAddress()));
         }
         if (request.getBillingAddress() != null) {
-            user.setBillingAddress(toEntity(request.getBillingAddress()));
+            user.setBillingAddress(userMapper.toAddressEntity(request.getBillingAddress()));
         }
         return ResponseEntity.ok(ApiResponse.success(userMapper.toDto(userRepository.save(user))));
-    }
-
-    private com.project.authservice.entity.Address toEntity(com.project.authservice.dto.AddressDto dto) {
-        if (dto == null) return null;
-        return com.project.authservice.entity.Address.builder()
-                .fullName(dto.getFullName())
-                .phone(dto.getPhone())
-                .street(dto.getStreet())
-                .city(dto.getCity())
-                .state(dto.getState())
-                .zipCode(dto.getZipCode())
-                .country(dto.getCountry())
-                .build();
     }
 }

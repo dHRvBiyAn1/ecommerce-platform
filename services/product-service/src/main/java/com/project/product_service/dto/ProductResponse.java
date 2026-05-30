@@ -4,6 +4,7 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import lombok.AllArgsConstructor;
@@ -17,7 +18,7 @@ import lombok.Setter;
 @NoArgsConstructor
 public class ProductResponse implements Serializable {
     @Serial
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
     private String id;
     private String sku;
@@ -32,4 +33,7 @@ public class ProductResponse implements Serializable {
     private boolean active;
     private String approvalStatus;
     private String rejectionReason;
+
+    /** Flexible key-value attributes (e.g. color, size, material). */
+    private Map<String, Object> attributes;
 }

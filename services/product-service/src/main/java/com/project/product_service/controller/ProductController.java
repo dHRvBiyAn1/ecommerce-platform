@@ -78,6 +78,14 @@ public class ProductController {
         return ResponseEntity.ok(productService.getProductsByPriceRange(minPrice, maxPrice, pageable));
     }
 
+    @GetMapping("/filter/attribute")
+    public ResponseEntity<Page<ProductResponse>> filterByAttribute(
+            @RequestParam String key,
+            @RequestParam String value,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(productService.filterByAttribute(key, value, pageable));
+    }
+
     // ---- Authenticated seller endpoints ----
 
     @GetMapping("/seller")

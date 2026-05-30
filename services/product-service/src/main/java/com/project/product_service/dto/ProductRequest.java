@@ -3,6 +3,7 @@ package com.project.product_service.dto;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import jakarta.validation.constraints.NotBlank;
@@ -34,4 +35,7 @@ public class ProductRequest {
     private List<String> imageUrls;
 
     private UUID sellerId; // set from authenticated user context
+
+    /** Flexible key-value attributes (e.g. color, size, material). */
+    private Map<String, Object> attributes;
 }

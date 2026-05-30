@@ -22,6 +22,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -36,7 +38,6 @@ public class ProductServiceImpl implements ProductService {
     private final ProductSearchRepository productSearchRepository;
 
     @Override
-    @Cacheable(value = "products")
     public Page<ProductResponse> getAllActiveProducts(Pageable pageable) {
         return productRepository
                 .findByActiveTrueAndApprovalStatus(
@@ -60,7 +61,6 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    @Cacheable(value = "products")
     public Page<ProductResponse> getProductsByCategory(String categoryId, Pageable pageable) {
         return productRepository
                 .findByCategoryIdAndActiveTrueAndApprovalStatus(
@@ -71,7 +71,6 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    @Cacheable(value = "products")
     public Page<ProductResponse> searchProducts(String keyword, Pageable pageable) {
         try {
             var docs = productSearchRepository.search(keyword, pageable);
@@ -119,6 +118,8 @@ public class ProductServiceImpl implements ProductService {
         // Image URLs intentionally null for now (CDN pipeline not yet wired).
         product.setImageUrls(null);
         product.setSellerId(request.getSellerId());
+        product.setAttributes(request.getAttributes() != null
+                ? request.getAttributes() : Collections.emptyMap());
         product.setActive(true);
         // Admin-created products are auto-approved; seller-created start PENDING.
         product.setApprovalStatus(isAdmin
@@ -130,11 +131,6 @@ public class ProductServiceImpl implements ProductService {
         }
 
         product = productRepository.save(product);
-        // Only push APPROVED to ES so the public catalog stays clean.
-        if (product.getApprovalStatus()
-                == com.project.product_service.model.ProductApprovalStatus.APPROVED) {
-            syncToElasticsearch(product);
-        }
         eventPublisher.publishCreated(product);
         return mapToResponse(product);
     }
@@ -156,6 +152,9 @@ public class ProductServiceImpl implements ProductService {
         product.setCategoryId(request.getCategoryId());
         product.setPrice(request.getPrice());
         product.setStockQuantity(request.getStockQuantity());
+        if (request.getAttributes() != null) {
+            product.setAttributes(request.getAttributes());
+        }
 
         // Seller edits to APPROVED listings revert them to PENDING for re-review.
         // Admins can edit without resetting approval.
@@ -165,16 +164,9 @@ public class ProductServiceImpl implements ProductService {
             product.setRejectionReason(null);
             product.setReviewedAt(null);
             product.setReviewedBy(null);
-            // Pull from ES while we wait for re-review.
-            removeFromElasticsearch(id);
         }
 
         product = productRepository.save(product);
-        if (product.getApprovalStatus()
-                == com.project.product_service.model.ProductApprovalStatus.APPROVED) {
-            syncToElasticsearch(product);
-        }
-
         eventPublisher.publishUpdated(product);
         if (priceChanged) eventPublisher.publishPriceChanged(product);
 
@@ -199,11 +191,6 @@ public class ProductServiceImpl implements ProductService {
         product.setReviewedAt(java.time.LocalDateTime.now());
         product.setReviewedBy(adminId);
         product = productRepository.save(product);
-        if (status == com.project.product_service.model.ProductApprovalStatus.APPROVED) {
-            syncToElasticsearch(product);
-        } else {
-            removeFromElasticsearch(id);
-        }
         log.info("Product {} {} by admin {}", id, status, adminId);
         return mapToResponse(product);
     }
@@ -224,7 +211,6 @@ public class ProductServiceImpl implements ProductService {
         }
         product.setActive(false);
         productRepository.save(product);
-        removeFromElasticsearch(id);
         eventPublisher.publishDeleted(product);
     }
 
@@ -238,7 +224,6 @@ public class ProductServiceImpl implements ProductService {
         }
         product.setActive(active);
         product = productRepository.save(product);
-        if (active) syncToElasticsearch(product); else removeFromElasticsearch(id);
         if (active) eventPublisher.publishActivated(product); else eventPublisher.publishDeactivated(product);
         return mapToResponse(product);
     }
@@ -250,42 +235,20 @@ public class ProductServiceImpl implements ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
         product.setStockQuantity(stockQuantity);
         product = productRepository.save(product);
-        syncToElasticsearch(product);
         eventPublisher.publishStockChanged(product);
         return mapToResponse(product);
     }
 
     @Override
-    @Cacheable(value = "products")
     public Page<ProductResponse> getProductsByPriceRange(BigDecimal min, BigDecimal max, Pageable pageable) {
         return productRepository.findByPriceBetweenAndActiveTrue(min, max, pageable).map(this::mapToResponse);
     }
 
-    private void syncToElasticsearch(Product product) {
-        try {
-            ProductDocument doc = new ProductDocument();
-            doc.setId(product.getId());
-            doc.setName(product.getName());
-            doc.setDescription(product.getDescription());
-            doc.setCategoryId(product.getCategoryId());
-            doc.setPrice(product.getPrice());
-            doc.setStockQuantity(product.getStockQuantity());
-            doc.setImageUrls(product.getImageUrls());
-            doc.setSellerId(product.getSellerId());
-            doc.setActive(product.isActive());
-            productSearchRepository.save(doc);
-        } catch (Exception e) {
-            log.warn("ES sync failed for product {}: {}", product.getId(), e.getMessage());
-        }
+    @Override
+    public Page<ProductResponse> filterByAttribute(String key, Object value, Pageable pageable) {
+        return productRepository.findByAttribute(key, value, pageable).map(this::mapToResponse);
     }
 
-    private void removeFromElasticsearch(String id) {
-        try {
-            productSearchRepository.deleteById(id);
-        } catch (Exception e) {
-            log.warn("ES delete failed for product {}: {}", id, e.getMessage());
-        }
-    }
 
     private ProductResponse mapToResponse(Product product) {
         ProductResponse response = new ProductResponse();
@@ -302,6 +265,7 @@ public class ProductServiceImpl implements ProductService {
         response.setApprovalStatus(product.getApprovalStatus() == null
                 ? null : product.getApprovalStatus().name());
         response.setRejectionReason(product.getRejectionReason());
+        response.setAttributes(product.getAttributes());
         return response;
     }
 }

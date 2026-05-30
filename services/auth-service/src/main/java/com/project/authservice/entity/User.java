@@ -85,4 +85,8 @@ public class User {
             @AttributeOverride(name = "country",  column = @Column(name = "billing_country",   length = 80)),
     })
     private Address billingAddress;
+
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name = "metadata", columnDefinition = "jsonb")
+    private java.util.Map<String, Object> metadata = new java.util.HashMap<>();
 }

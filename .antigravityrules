@@ -1,0 +1,57 @@
+# Antigravity Workspace Rules - Java Spring Boot Microservices
+
+You are Antigravity, a senior software architect AI. Under no exceptions, follow these rules when developing features, writing files, or planning tasks in this workspace:
+
+---
+
+## 1. Spec-Driven Development (SDD) Lifecycle
+
+No code changes or code generation are allowed unless they strictly proceed through the approved lifecycle stages:
+$$\text{Constitution} \longrightarrow \text{Spec} \longrightarrow \text{Plan} \longrightarrow \text{Tasks} \longrightarrow \text{Implementation}$$
+
+*   **Constitution First**: All code must conform to the principles defined in [constitution.md](file:///.specify/memory/constitution.md).
+*   **Spec First**: A specification (`spec.md`) must clearly detail goals, user stories, requirements, and acceptance criteria.
+*   **Plan First**: An implementation design plan (`plan.md`) must cover layer isolation, API contracts, schemas, indexes, and cache setups before executing code changes.
+*   **Tasks First**: A checklist (`tasks.md`) with explicit component-level tests and items must track implementation progress.
+*   **Quality Gates**: Never jump straight to code generation. Create/review the specs and planning artifacts first!
+
+---
+
+## 2. Technical Stack Rules & Backend Coding Patterns
+
+### A. Architectural Isolation (Domain-Driven Design)
+*   Strict separation of Controller $\rightarrow$ Service $\rightarrow$ Repository/Adapter layers.
+*   **Controllers**: Map requests, authenticate, validate inputs, delegate execution to services. No repository calls or inline business queries allowed.
+*   **Services**: Encapsulate transactional boundaries, workflow orchestration, cache operations, and message publishing. Completely domain-centric.
+*   **Repositories/Adapters**: Interact only with PostgreSQL, MongoDB, Redis, or Elasticsearch.
+
+### B. Persistent Store Handling
+*   Relational structures (PostgreSQL via Flyway migrations and JPA/Hibernate mapping) must stay isolated from document collections (MongoDB).
+*   Use GIN-indexed JSONB in PostgreSQL for highly flexible dynamic schemas (`@org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)`).
+*   Use `Map<String, Object>` fields in MongoDB with the `@org.springframework.data.mongodb.core.index.WildcardIndexed` annotation to enable query optimization on dynamic sub-documents.
+
+### C. Data Transfer & Type Safety
+*   **DTO Decoupling**: Raw database entities/documents must never be returned in HTTP payloads or messaging events.
+*   **Immutability**: DTOs should be immutable records or classes annotated with Lombok `@Value` and `@Builder`.
+*   **Translation**: Use MapStruct interfaces to translate between entities/documents and DTOs at compile time.
+
+### D. Testing & Quality Gating
+*   **Tools**: JUnit 5, Mockito (`@ExtendWith(MockitoExtension.class)`), AssertJ.
+*   **Test Coverage**: Maintain a strict metric of **>80% coverage** on all newly added services and business modules.
+*   **Component & Slice Testing**: Write slice tests (`@WebMvcTest`) for controller inputs, security permissions, and response validations.
+
+---
+
+## 3. Knowledge Graph Automation & Sync
+*   Use the local `.code-review-graph/graph.db` to identify downstream calls and component bounds before starting architectural edits.
+*   Always synchronize the graph after modifying files or adding classes using:
+    ```bash
+    graphify build
+    ```
+
+---
+
+## 4. Subagent Delegation Rule
+*   Break down larger implementations using modular checklist items.
+*   Ephemereal subagents must be supplied only with a focused context (relevant classes, specific requirements in `spec.md`, and the graph relations) to prevent token bloat and context drift.
+*   All code written by subagents must undergo compilation check (`./mvnw clean compile`) and unit test verification (`./mvnw test`).

@@ -44,5 +44,13 @@ public interface ProductRepository extends MongoRepository<Product, String> {
 
     Optional<Product> findBySku(String sku);
 
+    /**
+     * Filter active, approved products by a specific attribute key-value pair.
+     * Example: {@code findByAttribute("color", "red", pageable)}
+     * Leverages the wildcard index on {@code attributes.$**}.
+     */
+    @Query("{ 'attributes.?0': ?1, active: true, approvalStatus: 'APPROVED' }")
+    Page<Product> findByAttribute(String key, Object value, Pageable pageable);
+
     // You can combine multiple criteria using @Query or custom implementation.
 }

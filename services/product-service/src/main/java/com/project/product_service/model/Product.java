@@ -8,10 +8,17 @@ import org.springframework.data.mongodb.core.index.TextIndexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Document(collection = "products")
+@org.springframework.data.mongodb.core.index.CompoundIndexes({
+    @org.springframework.data.mongodb.core.index.CompoundIndex(name = "idx_category_active_approval", def = "{'categoryId': 1, 'active': 1, 'approvalStatus': 1}"),
+    @org.springframework.data.mongodb.core.index.CompoundIndex(name = "idx_price_active", def = "{'price': 1, 'active': 1}"),
+    @org.springframework.data.mongodb.core.index.CompoundIndex(name = "idx_seller_active", def = "{'sellerId': 1, 'active': 1}")
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -39,8 +46,15 @@ public class Product {
 
     private UUID sellerId; // references user-service user ID (UUID)
 
-    // Additional attributes can be stored as a Map<String, Object> if needed
-    // private Map<String, Object> attributes;
+    /**
+     * Flexible product attributes stored as a MongoDB sub-document.
+     * Allows heterogeneous, category-specific fields (e.g. color, size,
+     * material, wattage) without schema changes.
+     * A wildcard index on {@code attributes.$**} enables efficient
+     * queries on any nested key.
+     */
+    @org.springframework.data.mongodb.core.index.WildcardIndexed
+    private Map<String, Object> attributes = new HashMap<>();
 
     private boolean active = true; // for soft delete / visibility
 
