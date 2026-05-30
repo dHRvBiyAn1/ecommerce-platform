@@ -50,7 +50,20 @@ public class UserMapper {
         return dto;
     }
 
-    private com.project.authservice.dto.AddressDto toAddressDto(com.project.authservice.entity.Address a) {
+    public com.project.authservice.entity.Address toAddressEntity(com.project.authservice.dto.AddressDto dto) {
+        if (dto == null) return null;
+        return com.project.authservice.entity.Address.builder()
+                .fullName(dto.getFullName())
+                .phone(dto.getPhone())
+                .street(dto.getStreet())
+                .city(dto.getCity())
+                .state(dto.getState())
+                .zipCode(dto.getZipCode())
+                .country(dto.getCountry())
+                .build();
+    }
+
+    public com.project.authservice.dto.AddressDto toAddressDto(com.project.authservice.entity.Address a) {
         if (a == null || a.isBlank()) return null;
         com.project.authservice.dto.AddressDto dto = new com.project.authservice.dto.AddressDto();
         dto.setFullName(a.getFullName());

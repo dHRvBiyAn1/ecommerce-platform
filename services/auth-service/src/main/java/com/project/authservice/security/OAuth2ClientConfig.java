@@ -57,16 +57,18 @@ public class OAuth2ClientConfig {
                     .getBuilder("google")
                     .clientId(googleId)
                     .clientSecret(googleSecret)
+                    .redirectUri("http://localhost:8080/login/oauth2/code/google")
                     .build());
-            log.info("OAuth2: registered Google provider");
+            log.info("OAuth2: registered Google provider with public redirect URI");
         }
         if (StringUtils.hasText(githubId) && StringUtils.hasText(githubSecret)) {
             registrations.add(CommonOAuth2Provider.GITHUB
                     .getBuilder("github")
                     .clientId(githubId)
                     .clientSecret(githubSecret)
+                    .redirectUri("http://localhost:8080/login/oauth2/code/github")
                     .build());
-            log.info("OAuth2: registered GitHub provider");
+            log.info("OAuth2: registered GitHub provider with public redirect URI");
         }
 
         if (registrations.isEmpty()) {

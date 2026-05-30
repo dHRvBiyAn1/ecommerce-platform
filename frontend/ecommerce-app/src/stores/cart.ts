@@ -18,11 +18,15 @@ export interface CartLine {
 
 interface CartState {
   lines: CartLine[];
+  couponCode: string | null;
+  discountAmount: number;
   add: (product: Product, quantity?: number) => Promise<void>;
   setQuantity: (productId: string, quantity: number) => Promise<void>;
   remove: (productId: string) => Promise<void>;
   clear: () => Promise<void>;
   fetch: () => Promise<void>;
+  applyCoupon: (code: string) => Promise<void>;
+  removeCoupon: () => Promise<void>;
   totalItems: () => number;
   subtotal: () => number;
 }
@@ -39,12 +43,18 @@ export const useCart = create<CartState>()(
   persist(
     (set, get) => ({
       lines: [],
+      couponCode: null,
+      discountAmount: 0,
 
       fetch: async () => {
         if (!useAuthStore.getState().isAuthenticated()) return;
         try {
           const cart = await cartApi.getCart();
-          set({ lines: cart.items?.map(mapItem) ?? [] });
+          set({ 
+            lines: cart.items?.map(mapItem) ?? [], 
+            couponCode: cart.appliedCouponCode ?? null, 
+            discountAmount: cart.appliedDiscountAmount ?? 0 
+          });
         } catch (err) {
           console.error("Failed to fetch cart", err);
         }
@@ -63,7 +73,11 @@ export const useCart = create<CartState>()(
               unitPrice: product.price,
               quantity,
             });
-            set({ lines: cart.items?.map(mapItem) ?? [] });
+            set({ 
+              lines: cart.items?.map(mapItem) ?? [],
+              couponCode: cart.appliedCouponCode ?? null,
+              discountAmount: cart.appliedDiscountAmount ?? 0
+            });
           } catch (err) {
             console.error("Failed to add to server cart", err);
             throw err;
@@ -93,7 +107,11 @@ export const useCart = create<CartState>()(
         if (useAuthStore.getState().isAuthenticated()) {
           try {
             const cart = await cartApi.updateQuantity(productId, quantity);
-            set({ lines: cart.items?.map(mapItem) ?? [] });
+            set({ 
+              lines: cart.items?.map(mapItem) ?? [],
+              couponCode: cart.appliedCouponCode ?? null,
+              discountAmount: cart.appliedDiscountAmount ?? 0
+            });
           } catch (err) {
             console.error("Failed to update quantity", err);
             throw err;
@@ -112,7 +130,11 @@ export const useCart = create<CartState>()(
         if (useAuthStore.getState().isAuthenticated()) {
           try {
             const cart = await cartApi.removeItem(productId);
-            set({ lines: cart.items?.map(mapItem) ?? [] });
+            set({ 
+              lines: cart.items?.map(mapItem) ?? [],
+              couponCode: cart.appliedCouponCode ?? null,
+              discountAmount: cart.appliedDiscountAmount ?? 0
+            });
           } catch (err) {
             console.error("Failed to remove item", err);
             throw err;
@@ -130,7 +152,32 @@ export const useCart = create<CartState>()(
             console.error("Failed to clear cart", err);
           }
         }
-        set({ lines: [] });
+        set({ lines: [], couponCode: null, discountAmount: 0 });
+      },
+
+      applyCoupon: async (code) => {
+        if (!useAuthStore.getState().isAuthenticated()) {
+          throw new Error("Must be logged in to apply a coupon.");
+        }
+        const cart = await cartApi.applyCoupon(code);
+        set({ 
+          lines: cart.items?.map(mapItem) ?? [],
+          couponCode: cart.appliedCouponCode ?? null,
+          discountAmount: cart.appliedDiscountAmount ?? 0
+        });
+      },
+
+      removeCoupon: async () => {
+        if (!useAuthStore.getState().isAuthenticated()) {
+          set({ couponCode: null, discountAmount: 0 });
+          return;
+        }
+        const cart = await cartApi.removeCoupon();
+        set({ 
+          lines: cart.items?.map(mapItem) ?? [],
+          couponCode: cart.appliedCouponCode ?? null,
+          discountAmount: cart.appliedDiscountAmount ?? 0
+        });
       },
 
       totalItems: () => {

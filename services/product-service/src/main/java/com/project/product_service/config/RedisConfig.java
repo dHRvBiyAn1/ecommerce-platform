@@ -33,4 +33,9 @@ public class RedisConfig {
         template.afterPropertiesSet();
         return template;
     }
+
+    @Bean
+    public org.springframework.cache.CacheManager cacheManager(RedisTemplate<String, Object> redisTemplate) {
+        return new LayeredCacheManager(redisTemplate);
+    }
 }

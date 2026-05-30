@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'spring-services'
+    metrics_path: /actuator/prometheus
+    # OPTION A: The Dynamic, Automated Way (Recommended)
+    eureka_sd_configs:
+      - server: http://discovery-server:8761/eureka
+    # Relabeling ensures Prometheus cleans up Eureka's meta-data into clean targets
+    relabel_configs:
+      - source_labels: [__meta_eureka_app_instance_status]
+        regex: UP
+        action: keep

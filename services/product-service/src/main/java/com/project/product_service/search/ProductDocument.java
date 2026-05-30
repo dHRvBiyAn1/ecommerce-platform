@@ -11,6 +11,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Document(indexName = "products")
@@ -46,4 +47,12 @@ public class ProductDocument {
 
     @Field(type = FieldType.Boolean)
     private boolean active;
+
+    /**
+     * Flexible product attributes indexed as a flattened object in ES.
+     * Enables queries like {@code attributes.color:"red"} without
+     * explicit mapping for each attribute key.
+     */
+    @Field(type = FieldType.Flattened)
+    private Map<String, Object> attributes;
 }

@@ -4,6 +4,9 @@ target/
 *.jar
 *.war
 *.log
+*-logs.txt
+newman-report.json
+
 
 # IDE
 .idea/

@@ -42,7 +42,7 @@ public class SecurityConfig {
                                 "/swagger-ui.html"
                         ).permitAll()
                         // Webhooks: Stripe / internal — verified by HMAC inside the controller
-                        .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook", "/api/v1/payments/webhook/**").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(new JwtAuthenticationConverter())));
         return http.build();

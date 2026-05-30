@@ -19,31 +19,20 @@ env:
   MAVEN_OPTS: -Xmx2g -Dmaven.wagon.httpconnectionManager.ttlSeconds=60
 
 jobs:
-  # ---------------------------------------------------------------
-  # Detect what actually changed in this PR / push so we can skip
-  # cold paths. Backend builds the whole reactor regardless (cheap
-  # and avoids cross-module breakage going undetected); the frontend
-  # job only fires when frontend files change.
-  # ---------------------------------------------------------------
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
-      auth-service: ${{ steps.filter.outputs.auth-service }}
-      api-gateway: ${{ steps.filter.outputs.api-gateway }}
-      config-server: ${{ steps.filter.outputs.config-server }}
-      discovery-server: ${{ steps.filter.outputs.discovery-server }}
-      product-service: ${{ steps.filter.outputs.product-service }}
-      inventory-service: ${{ steps.filter.outputs.inventory-service }}
-      order-service: ${{ steps.filter.outputs.order-service }}
-      payment-service: ${{ steps.filter.outputs.payment-service }}
-      notification-service: ${{ steps.filter.outputs.notification-service }}
+      # This outputs a JSON array of only the services that actually changed
+      changes: ${{ steps.filter.outputs.changes }}
     steps:
       - uses: actions/checkout@v4
       - id: filter
         uses: dorny/paths-filter@v3
         with:
+          # Automatically creates a 'changes' list output of matched filters
+          list-files: json 
           filters: |
             backend:
               - 'pom.xml'
@@ -52,7 +41,7 @@ jobs:
               - 'docker/**'
               - '.mvn/**'
               - 'mvnw'
-            auth-service:
+            auth-service: &shared_backend_paths
               - 'services/auth-service/**'
               - 'services/common/**'
             api-gateway:
@@ -77,16 +66,15 @@ jobs:
             notification-service:
               - 'services/notification-service/**'
               - 'services/common/**'
+            cart-service:
+              - 'services/cart-service/**'
+              - 'services/common/**'
+            coupon-service:
+              - 'services/coupon-service/**'
+              - 'services/common/**'
             frontend:
               - 'frontend/ecommerce-app/**'
 
-  # ---------------------------------------------------------------
-  # Single multi-module Maven reactor build. This is the canonical
-  # way to build a project where every leaf module depends on
-  # `common`: install everything in one shot from the repo root.
-  # Per-service `mvn verify` from inside services/<svc>/ does not
-  # work because `common` would have to be pre-installed.
-  # ---------------------------------------------------------------
   backend:
     needs: detect-changes
     if: needs.detect-changes.outputs.backend == 'true'
@@ -110,13 +98,9 @@ jobs:
           ./mvnw -v
 
       - name: Compile + package the whole reactor
-        # Skip tests in this step so cross-module compile errors are
-        # surfaced fast. `verify` runs in the next step.
         run: ./mvnw -B -ntp -DskipTests -T 1C install
 
       - name: Run tests for the whole reactor
-        # `-fae` keeps going on the first failure so we see every
-        # broken module in one CI run.
         run: ./mvnw -B -ntp -fae -T 1C verify
 
       - name: Publish JUnit reports
@@ -134,61 +118,39 @@ jobs:
           name: backend-jars
           retention-days: 1
           path: |
-            services/*/target/*-1.0.0-SNAPSHOT.jar
-            !services/*/target/*.jar.original
+            services/*/target/*.jar
+            !services/*/target/*.original
 
-  # ---------------------------------------------------------------
-  # Docker image build per service that actually changed. Only fires
-  # for the matrix entries whose path filter matched. Pushes are not
-  # configured yet; flip `push: true` and add a registry step when
-  # ready.
-  # ---------------------------------------------------------------
   images:
     needs: [detect-changes, backend]
-    if: needs.detect-changes.outputs.backend == 'true'
+    # Evaluate if the dynamic changes array contains any backend services
+    # and only triggers runners for modules that actually changed!
+    if: |
+      needs.detect-changes.outputs.backend == 'true' && 
+      fromJson(needs.detect-changes.outputs.changes)[0] != null
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - service: auth-service
-            changed: ${{ needs.detect-changes.outputs.auth-service }}
-          - service: api-gateway
-            changed: ${{ needs.detect-changes.outputs.api-gateway }}
-          - service: config-server
-            changed: ${{ needs.detect-changes.outputs.config-server }}
-          - service: discovery-server
-            changed: ${{ needs.detect-changes.outputs.discovery-server }}
-          - service: product-service
-            changed: ${{ needs.detect-changes.outputs.product-service }}
-          - service: inventory-service
-            changed: ${{ needs.detect-changes.outputs.inventory-service }}
-          - service: order-service
-            changed: ${{ needs.detect-changes.outputs.order-service }}
-          - service: payment-service
-            changed: ${{ needs.detect-changes.outputs.payment-service }}
-          - service: notification-service
-            changed: ${{ needs.detect-changes.outputs.notification-service }}
+        # Dynamically map the matrix directly to the changed keys from paths-filter
+        service: ${{ fromJson(needs.detect-changes.outputs.changes) }}
+        # Exclude structural components that aren't deployable docker applications
+        exclude:
+          - service: backend
+          - service: frontend
     steps:
-      - if: matrix.changed != 'true'
-        run: echo "Skipping ${{ matrix.service }} — no changes."
+      - uses: actions/checkout@v4
 
-      - if: matrix.changed == 'true'
-        uses: actions/checkout@v4
-
-      - if: matrix.changed == 'true'
-        name: Download backend jars
+      - name: Download backend jars
         uses: actions/download-artifact@v4
         with:
           name: backend-jars
           path: services/
 
-      - if: matrix.changed == 'true'
-        name: Set up Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - if: matrix.changed == 'true'
-        name: Build image
+      - name: Build image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -199,9 +161,6 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,scope=${{ matrix.service }},mode=max
 
-  # ---------------------------------------------------------------
-  # Frontend: type-check + production build.
-  # ---------------------------------------------------------------
   frontend:
     needs: detect-changes
     if: needs.detect-changes.outputs.frontend == 'true'
@@ -229,12 +188,8 @@ jobs:
           path: frontend/ecommerce-app/dist
           retention-days: 7
 
-  # ---------------------------------------------------------------
-  # SonarCloud is optional — only runs on PRs/pushes when the
-  # SONAR_TOKEN secret is configured. Failing this job won't fail CI.
-  # ---------------------------------------------------------------
   sonar:
-    needs: backend
+    needs: [detect-changes, backend]
     if: |
       success() &&
       needs.detect-changes.outputs.backend == 'true' &&
@@ -261,8 +216,9 @@ jobs:
           fi
           ./mvnw -B -ntp -DskipTests install
           ./mvnw -B -ntp \
-            org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
-            -Dsonar.projectKey=ecommerce-platform \
-            -Dsonar.organization=${{ github.repository_owner }} \
-            -Dsonar.host.url=https://sonarcloud.io \
-            -Dsonar.token=$SONAR_TOKEN
+          org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
+          -Dsonar.projectKey=ecommerce-platform \
+          -Dsonar.organization=dhrvbiyan1 \
+          -Dsonar.host.url=https://sonarcloud.io \
+          -Dsonar.branch.name=main \
+          -Dsonar.token=$SONAR_TOKEN

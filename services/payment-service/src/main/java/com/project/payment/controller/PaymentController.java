@@ -30,6 +30,11 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
+import com.stripe.exception.SignatureVerificationException;
+import com.stripe.net.Webhook;
+import com.stripe.model.Event;
+import com.stripe.model.PaymentIntent;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/payments")
@@ -42,6 +47,9 @@ public class PaymentController {
     private String webhookSecret;
     @Value("${payment.webhook.tolerance-seconds:300}")
     private long webhookToleranceSeconds;
+
+    @Value("${stripe.webhook-secret:}")
+    private String stripeWebhookSecret;
 
     // ---- Customer-initiated payment flows ----
 
@@ -138,6 +146,49 @@ public class PaymentController {
             throw new PaymentException("Invalid webhook payload");
         }
         paymentService.handlePaymentWebhook(payload.getPaymentReference(), payload);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping(value = "/webhook/stripe")
+    public ResponseEntity<Void> handleStripeWebhook(
+            @RequestHeader("Stripe-Signature") String sigHeader,
+            @RequestBody String rawBody) {
+        if (stripeWebhookSecret == null || stripeWebhookSecret.isBlank()) {
+            log.error("Stripe webhook received but stripe.webhook-secret is not configured");
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+
+        Event event;
+        try {
+            event = Webhook.constructEvent(rawBody, sigHeader, stripeWebhookSecret);
+        } catch (SignatureVerificationException e) {
+            log.warn("Stripe webhook signature verification failed");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (Exception e) {
+            log.warn("Stripe webhook payload invalid");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+
+        if ("payment_intent.succeeded".equals(event.getType()) || "payment_intent.payment_failed".equals(event.getType())) {
+            PaymentIntent intent = (PaymentIntent) event.getDataObjectDeserializer().getObject().orElse(null);
+            if (intent != null) {
+                PaymentWebhookRequest payload = new PaymentWebhookRequest();
+                payload.setPaymentReference(intent.getMetadata().get("paymentReference"));
+                payload.setTransactionId(intent.getId());
+                
+                if ("payment_intent.succeeded".equals(event.getType())) {
+                    payload.setStatus("COMPLETED");
+                } else {
+                    payload.setStatus("FAILED");
+                    payload.setFailureReason(intent.getLastPaymentError() != null ? intent.getLastPaymentError().getMessage() : "Payment failed");
+                }
+                
+                if (payload.getPaymentReference() != null) {
+                    paymentService.handlePaymentWebhook(payload.getPaymentReference(), payload);
+                }
+            }
+        }
+        
         return ResponseEntity.ok().build();
     }
 }

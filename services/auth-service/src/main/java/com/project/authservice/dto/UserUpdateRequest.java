@@ -1,5 +1,6 @@
 package com.project.authservice.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -15,6 +16,9 @@ public class UserUpdateRequest {
     @Pattern(regexp = "^\\+?[0-9 ()-]{6,20}$", message = "Invalid phone number")
     private String phone;
 
+    @Valid
     private AddressDto shippingAddress;
+
+    @Valid
     private AddressDto billingAddress;
 }

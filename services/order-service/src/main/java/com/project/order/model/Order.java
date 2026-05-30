@@ -42,4 +42,5 @@ public class Order {
     private LocalDateTime shippedAt;
     private LocalDateTime deliveredAt;
     private LocalDateTime cancelledAt;
+    private List<OutboxEvent> outboxEvents;
 }

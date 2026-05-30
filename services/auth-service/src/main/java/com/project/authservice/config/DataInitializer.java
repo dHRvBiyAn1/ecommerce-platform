@@ -67,12 +67,14 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
+        if (!seedEnabled) {
+            log.info("Startup database data insertion (seeding) is disabled by feature flag.");
+            return;
+        }
         seedPermissions();
         Map<String, Role> roles = seedRoles();
         seedAdmin(roles.get(Roles.ADMIN));
-        if (seedEnabled) {
-            seedSampleUsers(roles);
-        }
+        seedSampleUsers(roles);
     }
 
     private void seedPermissions() {

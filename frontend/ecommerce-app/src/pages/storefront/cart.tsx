@@ -4,6 +4,7 @@ import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 import { ProductArt } from "@/components/product-art";
 import { useCart } from "@/stores/cart";
 import { useAuthStore } from "@/stores/auth";
@@ -16,13 +17,41 @@ const TAX_RATE = 0.18;
 
 export const CartPage: React.FC = () => {
   const navigate = useNavigate();
-  const { lines, setQuantity, remove, clear } = useCart();
+  const { lines, setQuantity, remove, clear, couponCode, discountAmount, applyCoupon, removeCoupon } = useCart();
   const isAuthed = useAuthStore((s) => s.isAuthenticated());
+  const [couponInput, setCouponInput] = React.useState("");
+  const [applying, setApplying] = React.useState(false);
 
   const subtotal = lines.reduce((s, l) => s + l.price * l.quantity, 0);
   const tax = subtotal * TAX_RATE;
   const shipping = subtotal >= FREE_SHIPPING ? 0 : SHIPPING_COST;
-  const total = subtotal + tax + shipping;
+  const total = Math.max(0, subtotal + tax + shipping - (discountAmount || 0));
+
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setApplying(true);
+    try {
+      await applyCoupon(couponInput);
+      toast.success("Coupon applied");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to apply coupon");
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const handleRemoveCoupon = async () => {
+    setApplying(true);
+    try {
+      await removeCoupon();
+      setCouponInput("");
+      toast.success("Coupon removed");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to remove coupon");
+    } finally {
+      setApplying(false);
+    }
+  };
 
   if (lines.length === 0) {
     return (
@@ -134,7 +163,32 @@ export const CartPage: React.FC = () => {
               label="Shipping"
               value={shipping === 0 ? <span className="text-emerald-600">Free</span> : formatMoney(shipping)}
             />
+            {discountAmount > 0 && (
+              <Row label="Discount" value={<span className="text-emerald-600">-{formatMoney(discountAmount)}</span>} />
+            )}
             <Separator />
+            {isAuthed && (
+              <>
+                <div className="flex gap-2">
+                  <Input
+                    value={couponCode || couponInput}
+                    onChange={(e) => setCouponInput(e.target.value)}
+                    disabled={!!couponCode || applying}
+                    placeholder="Coupon code"
+                  />
+                  {couponCode ? (
+                    <Button type="button" variant="outline" onClick={handleRemoveCoupon} disabled={applying}>
+                      Remove
+                    </Button>
+                  ) : (
+                    <Button type="button" variant="outline" onClick={handleApplyCoupon} disabled={applying || !couponInput.trim()}>
+                      Apply
+                    </Button>
+                  )}
+                </div>
+                <Separator />
+              </>
+            )}
             <Row label="Total" value={formatMoney(total)} bold />
             <Button
               variant="accent"

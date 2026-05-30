@@ -221,6 +221,26 @@ public class PaymentServiceImpl implements PaymentService {
         return mapToResponse(payment);
     }
 
+    @Override
+    @Transactional
+    public void cancelPaymentByOrderId(String orderId) {
+        Payment payment = paymentRepository.findByOrderId(orderId).orElse(null);
+        if (payment == null) {
+            log.info("No payment record found for order {}, skipping cancellation", orderId);
+            return;
+        }
+
+        if (payment.getStatus() == PaymentStatus.PENDING || payment.getStatus() == PaymentStatus.PROCESSING) {
+            payment.setStatus(PaymentStatus.CANCELLED);
+            payment.setUpdatedAt(LocalDateTime.now());
+            payment = paymentRepository.save(payment);
+            log.info("Payment for order {} cancelled successfully", orderId);
+            eventPublisher.publish(toEvent(PaymentEvent.Type.CANCELLED, payment));
+        } else {
+            log.info("Payment for order {} is in status {}, skipping cancellation", orderId, payment.getStatus());
+        }
+    }
+
     private PaymentEvent toEvent(PaymentEvent.Type type, Payment p) {
         return PaymentEvent.paymentEventBuilder()
                 .type(type)

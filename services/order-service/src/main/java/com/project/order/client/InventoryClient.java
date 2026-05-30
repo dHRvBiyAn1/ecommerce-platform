@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
  * <p>Reserve happens on order creation (inside the saga); release happens on
  * cancel or payment failure as compensation.
  */
-@FeignClient(name = "inventory-service", path = "/api/v1/inventory")
+@FeignClient(name = "inventory-service", path = "/api/v1/inventory", fallbackFactory = InventoryClientFallbackFactory.class)
 public interface InventoryClient {
 
     @PostMapping("/{productId}/reserve")

@@ -81,21 +81,38 @@ client.interceptors.response.use(
     const status = err.response?.status ?? 0;
 
     if (
-      status === 401 &&
+      (status === 401 || status === 403) &&
       original &&
-      !original._retry &&
-      !original.url?.includes("/auth/token")
+      !original._retry
     ) {
       original._retry = true;
-      const fresh = await refreshAccessToken();
-      if (fresh) {
-        original.headers = {
-          ...(original.headers ?? {}),
-          Authorization: `Bearer ${fresh}`,
-        };
+
+      // Try silently refreshing the token if it was an unauthorized error (401)
+      if (status === 401 && !original.url?.includes("/auth/token")) {
+        const fresh = await refreshAccessToken();
+        if (fresh) {
+          original.headers = {
+            ...(original.headers ?? {}),
+            Authorization: `Bearer ${fresh}`,
+          };
+          return client.request(original);
+        }
+      }
+
+      // If refresh failed or it was a forbidden (403) error, clear local auth state
+      useAuthStore.getState().clear();
+
+      // If this is a public GET request, fallback to guest by stripping the invalid token and retrying
+      if (
+        original.method?.toUpperCase() === "GET" &&
+        (original.url?.includes("/v1/products") || original.url?.includes("/v1/categories"))
+      ) {
+        if (original.headers) {
+          delete original.headers.Authorization;
+          delete original.headers.authorization;
+        }
         return client.request(original);
       }
-      useAuthStore.getState().clear();
     }
 
     const body = err.response?.data;

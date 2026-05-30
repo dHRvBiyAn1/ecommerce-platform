@@ -25,4 +25,6 @@ public interface PaymentService {
     PaymentResponse handlePaymentWebhook(String paymentReference, PaymentWebhookRequest webhook);
 
     PaymentResponse refundPayment(String paymentId, String reason, BigDecimal amount, String idempotencyKey);
+
+    void cancelPaymentByOrderId(String orderId);
 }

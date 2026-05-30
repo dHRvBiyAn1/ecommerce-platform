@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
  * forwarded via {@link FeignAuthForwardingConfig} so coupon-service can
  * enforce per-user redemption limits.
  */
-@FeignClient(name = "coupon-service", configuration = FeignAuthForwardingConfig.class)
+@FeignClient(name = "coupon-service", configuration = FeignAuthForwardingConfig.class, fallback = CouponClientFallback.class)
 public interface CouponClient {
 
     @PostMapping("/api/v1/coupons/validate")

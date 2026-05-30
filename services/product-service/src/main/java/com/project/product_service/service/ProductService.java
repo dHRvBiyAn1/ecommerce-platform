@@ -46,4 +46,10 @@ public interface ProductService {
     ProductResponse updateStock(String id, Integer stockQuantity);
 
     Page<ProductResponse> getProductsByPriceRange(BigDecimal min, BigDecimal max, Pageable pageable);
+
+    /**
+     * Filter active, approved products by a dynamic attribute key-value pair.
+     * Example: {@code filterByAttribute("color", "red", pageable)}
+     */
+    Page<ProductResponse> filterByAttribute(String key, Object value, Pageable pageable);
 }

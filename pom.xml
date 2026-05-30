@@ -72,6 +72,9 @@
         <totp.version>1.7.1</totp.version>
         <commons-codec.version>1.17.1</commons-codec.version>
 
+        <shedlock.version>5.13.0</shedlock.version>
+        <caffeine.version>3.1.8</caffeine.version>
+
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.coverage.jacoco.xmlReportPaths>**/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
         <sonar-maven-plugin.version>4.0.0.4121</sonar-maven-plugin.version>
@@ -143,6 +146,11 @@
                 <artifactId>bucket4j_jdk17-core</artifactId>
                 <version>${bucket4j.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.bucket4j</groupId>
+                <artifactId>bucket4j_jdk17-lettuce</artifactId>
+                <version>${bucket4j.version}</version>
+            </dependency>
 
             <dependency>
                 <groupId>dev.samstevens.totp</groupId>
@@ -154,6 +162,22 @@
                 <groupId>commons-codec</groupId>
                 <artifactId>commons-codec</artifactId>
                 <version>${commons-codec.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>net.javacrumbs.shedlock</groupId>
+                <artifactId>shedlock-spring</artifactId>
+                <version>${shedlock.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.javacrumbs.shedlock</groupId>
+                <artifactId>shedlock-provider-redis-spring</artifactId>
+                <version>${shedlock.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.ben-manes.caffeine</groupId>
+                <artifactId>caffeine</artifactId>
+                <version>${caffeine.version}</version>
             </dependency>
 
             <dependency>

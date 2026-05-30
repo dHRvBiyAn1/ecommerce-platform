@@ -30,7 +30,7 @@ import java.util.Map;
  */
 @Slf4j
 @Component(value = "stripeGateway")
-@ConditionalOnProperty(value = "stripe.secret-key")
+@org.springframework.boot.autoconfigure.condition.ConditionalOnExpression("!'${stripe.secret-key:}'.isEmpty()")
 public class StripeGateway implements PaymentGateway {
 
     @Value("${stripe.secret-key}")
