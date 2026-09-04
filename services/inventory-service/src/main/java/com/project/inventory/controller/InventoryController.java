@@ -1,9 +1,10 @@
 package com.project.inventory.controller;
 
 import com.project.common.constant.Permissions;
-import com.project.inventory.dto.InventoryRequest;
-import com.project.inventory.dto.InventoryResponse;
-import com.project.inventory.dto.StockReservationRequest;
+import com.project.inventory.api.dto.request.InventoryRequest;
+import com.project.inventory.api.dto.request.StockReservationRequest;
+import com.project.inventory.api.dto.response.InventoryResponse;
+import com.project.inventory.application.validator.InventoryValidator;
 import com.project.inventory.service.InventoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -44,6 +45,7 @@ import static com.project.inventory.config.InventoryOpenApiConfiguration.VALIDAT
 public class InventoryController {
 
     private final InventoryService inventoryService;
+    private final InventoryValidator inventoryValidator;
 
     // Reads — sellers and admins, plus order-service callers (carrying user JWT)
     @GetMapping
@@ -116,6 +118,7 @@ public class InventoryController {
     @PreAuthorize("hasAuthority('" + Permissions.INVENTORY_WRITE + "')")
     public ResponseEntity<InventoryResponse> addStock(@PathVariable String productId,
                                                        @RequestParam int quantity) {
+        inventoryValidator.validatePositiveQuantity(quantity);
         return ResponseEntity.ok(inventoryService.addStock(productId, quantity));
     }
 
@@ -133,8 +136,9 @@ public class InventoryController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<InventoryResponse> reserveStock(@PathVariable String productId,
                                                            @Valid @RequestBody StockReservationRequest request) {
+        inventoryValidator.validateReservation(request.quantity(), request.orderId());
         return ResponseEntity.ok(
-                inventoryService.reserveStock(productId, request.getQuantity(), request.getOrderId()));
+                inventoryService.reserveStock(productId, request.quantity(), request.orderId()));
     }
 
     @PostMapping("/{productId}/release")
@@ -142,8 +146,9 @@ public class InventoryController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<InventoryResponse> releaseStock(@PathVariable String productId,
                                                            @Valid @RequestBody StockReservationRequest request) {
+        inventoryValidator.validateReservation(request.quantity(), request.orderId());
         return ResponseEntity.ok(
-                inventoryService.releaseStock(productId, request.getQuantity(), request.getOrderId()));
+                inventoryService.releaseStock(productId, request.quantity(), request.orderId()));
     }
 
     @GetMapping("/{productId}/check")

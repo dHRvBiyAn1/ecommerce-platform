@@ -2,6 +2,7 @@ package com.project.inventory.controller;
 
 import com.project.inventory.service.InventoryService;
 import com.project.inventory.config.InventoryOpenApiConfiguration;
+import com.project.inventory.application.validator.InventoryValidator;
 import org.springdoc.core.configuration.SpringDocConfiguration;
 import org.springdoc.core.configuration.SpringDocPageableConfiguration;
 import org.springdoc.core.configuration.SpringDocSecurityConfiguration;
@@ -72,29 +73,29 @@ class InventoryOpenApiContractTest {
         InventoryService inventoryService() {
             return new InventoryService() {
                 @Override
-                public Page<com.project.inventory.dto.InventoryResponse> getAllInventory(Pageable pageable) {
+                public Page<com.project.inventory.api.dto.response.InventoryResponse> getAllInventory(Pageable pageable) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public com.project.inventory.dto.InventoryResponse getByProductId(String productId) {
+                public com.project.inventory.api.dto.response.InventoryResponse getByProductId(String productId) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public com.project.inventory.dto.InventoryResponse getBySku(String sku) {
+                public com.project.inventory.api.dto.response.InventoryResponse getBySku(String sku) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public com.project.inventory.dto.InventoryResponse createInventory(
-                        com.project.inventory.dto.InventoryRequest request) {
+                public com.project.inventory.api.dto.response.InventoryResponse createInventory(
+                        com.project.inventory.api.dto.request.InventoryRequest request) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public com.project.inventory.dto.InventoryResponse updateInventory(
-                        String id, com.project.inventory.dto.InventoryRequest request) {
+                public com.project.inventory.api.dto.response.InventoryResponse updateInventory(
+                        String id, com.project.inventory.api.dto.request.InventoryRequest request) {
                     throw new UnsupportedOperationException();
                 }
 
@@ -104,22 +105,22 @@ class InventoryOpenApiContractTest {
                 }
 
                 @Override
-                public com.project.inventory.dto.InventoryResponse reserveStock(String productId, int quantity, String orderId) {
+                public com.project.inventory.api.dto.response.InventoryResponse reserveStock(String productId, int quantity, String orderId) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public com.project.inventory.dto.InventoryResponse releaseStock(String productId, int quantity, String orderId) {
+                public com.project.inventory.api.dto.response.InventoryResponse releaseStock(String productId, int quantity, String orderId) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public com.project.inventory.dto.InventoryResponse addStock(String productId, int quantity) {
+                public com.project.inventory.api.dto.response.InventoryResponse addStock(String productId, int quantity) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public List<com.project.inventory.dto.InventoryResponse> getLowStockItems() {
+                public List<com.project.inventory.api.dto.response.InventoryResponse> getLowStockItems() {
                     throw new UnsupportedOperationException();
                 }
 
@@ -128,6 +129,11 @@ class InventoryOpenApiContractTest {
                     throw new UnsupportedOperationException();
                 }
             };
+        }
+
+        @Bean
+        InventoryValidator inventoryValidator() {
+            return new InventoryValidator();
         }
     }
 
