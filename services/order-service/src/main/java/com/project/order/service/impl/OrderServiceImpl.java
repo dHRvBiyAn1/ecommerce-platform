@@ -9,7 +9,8 @@ import com.project.order.client.dto.ProductSummary;
 import com.project.order.client.dto.StockReservationCommand;
 import com.project.order.client.dto.CouponValidationRequest;
 import com.project.order.client.dto.CouponValidationResponse;
-import com.project.order.client.dto.RedeemCouponRequest;
+import com.project.order.client.dto.CouponReservationCommand;
+import com.project.order.client.dto.CouponTransitionCommand;
 import com.project.order.dto.BillingAddressRequest;
 import com.project.order.dto.OrderItemRequest;
 import com.project.order.dto.OrderRequest;
@@ -154,9 +155,16 @@ public class OrderServiceImpl implements OrderService {
         order = orderRepository.save(order);
         String orderId = order.getId();
 
-        // 3. Reserve stock for every item (Feign HTTP I/O - OUTSIDE TRANSACTION)
+        // 3. Reserve checkout resources (Feign HTTP I/O - OUTSIDE TRANSACTION)
         List<OrderItem> reserved = new ArrayList<>();
+        boolean couponReserved = false;
         try {
+            if (hasCoupon(order)) {
+                couponClient.reserve(new CouponReservationCommand(
+                        order.getCouponCode(), order.getUserId(), orderId,
+                        order.getSubtotal(), order.getCurrency()));
+                couponReserved = true;
+            }
             for (OrderItem item : items) {
                 inventoryClient.reserve(item.getProductId(),
                         new StockReservationCommand(item.getQuantity(), orderId));
@@ -175,9 +183,13 @@ public class OrderServiceImpl implements OrderService {
                             item.getProductId(), item.getQuantity(), ex.getMessage());
                 }
             }
+            if (couponReserved) {
+                releaseCoupon(order);
+            }
             // Update status to CANCELLED
             cancelOrderInternal(orderId);
-            throw new OrderValidationException("Insufficient stock to fulfil this order");
+            if (lockKey != null) redis.delete(lockKey);
+            throw new OrderValidationException("Unable to reserve checkout resources");
         }
 
         // 4. Stock reservation succeeded - trigger outbox event
@@ -284,6 +296,7 @@ public class OrderServiceImpl implements OrderService {
                         item.getProductId(), item.getQuantity(), e.getMessage());
             }
         }
+        releaseCoupon(order);
 
         cancelOrderInternal(orderId);
         return mapToResponse(orderRepository.findById(orderId).orElse(order));
@@ -315,6 +328,7 @@ public class OrderServiceImpl implements OrderService {
                         log.error("Stock release on payment-failure failed: {}", e.getMessage());
                     }
                 }
+                releaseCoupon(order);
                 onPaymentFailedInternal(orderId, paymentId);
             }
             case REFUNDED, PARTIALLY_REFUNDED -> {
@@ -329,6 +343,9 @@ public class OrderServiceImpl implements OrderService {
     public void onPaymentCompletedInternal(String orderId, String paymentId) {
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order != null) {
+            if (hasCoupon(order)) {
+                couponClient.commit(couponTransition(order));
+            }
             for (OrderItem item : order.getItems()) {
                 inventoryClient.commit(item.getProductId(),
                         new StockReservationCommand(item.getQuantity(), orderId));
@@ -340,19 +357,6 @@ public class OrderServiceImpl implements OrderService {
             order.setPaidAt(LocalDateTime.now());
             order.setUpdatedAt(LocalDateTime.now());
             
-            if (order.getCouponCode() != null && !order.getCouponCode().isBlank() && order.getDiscountAmount() != null && order.getDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
-                try {
-                    couponClient.redeem(RedeemCouponRequest.builder()
-                            .code(order.getCouponCode())
-                            .userId(order.getUserId())
-                            .orderId(order.getId())
-                            .discountAmount(order.getDiscountAmount())
-                            .build());
-                } catch (Exception e) {
-                    log.error("Failed to redeem coupon {} for order {}: {}", order.getCouponCode(), orderId, e.getMessage());
-                }
-            }
-
             saveOutboxEvent(order, "PAYMENT_COMPLETED");
             orderRepository.save(order);
         }
@@ -389,6 +393,25 @@ public class OrderServiceImpl implements OrderService {
             order.setPaymentStatus(paymentStatus);
             order.setUpdatedAt(LocalDateTime.now());
             orderRepository.save(order);
+        }
+    }
+
+    private boolean hasCoupon(Order order) {
+        return order.getCouponCode() != null && !order.getCouponCode().isBlank();
+    }
+
+    private CouponTransitionCommand couponTransition(Order order) {
+        return new CouponTransitionCommand(order.getCouponCode(), order.getUserId(), order.getId());
+    }
+
+    private void releaseCoupon(Order order) {
+        if (!hasCoupon(order)) {
+            return;
+        }
+        try {
+            couponClient.release(couponTransition(order));
+        } catch (Exception exception) {
+            log.error("Coupon release failed for order {}: {}", order.getId(), exception.getMessage());
         }
     }
 

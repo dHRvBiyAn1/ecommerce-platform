@@ -3,6 +3,13 @@ package com.project.order.service.impl;
 import com.project.order.client.CouponClient;
 import com.project.order.client.InventoryClient;
 import com.project.order.client.ProductClient;
+import com.project.order.client.dto.CouponTransitionCommand;
+import com.project.order.client.dto.CouponReservationCommand;
+import com.project.order.client.dto.CouponValidationResponse;
+import com.project.order.client.dto.ProductSummary;
+import com.project.order.dto.OrderItemRequest;
+import com.project.order.dto.OrderRequest;
+import com.project.order.exception.OrderValidationException;
 import com.project.order.model.Order;
 import com.project.order.model.OrderItem;
 import com.project.order.model.OrderStatus;
@@ -17,8 +24,12 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.util.List;
 import java.util.Optional;
+import java.math.BigDecimal;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -66,6 +77,94 @@ class OrderServiceImplTest {
         verify(inventoryClient, never()).commit(any(), any());
         verify(couponClient, never()).redeem(any());
         verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void paymentCompletionCommitsReservedCoupon() {
+        Order order = pendingOrder();
+        order.setCouponCode("SAVE10");
+        order.setUserId(java.util.UUID.randomUUID());
+        when(orderRepository.findById("order-1")).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.onPaymentResult("order-1", "payment-1", PaymentStatus.COMPLETED);
+
+        verify(couponClient).commit(new CouponTransitionCommand(
+                "SAVE10", order.getUserId(), "order-1"));
+        verify(couponClient, never()).redeem(any());
+    }
+
+    @Test
+    void failedPaymentReleasesReservedCoupon() {
+        Order order = pendingOrder();
+        order.setCouponCode("SAVE10");
+        order.setUserId(java.util.UUID.randomUUID());
+        when(orderRepository.findById("order-1")).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.onPaymentResult("order-1", "payment-1", PaymentStatus.FAILED);
+
+        verify(couponClient).release(new CouponTransitionCommand(
+                "SAVE10", order.getUserId(), "order-1"));
+    }
+
+    @Test
+    void orderCreationReservesCouponForThePersistedOrder() {
+        UUID userId = UUID.randomUUID();
+        stubCheckoutDependencies(userId);
+
+        service.createOrder(orderRequest(), userId, "customer@example.com", null);
+
+        verify(couponClient).reserve(new CouponReservationCommand(
+                "SAVE10", userId, "order-1", new BigDecimal("100.00"), "INR"));
+    }
+
+    @Test
+    void inventoryFailureReleasesCouponReservation() {
+        UUID userId = UUID.randomUUID();
+        AtomicReference<Order> persisted = stubCheckoutDependencies(userId);
+        when(inventoryClient.reserve("product-1",
+                new com.project.order.client.dto.StockReservationCommand(2, "order-1")))
+                .thenThrow(new IllegalStateException("inventory unavailable"));
+        when(orderRepository.findById("order-1"))
+                .thenAnswer(invocation -> Optional.ofNullable(persisted.get()));
+
+        assertThatThrownBy(() -> service.createOrder(
+                orderRequest(), userId, "customer@example.com", null))
+                .isInstanceOf(OrderValidationException.class)
+                .hasMessage("Unable to reserve checkout resources");
+
+        verify(couponClient).release(new CouponTransitionCommand("SAVE10", userId, "order-1"));
+    }
+
+    private AtomicReference<Order> stubCheckoutDependencies(UUID userId) {
+        ProductSummary product = new ProductSummary();
+        product.setId("product-1");
+        product.setSku("SKU-1");
+        product.setName("Product");
+        product.setPrice(new BigDecimal("50.00"));
+        product.setActive(true);
+        when(productClient.getProduct("product-1")).thenReturn(product);
+        when(couponClient.validate(any())).thenReturn(CouponValidationResponse.builder()
+                .valid(true)
+                .discountAmount(new BigDecimal("10.00"))
+                .build());
+        AtomicReference<Order> savedOrder = new AtomicReference<>();
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            order.setId("order-1");
+            savedOrder.set(order);
+            return order;
+        });
+        return savedOrder;
+    }
+
+    private OrderRequest orderRequest() {
+        return OrderRequest.builder()
+                .items(List.of(OrderItemRequest.builder().productId("product-1").quantity(2).build()))
+                .couponCode("SAVE10")
+                .paymentMethod("CARD")
+                .build();
     }
 
     private Order pendingOrder() {
