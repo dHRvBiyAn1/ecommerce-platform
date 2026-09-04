@@ -6,6 +6,9 @@ import com.project.payment.api.dto.request.PaymentRequest;
 import com.project.payment.api.dto.request.PaymentWebhookRequest;
 import com.project.payment.api.dto.response.PaymentResponse;
 import com.project.payment.application.mapper.PaymentMapper;
+import com.project.payment.application.validator.PaymentOrderValidator;
+import com.project.payment.client.OrderClient;
+import com.project.payment.client.dto.OrderSummary;
 import com.project.payment.exception.PaymentException;
 import com.project.payment.kafka.PaymentEventPublisher;
 import com.project.payment.model.Payment;
@@ -36,41 +39,64 @@ public class PaymentServiceImpl implements PaymentService {
     private final StringRedisTemplate redis;
     private final PaymentGateway gateway;
     private final PaymentMapper paymentMapper;
+    private final OrderClient orderClient;
+    private final PaymentOrderValidator orderValidator;
 
     @Override
     @Transactional
     public PaymentResponse createPayment(PaymentRequest request, UUID userId, String userEmail,
                                          String idempotencyKey) {
-        // Idempotency
+        String redisKey = null;
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-            String key = "payment:create:" + userId + ":" + idempotencyKey;
-            String existing = redis.opsForValue().get(key);
+            redisKey = "payment:create:" + userId + ":" + idempotencyKey;
+            String existing = redis.opsForValue().get(redisKey);
             if (existing != null) {
+                if ("PENDING".equals(existing)) {
+                    throw new PaymentException("Duplicate payment request in flight");
+                }
                 return paymentMapper.toResponse(paymentRepository.findById(existing)
                         .orElseThrow(() -> new ResourceNotFoundException("Payment", existing)));
             }
-            Boolean acquired = redis.opsForValue().setIfAbsent(key, "PENDING", Duration.ofMinutes(10));
+            Boolean acquired = redis.opsForValue().setIfAbsent(redisKey, "PENDING", Duration.ofMinutes(10));
             if (!Boolean.TRUE.equals(acquired)) {
                 throw new PaymentException("Duplicate payment request in flight");
             }
         }
 
-        // Disallow duplicate payments per order (in addition to idempotency-key)
+        try {
+            PaymentResponse response = createNewPayment(request, userId, userEmail);
+            if (redisKey != null) {
+                redis.opsForValue().set(redisKey, response.id(), Duration.ofHours(24));
+            }
+            return response;
+        } catch (RuntimeException exception) {
+            if (redisKey != null) {
+                redis.delete(redisKey);
+            }
+            throw exception;
+        }
+    }
+
+    private PaymentResponse createNewPayment(PaymentRequest request, UUID userId, String userEmail) {
         Optional<Payment> existing = paymentRepository.findByOrderId(request.orderId());
         if (existing.isPresent()) {
             throw new PaymentException("A payment already exists for order: " + request.orderId());
         }
 
+        var orderResponse = orderClient.getOrder(request.orderId());
+        OrderSummary order = orderValidator.validateForPayment(
+                orderResponse == null ? null : orderResponse.getData(), userId);
+
         Payment payment = Payment.builder()
                 .paymentReference("PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                 .orderId(request.orderId())
-                .orderNumber(request.orderNumber())
+                .orderNumber(order.orderNumber())
                 .userId(userId)
                 .userEmail(userEmail)
                 .status(PaymentStatus.PENDING)
                 .paymentMethod(request.paymentMethod())
-                .amount(request.amount() != null ? request.amount() : BigDecimal.ZERO)
-                .currency(request.currency() != null ? request.currency() : "INR")
+                .amount(order.totalAmount())
+                .currency(order.currency())
                 .description(request.description())
                 .retryCount(0)
                 .createdAt(LocalDateTime.now())
@@ -94,11 +120,6 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         eventPublisher.publish(toEvent(PaymentEvent.Type.INITIATED, payment));
-
-        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-            redis.opsForValue().set("payment:create:" + userId + ":" + idempotencyKey,
-                    payment.getId(), Duration.ofHours(24));
-        }
         return paymentMapper.toResponse(payment);
     }
 
