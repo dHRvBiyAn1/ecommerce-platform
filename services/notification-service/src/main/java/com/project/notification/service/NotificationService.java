@@ -1,5 +1,9 @@
 package com.project.notification.service;
 
+import com.project.common.exception.ResourceNotFoundException;
+import com.project.notification.api.dto.response.NotificationResponse;
+import com.project.notification.application.mapper.NotificationMapper;
+import com.project.notification.application.validator.NotificationAccessValidator;
 import com.project.notification.model.Notification;
 import com.project.notification.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,15 +22,17 @@ public class NotificationService {
 
     private final NotificationRepository repository;
     private final EmailService emailService;
+    private final NotificationMapper notificationMapper;
+    private final NotificationAccessValidator accessValidator;
 
-    public Notification record(UUID userId, String recipient, String channel, String category,
-                               String subject, String body, String sourceEventId) {
+    public NotificationResponse record(UUID userId, String recipient, String channel, String category,
+                                       String subject, String body, String sourceEventId) {
         // Idempotent on sourceEventId: skip if we already processed this event
         if (sourceEventId != null) {
             var existing = repository.findBySourceEventId(sourceEventId);
             if (existing.isPresent()) {
                 log.debug("Skipping notification: sourceEventId {} already processed", sourceEventId);
-                return existing.get();
+                return notificationMapper.toResponse(existing.get());
             }
         }
 
@@ -59,21 +65,23 @@ public class NotificationService {
             log.warn("Notification send failed for userId={}, recipient={}: {}",
                     userId, recipient, e.getMessage());
         }
-        return repository.save(n);
+        return notificationMapper.toResponse(repository.save(n));
     }
 
-    public Page<Notification> listForUser(UUID userId, Pageable pageable) {
-        return repository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+    public Page<NotificationResponse> listForUser(UUID userId, Pageable pageable) {
+        return repository.findByUserIdOrderByCreatedAtDesc(userId, pageable).map(notificationMapper::toResponse);
     }
 
     public long unreadCount(UUID userId) {
         return repository.countByUserIdAndStatus(userId, Notification.Status.SENT);
     }
 
-    public Notification markRead(String id) {
-        Notification n = repository.findById(id).orElseThrow();
+    public NotificationResponse markRead(String id, UUID requesterId, boolean administrator) {
+        Notification n = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Notification", id));
+        accessValidator.validateAccess(n, requesterId, administrator);
         n.setStatus(Notification.Status.READ);
         n.setReadAt(LocalDateTime.now());
-        return repository.save(n);
+        return notificationMapper.toResponse(repository.save(n));
     }
 }
