@@ -4,10 +4,11 @@ import com.project.common.constant.Permissions;
 import com.project.common.dto.ApiResponse;
 import com.project.common.security.CurrentUser;
 import com.project.common.security.HmacSignatureVerifier;
-import com.project.payment.dto.PaymentRequest;
-import com.project.payment.dto.PaymentResponse;
-import com.project.payment.dto.PaymentWebhookRequest;
-import com.project.payment.dto.RefundRequest;
+import com.project.payment.application.validator.PaymentAccessValidator;
+import com.project.payment.api.dto.request.PaymentRequest;
+import com.project.payment.api.dto.request.PaymentWebhookRequest;
+import com.project.payment.api.dto.request.RefundRequest;
+import com.project.payment.api.dto.response.PaymentResponse;
 import com.project.payment.exception.PaymentException;
 import com.project.payment.service.PaymentService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,6 +43,7 @@ import com.stripe.model.PaymentIntent;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final PaymentAccessValidator accessValidator;
 
     @Value("${payment.webhook.secret:}")
     private String webhookSecret;
@@ -73,23 +75,19 @@ public class PaymentController {
     @GetMapping("/{paymentId}")
     @PreAuthorize("hasAuthority('" + Permissions.PAYMENTS_READ + "')")
     public ResponseEntity<ApiResponse<PaymentResponse>> getPayment(@PathVariable String paymentId) {
-        PaymentResponse p = paymentService.getPayment(paymentId);
-        if (!CurrentUser.isAdmin() && !p.getUserId().equals(CurrentUser.requireId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-        return ResponseEntity.ok(ApiResponse.success(p));
+        return accessible(paymentService.getPayment(paymentId));
     }
 
     @GetMapping("/reference/{reference}")
     @PreAuthorize("hasAuthority('" + Permissions.PAYMENTS_READ + "')")
     public ResponseEntity<ApiResponse<PaymentResponse>> getByReference(@PathVariable String reference) {
-        return ResponseEntity.ok(ApiResponse.success(paymentService.getPaymentByReference(reference)));
+        return accessible(paymentService.getPaymentByReference(reference));
     }
 
     @GetMapping("/order/{orderId}")
     @PreAuthorize("hasAuthority('" + Permissions.PAYMENTS_READ + "')")
     public ResponseEntity<ApiResponse<PaymentResponse>> getByOrderId(@PathVariable String orderId) {
-        return ResponseEntity.ok(ApiResponse.success(paymentService.getPaymentByOrderId(orderId)));
+        return accessible(paymentService.getPaymentByOrderId(orderId));
     }
 
     // ---- Process / refund — admins or system only ----
@@ -145,7 +143,7 @@ public class PaymentController {
         } catch (Exception e) {
             throw new PaymentException("Invalid webhook payload");
         }
-        paymentService.handlePaymentWebhook(payload.getPaymentReference(), payload);
+        paymentService.handlePaymentWebhook(payload.paymentReference(), payload);
         return ResponseEntity.ok().build();
     }
 
@@ -172,23 +170,27 @@ public class PaymentController {
         if ("payment_intent.succeeded".equals(event.getType()) || "payment_intent.payment_failed".equals(event.getType())) {
             PaymentIntent intent = (PaymentIntent) event.getDataObjectDeserializer().getObject().orElse(null);
             if (intent != null) {
-                PaymentWebhookRequest payload = new PaymentWebhookRequest();
-                payload.setPaymentReference(intent.getMetadata().get("paymentReference"));
-                payload.setTransactionId(intent.getId());
-                
-                if ("payment_intent.succeeded".equals(event.getType())) {
-                    payload.setStatus("COMPLETED");
-                } else {
-                    payload.setStatus("FAILED");
-                    payload.setFailureReason(intent.getLastPaymentError() != null ? intent.getLastPaymentError().getMessage() : "Payment failed");
-                }
-                
-                if (payload.getPaymentReference() != null) {
-                    paymentService.handlePaymentWebhook(payload.getPaymentReference(), payload);
+                String paymentReference = intent.getMetadata().get("paymentReference");
+                String status = "payment_intent.succeeded".equals(event.getType()) ? "COMPLETED" : "FAILED";
+                String failureReason = "FAILED".equals(status)
+                        ? intent.getLastPaymentError() != null
+                            ? intent.getLastPaymentError().getMessage()
+                            : "Payment failed"
+                        : null;
+                PaymentWebhookRequest payload = new PaymentWebhookRequest(
+                        paymentReference, intent.getId(), status, failureReason);
+
+                if (payload.paymentReference() != null) {
+                    paymentService.handlePaymentWebhook(payload.paymentReference(), payload);
                 }
             }
         }
         
         return ResponseEntity.ok().build();
+    }
+
+    private ResponseEntity<ApiResponse<PaymentResponse>> accessible(PaymentResponse payment) {
+        accessValidator.validateAccess(payment, CurrentUser.requireId(), CurrentUser.isAdmin());
+        return ResponseEntity.ok(ApiResponse.success(payment));
     }
 }

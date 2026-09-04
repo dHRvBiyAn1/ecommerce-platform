@@ -2,9 +2,10 @@ package com.project.payment.service.impl;
 
 import com.project.common.event.PaymentEvent;
 import com.project.common.exception.ResourceNotFoundException;
-import com.project.payment.dto.PaymentRequest;
-import com.project.payment.dto.PaymentResponse;
-import com.project.payment.dto.PaymentWebhookRequest;
+import com.project.payment.api.dto.request.PaymentRequest;
+import com.project.payment.api.dto.request.PaymentWebhookRequest;
+import com.project.payment.api.dto.response.PaymentResponse;
+import com.project.payment.application.mapper.PaymentMapper;
 import com.project.payment.exception.PaymentException;
 import com.project.payment.kafka.PaymentEventPublisher;
 import com.project.payment.model.Payment;
@@ -34,6 +35,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentEventPublisher eventPublisher;
     private final StringRedisTemplate redis;
     private final PaymentGateway gateway;
+    private final PaymentMapper paymentMapper;
 
     @Override
     @Transactional
@@ -44,7 +46,7 @@ public class PaymentServiceImpl implements PaymentService {
             String key = "payment:create:" + userId + ":" + idempotencyKey;
             String existing = redis.opsForValue().get(key);
             if (existing != null) {
-                return mapToResponse(paymentRepository.findById(existing)
+                return paymentMapper.toResponse(paymentRepository.findById(existing)
                         .orElseThrow(() -> new ResourceNotFoundException("Payment", existing)));
             }
             Boolean acquired = redis.opsForValue().setIfAbsent(key, "PENDING", Duration.ofMinutes(10));
@@ -54,22 +56,22 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         // Disallow duplicate payments per order (in addition to idempotency-key)
-        Optional<Payment> existing = paymentRepository.findByOrderId(request.getOrderId());
+        Optional<Payment> existing = paymentRepository.findByOrderId(request.orderId());
         if (existing.isPresent()) {
-            throw new PaymentException("A payment already exists for order: " + request.getOrderId());
+            throw new PaymentException("A payment already exists for order: " + request.orderId());
         }
 
         Payment payment = Payment.builder()
                 .paymentReference("PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
-                .orderId(request.getOrderId())
-                .orderNumber(request.getOrderNumber())
+                .orderId(request.orderId())
+                .orderNumber(request.orderNumber())
                 .userId(userId)
                 .userEmail(userEmail)
                 .status(PaymentStatus.PENDING)
-                .paymentMethod(request.getPaymentMethod())
-                .amount(request.getAmount() != null ? request.getAmount() : BigDecimal.ZERO)
-                .currency(request.getCurrency() != null ? request.getCurrency() : "INR")
-                .description(request.getDescription())
+                .paymentMethod(request.paymentMethod())
+                .amount(request.amount() != null ? request.amount() : BigDecimal.ZERO)
+                .currency(request.currency() != null ? request.currency() : "INR")
+                .description(request.description())
                 .retryCount(0)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
@@ -97,30 +99,30 @@ public class PaymentServiceImpl implements PaymentService {
             redis.opsForValue().set("payment:create:" + userId + ":" + idempotencyKey,
                     payment.getId(), Duration.ofHours(24));
         }
-        return mapToResponse(payment);
+        return paymentMapper.toResponse(payment);
     }
 
     @Override
     public PaymentResponse getPayment(String paymentId) {
-        return mapToResponse(paymentRepository.findById(paymentId)
+        return paymentMapper.toResponse(paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment", paymentId)));
     }
 
     @Override
     public PaymentResponse getPaymentByReference(String reference) {
-        return mapToResponse(paymentRepository.findByPaymentReference(reference)
+        return paymentMapper.toResponse(paymentRepository.findByPaymentReference(reference)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment", reference)));
     }
 
     @Override
     public PaymentResponse getPaymentByOrderId(String orderId) {
-        return mapToResponse(paymentRepository.findByOrderId(orderId)
+        return paymentMapper.toResponse(paymentRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment for order", orderId)));
     }
 
     @Override
     public List<PaymentResponse> getUserPayments(UUID userId) {
-        return paymentRepository.findByUserId(userId).stream().map(this::mapToResponse).collect(Collectors.toList());
+        return paymentRepository.findByUserId(userId).stream().map(paymentMapper::toResponse).collect(Collectors.toList());
     }
 
     /**
@@ -152,7 +154,7 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setUpdatedAt(LocalDateTime.now());
         payment = paymentRepository.save(payment);
         eventPublisher.publish(toEvent(ok ? PaymentEvent.Type.COMPLETED : PaymentEvent.Type.FAILED, payment));
-        return mapToResponse(payment);
+        return paymentMapper.toResponse(payment);
     }
 
     @Override
@@ -161,11 +163,11 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = paymentRepository.findByPaymentReference(paymentReference)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment", paymentReference));
 
-        if (webhook.getTransactionId() != null) payment.setTransactionId(webhook.getTransactionId());
-        payment.setGatewayResponse("Webhook: " + webhook.getStatus());
+        if (webhook.transactionId() != null) payment.setTransactionId(webhook.transactionId());
+        payment.setGatewayResponse("Webhook: " + webhook.status());
 
         PaymentEvent.Type eventType;
-        switch (webhook.getStatus().toUpperCase()) {
+        switch (webhook.status().toUpperCase()) {
             case "COMPLETED", "SUCCEEDED" -> {
                 payment.setStatus(PaymentStatus.COMPLETED);
                 payment.setCompletedAt(LocalDateTime.now());
@@ -173,52 +175,70 @@ public class PaymentServiceImpl implements PaymentService {
             }
             case "FAILED" -> {
                 payment.setStatus(PaymentStatus.FAILED);
-                payment.setFailureReason(webhook.getFailureReason());
+                payment.setFailureReason(webhook.failureReason());
                 eventType = PaymentEvent.Type.FAILED;
             }
             case "CANCELLED" -> {
                 payment.setStatus(PaymentStatus.CANCELLED);
                 eventType = PaymentEvent.Type.CANCELLED;
             }
-            default -> throw new PaymentException("Unknown webhook status: " + webhook.getStatus());
+            default -> throw new PaymentException("Unknown webhook status: " + webhook.status());
         }
         payment.setUpdatedAt(LocalDateTime.now());
         payment = paymentRepository.save(payment);
         eventPublisher.publish(toEvent(eventType, payment));
-        return mapToResponse(payment);
+        return paymentMapper.toResponse(payment);
     }
 
     @Override
     @Transactional
     public PaymentResponse refundPayment(String paymentId, String reason, BigDecimal amount, String idempotencyKey) {
-        // Idempotency
+        String redisKey = null;
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-            String key = "payment:refund:" + paymentId + ":" + idempotencyKey;
-            Boolean acquired = redis.opsForValue().setIfAbsent(key, "DONE", Duration.ofHours(24));
+            redisKey = "payment:refund:" + paymentId + ":" + idempotencyKey;
+            Boolean acquired = redis.opsForValue().setIfAbsent(redisKey, "PENDING", Duration.ofMinutes(10));
             if (!Boolean.TRUE.equals(acquired)) {
                 return getPayment(paymentId);
             }
         }
 
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Payment", paymentId));
-        if (payment.getStatus() != PaymentStatus.COMPLETED &&
-            payment.getStatus() != PaymentStatus.PARTIALLY_REFUNDED) {
-            throw new PaymentException("Only completed payments can be refunded");
+        try {
+            Payment payment = paymentRepository.findById(paymentId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Payment", paymentId));
+            if (payment.getStatus() != PaymentStatus.COMPLETED &&
+                payment.getStatus() != PaymentStatus.PARTIALLY_REFUNDED) {
+                throw new PaymentException("Only completed payments can be refunded");
+            }
+
+            BigDecimal alreadyRefunded = payment.getRefundedAmount() == null
+                    ? BigDecimal.ZERO : payment.getRefundedAmount();
+            BigDecimal remaining = payment.getAmount().subtract(alreadyRefunded);
+            BigDecimal refundAmount = amount == null ? remaining : amount;
+            if (refundAmount.signum() <= 0 || refundAmount.compareTo(remaining) > 0) {
+                throw new PaymentException("Refund amount exceeds the remaining refundable amount of " + remaining);
+            }
+            BigDecimal cumulativeRefund = alreadyRefunded.add(refundAmount);
+            boolean partial = cumulativeRefund.compareTo(payment.getAmount()) < 0;
+
+            gateway.refund(payment, refundAmount, reason);
+
+            payment.setStatus(partial ? PaymentStatus.PARTIALLY_REFUNDED : PaymentStatus.REFUNDED);
+            payment.setRefundedAmount(cumulativeRefund);
+            payment.setGatewayResponse("Refund: " + reason);
+            payment.setUpdatedAt(LocalDateTime.now());
+            payment = paymentRepository.save(payment);
+            eventPublisher.publish(toEvent(
+                    partial ? PaymentEvent.Type.PARTIALLY_REFUNDED : PaymentEvent.Type.REFUNDED, payment));
+            if (redisKey != null) {
+                redis.opsForValue().set(redisKey, payment.getId(), Duration.ofHours(24));
+            }
+            return paymentMapper.toResponse(payment);
+        } catch (RuntimeException exception) {
+            if (redisKey != null) {
+                redis.delete(redisKey);
+            }
+            throw exception;
         }
-
-        boolean partial = amount != null && amount.signum() > 0
-                && amount.compareTo(payment.getAmount()) < 0;
-
-        gateway.refund(payment, partial ? amount : payment.getAmount(), reason);
-
-        payment.setStatus(partial ? PaymentStatus.PARTIALLY_REFUNDED : PaymentStatus.REFUNDED);
-        payment.setGatewayResponse("Refund: " + reason);
-        payment.setUpdatedAt(LocalDateTime.now());
-        payment = paymentRepository.save(payment);
-        eventPublisher.publish(toEvent(
-                partial ? PaymentEvent.Type.PARTIALLY_REFUNDED : PaymentEvent.Type.REFUNDED, payment));
-        return mapToResponse(payment);
     }
 
     @Override
@@ -256,26 +276,4 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
     }
 
-    private PaymentResponse mapToResponse(Payment payment) {
-        return PaymentResponse.builder()
-                .id(payment.getId())
-                .paymentReference(payment.getPaymentReference())
-                .orderId(payment.getOrderId())
-                .orderNumber(payment.getOrderNumber())
-                .userId(payment.getUserId())
-                .userEmail(payment.getUserEmail())
-                .status(payment.getStatus())
-                .paymentMethod(payment.getPaymentMethod())
-                .amount(payment.getAmount())
-                .currency(payment.getCurrency())
-                .transactionId(payment.getTransactionId())
-                .gatewayResponse(payment.getGatewayResponse())
-                .failureReason(payment.getFailureReason())
-                .retryCount(payment.getRetryCount())
-                .description(payment.getDescription())
-                .createdAt(payment.getCreatedAt())
-                .updatedAt(payment.getUpdatedAt())
-                .completedAt(payment.getCompletedAt())
-                .build();
-    }
 }
