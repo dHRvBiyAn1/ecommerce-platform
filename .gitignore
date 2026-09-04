@@ -18,6 +18,7 @@ newman-report.json
 .opencode/
 .superpowers/
 .agents/
+.worktrees/
 graphify-out/
 *.swp
 *.swo
