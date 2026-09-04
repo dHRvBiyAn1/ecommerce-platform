@@ -9,9 +9,10 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-public record ValidateCouponRequest(
+public record CouponReservationRequest(
         @NotBlank @Size(max = 64) String code,
         @NotNull UUID userId,
+        @NotBlank @Size(max = 64) String orderId,
         @NotNull @Positive BigDecimal subtotal,
-        @Size(min = 3, max = 3) @Pattern(regexp = "^[A-Za-z]{3}$") String currency) {
+        @NotBlank @Size(min = 3, max = 3) @Pattern(regexp = "^[A-Za-z]{3}$") String currency) {
 }

@@ -66,6 +66,10 @@ public class Coupon {
     @Builder.Default
     private int usageCount = 0;
 
+    @Column(name = "reserved_count", nullable = false)
+    @Builder.Default
+    private int reservedCount = 0;
+
     @Column(name = "per_user_limit")
     private Integer perUserLimit;
 
