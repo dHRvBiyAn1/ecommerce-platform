@@ -19,7 +19,6 @@ export const TextType: React.FC<TextTypeProps> = ({
   const [displayText, setDisplayText] = React.useState("");
 
   React.useEffect(() => {
-    let timeout: NodeJS.Timeout;
     let index = 0;
 
     const startTyping = () => {
@@ -33,7 +32,7 @@ export const TextType: React.FC<TextTypeProps> = ({
       return () => clearInterval(interval);
     };
 
-    timeout = setTimeout(startTyping, delay * 1000);
+    const timeout = setTimeout(startTyping, delay * 1000);
     return () => clearTimeout(timeout);
   }, [text, speed, delay]);
 

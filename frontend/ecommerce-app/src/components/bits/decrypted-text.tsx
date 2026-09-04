@@ -20,8 +20,6 @@ export const DecryptedText: React.FC<DecryptedTextProps> = ({
   const [isAnimating, setIsAnimating] = React.useState(false);
 
   React.useEffect(() => {
-    let timeout: NodeJS.Timeout;
-    
     const startAnimation = () => {
       setIsAnimating(true);
       let iteration = 0;
@@ -50,7 +48,7 @@ export const DecryptedText: React.FC<DecryptedTextProps> = ({
       return () => clearInterval(interval);
     };
 
-    timeout = setTimeout(startAnimation, delay * 1000);
+    const timeout = setTimeout(startAnimation, delay * 1000);
     return () => clearTimeout(timeout);
   }, [text, speed, delay]);
 
