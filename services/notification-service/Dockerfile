@@ -1,7 +1,20 @@
-FROM eclipse-temurin:17-jdk-jammy AS layers
+# syntax=docker/dockerfile:1.7
+FROM eclipse-temurin:17-jdk-jammy AS build
+WORKDIR /workspace
+COPY --chmod=0755 mvnw pom.xml ./
+COPY .mvn/ .mvn/
+COPY services/common/pom.xml services/common/pom.xml
+COPY services/common/src/ services/common/src/
+COPY services/notification-service/pom.xml services/notification-service/pom.xml
+COPY services/notification-service/src/ services/notification-service/src/
+RUN --mount=type=cache,target=/root/.m2,sharing=locked \
+    ./mvnw -B -ntp -DskipTests -f services/common/pom.xml install \
+ && ./mvnw -B -ntp -DskipTests -f services/notification-service/pom.xml clean package
+
+FROM build AS layers
 WORKDIR /work
-COPY services/notification-service/target/notification-service-1.0.0-SNAPSHOT.jar app.jar
-RUN java -Djarmode=layertools -jar app.jar extract --destination /work/extracted
+RUN cp /workspace/services/notification-service/target/notification-service-*.jar app.jar \
+ && java -Djarmode=layertools -jar app.jar extract --destination /work/extracted
 
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app

@@ -1,4 +1,11 @@
 frontend/ecommerce-app/node_modules
 frontend/ecommerce-app/dist
+.worktrees
+.idea
+.env
+.env.*
+!.env.example
+.secrets
+**/target
 .git
 .github

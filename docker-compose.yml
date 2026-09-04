@@ -550,16 +550,10 @@ services:
       context: .
       dockerfile: frontend/ecommerce-app/Dockerfile
       args:
-        VITE_API_BASE_URL: ${FRONTEND_VITE_API_BASE_URL:-http://api-gateway:8080}
+        VITE_API_BASE_URL: ${FRONTEND_VITE_API_BASE_URL:-}
     container_name: frontend-app
     ports:
-      - "5173:5173"
-    environment:
-      - NODE_ENV=development
-      - VITE_API_BASE_URL=${FRONTEND_VITE_API_BASE_URL:-http://api-gateway:8080}
-    volumes:
-      - ./frontend/ecommerce-app:/app
-      - /app/node_modules
+      - "5173:8080"
     deploy:
       resources:
         limits:
@@ -569,12 +563,6 @@ services:
       api-gateway: {condition: service_healthy}
     networks:
       - ecommerce-network
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:5173"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
 
   # ---------- Observability stack (lightweight) ----------
   prometheus:
@@ -633,12 +621,9 @@ services:
     restart: unless-stopped
     networks:
       - ecommerce-network
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3100/ready"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
+    # The upstream image is distroless and has no shell or HTTP client. Its
+    # readiness endpoint remains available at http://localhost:3100/ready for
+    # host-side monitoring.
 
   tempo:
     image: grafana/tempo:2.10.5@sha256:ee21727732c7a7199cb71c3eee9153bbf23f9b0b87619f0555a0cf21a67f1a33
@@ -658,12 +643,9 @@ services:
     restart: unless-stopped
     networks:
       - ecommerce-network
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3200/ready"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
+    # The upstream image is distroless and has no shell or HTTP client. Its
+    # readiness endpoint remains available at http://localhost:3200/ready for
+    # host-side monitoring.
 
 secrets:
   auth-private.pem:

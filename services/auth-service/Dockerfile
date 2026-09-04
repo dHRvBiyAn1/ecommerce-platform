@@ -1,16 +1,20 @@
-# Runtime-only image. Build context is the repo root (set in docker-compose.yml
-# via `context: ..`). Expects services/auth-service/target/*.jar to exist —
-# build it first with the multi-module Maven reactor:
-#
-#   ./mvnw -B -ntp -DskipTests install
-#   docker compose -f docker/docker-compose.yml build auth-service
-#
-# Spring Boot's layered jars are extracted at build time so dependency layers
-# can be cached separately from application code.
-FROM eclipse-temurin:17-jdk-jammy AS layers
+# syntax=docker/dockerfile:1.7
+FROM eclipse-temurin:17-jdk-jammy AS build
+WORKDIR /workspace
+COPY --chmod=0755 mvnw pom.xml ./
+COPY .mvn/ .mvn/
+COPY services/common/pom.xml services/common/pom.xml
+COPY services/common/src/ services/common/src/
+COPY services/auth-service/pom.xml services/auth-service/pom.xml
+COPY services/auth-service/src/ services/auth-service/src/
+RUN --mount=type=cache,target=/root/.m2,sharing=locked \
+    ./mvnw -B -ntp -DskipTests -f services/common/pom.xml install \
+ && ./mvnw -B -ntp -DskipTests -f services/auth-service/pom.xml clean package
+
+FROM build AS layers
 WORKDIR /work
-COPY services/auth-service/target/auth-service-1.0.0-SNAPSHOT.jar app.jar
-RUN java -Djarmode=layertools -jar app.jar extract --destination /work/extracted
+RUN cp /workspace/services/auth-service/target/auth-service-*.jar app.jar \
+ && java -Djarmode=layertools -jar app.jar extract --destination /work/extracted
 
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app

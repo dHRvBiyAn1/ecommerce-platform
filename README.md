@@ -10,14 +10,14 @@ recommendations).
 ```bash
 git clone <repo> && cd ecommerce-platform
 
-# 1. Bootstrap secrets (gitignored)
+# 1. Bootstrap local configuration and RSA keys (both gitignored)
+make env
 make keys
-cp .env.example .env
 
-# 2. Build everything
+# 2. Build and verify the Maven reactor
 make build
 
-# 3. Bring up the local stack
+# 3. Build missing container images and bring up the local stack
 make up
 
 # 4. Tail logs
@@ -37,11 +37,29 @@ Services:
 | notification-service | 8086  | Mongo-persisted notifications + Mailhog          |
 | discovery-server     | 8761  | Eureka                                           |
 | config-server        | 8888  | Spring Cloud Config                              |
-| MailHog UI           | 8025  | Captures outbound email in dev                   |
+| frontend             | 5173  | Production-built SPA and same-origin API proxy   |
 | Prometheus           | 9090  | Metrics                                          |
 | Grafana              | 3000  | Dashboards                                       |
 | Loki                 | 3100  | Log aggregation                                  |
 | Tempo                | 3200  | Distributed tracing                              |
+
+The service Dockerfiles compile their own JARs in multi-stage builds, so a
+clean checkout can build images without host `target/` directories. `make
+build` remains the fast host-side reactor check; Compose builds images when
+they are missing.
+
+For frontend hot reload, run Vite on the host while the backend stack is up:
+
+```bash
+cd frontend/ecommerce-app
+npm ci
+VITE_API_PROXY_TARGET=http://localhost:8080 npm run dev
+```
+
+The Compose frontend is intentionally the production static-server image. It
+keeps the familiar <http://localhost:5173> URL, serves SPA routes through
+`index.html`, and proxies API and OAuth paths to `api-gateway` inside the
+Compose network.
 
 ## Security model (after the resource-server migration)
 
@@ -71,34 +89,34 @@ Services:
   configured), bootstrap admin from env vars.
 - Products: full catalog CRUD with seller-scoped writes; ES-backed search with
   Mongo fallback; price-range filter; category browse.
-- Inventory: atomic reservation/release via Mongo `$expr` guard; low-stock
-  detection; stock adjustments; events.
+- Inventory: order-owned, idempotent reserve/commit/release lifecycle via
+  atomic Mongo updates; low-stock detection; stock adjustments; events.
 - Orders: real saga — fetches authoritative price from product-service, reserves
-  stock, persists, emits `OrderEvent.CREATED`, listens for `PaymentEvent` and
-  transitions to CONFIRMED/CANCELLED with stock-release compensation.
+  stock and coupon capacity, persists, emits `OrderEvent.CREATED`, listens for
+  `PaymentEvent`, and commits or compensates reservations.
 - Payments: Stripe (when `STRIPE_SECRET_KEY` is set) or `SandboxGateway`
   (deterministic dev). HMAC-signed in-house webhook (`X-Webhook-Signature`).
-  Idempotency keys for create + refund.
+  Idempotency keys for create + refund; amount and currency are sourced from the
+  authoritative order rather than trusted from the browser.
 - Notifications: Mongo-persisted; consumer for user/order/payment/inventory
-  events; DLT for poison pills; REST API for listing & marking read; MailHog
-  catches outbound mail in dev.
+  events; DLT for poison pills; owner-scoped REST API for listing and marking
+  notifications read; configurable SMTP delivery.
 
 ## Roadmap
 
 Tracked in `.todo/` (or follow-up sessions). Big buckets remaining:
 
-1. **New services**: cart, wishlist, review, coupon (rule engine), tax (India GST),
-   shipping, seller, cms, admin-bff, analytics, recommendation. Their module
-   slots already exist in the parent POM.
-2. **Sample data seeders**: 20-30 records per service.
-3. **Tests**: Testcontainers integration tests for every service; Spring Cloud
+1. **Tests**: broaden unit coverage, add Testcontainers integration tests for every service; Spring Cloud
    Contract between order/payment/inventory; E2E happy path.
-4. **Observability**: Prometheus/Grafana dashboards committed; OpenTelemetry
+2. **Service identity**: scoped client-credentials tokens for internal calls.
+3. **Observability**: Prometheus/Grafana dashboards committed; OpenTelemetry
    bridge; structured JSON logs to Loki.
-5. **CI/CD**: multi-stage Dockerfiles for every service; GHCR push; SBOM via
+4. **CI/CD**: GHCR push; SBOM via
    CycloneDX; Trivy + OWASP-DC; cosign keyless signing.
-6. **Production posture**: Helm charts, Linkerd service mesh, NetworkPolicies,
+5. **Production posture**: Helm charts, Linkerd service mesh, NetworkPolicies,
    Vault dev / sops+age for secrets.
+6. **Future domains**: wishlist, review, tax, shipping, seller, CMS, analytics,
+   and recommendations as product requirements mature.
 
 ## Repo layout
 
@@ -110,9 +128,9 @@ ecommerce-platform/
 ├── scripts/
 │   └── gen-keys.sh
 ├── config-repo/                 # Spring Cloud Config
-├── docker/
-│   ├── docker-compose.yml
-│   └── observability/{prometheus,tempo}.{yml,yaml}
+├── docker-compose.yml
+├── prometheus.yml
+├── tempo.yaml
 └── services/
     ├── common/                  # shared events + security + DTOs + Kafka utils
     ├── api-gateway/
@@ -122,10 +140,10 @@ ecommerce-platform/
     ├── order-service/
     ├── payment-service/
     ├── notification-service/
-    ├── cart-service/            # planned
+    ├── cart-service/
     ├── wishlist-service/        # planned
     ├── review-service/          # planned
-    ├── coupon-service/          # planned
+    ├── coupon-service/
     ├── tax-service/             # planned
     ├── shipping-service/        # planned
     ├── seller-service/          # planned

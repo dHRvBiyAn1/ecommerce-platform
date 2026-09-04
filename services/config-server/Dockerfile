@@ -1,7 +1,17 @@
-FROM eclipse-temurin:17-jdk-jammy AS layers
+# syntax=docker/dockerfile:1.7
+FROM eclipse-temurin:17-jdk-jammy AS build
+WORKDIR /workspace
+COPY --chmod=0755 mvnw pom.xml ./
+COPY .mvn/ .mvn/
+COPY services/config-server/pom.xml services/config-server/pom.xml
+COPY services/config-server/src/ services/config-server/src/
+RUN --mount=type=cache,target=/root/.m2,sharing=locked \
+    ./mvnw -B -ntp -DskipTests -f services/config-server/pom.xml clean package
+
+FROM build AS layers
 WORKDIR /work
-COPY services/config-server/target/config-server-1.0.0-SNAPSHOT.jar app.jar
-RUN java -Djarmode=layertools -jar app.jar extract --destination /work/extracted
+RUN cp /workspace/services/config-server/target/config-server-*.jar app.jar \
+ && java -Djarmode=layertools -jar app.jar extract --destination /work/extracted
 
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app

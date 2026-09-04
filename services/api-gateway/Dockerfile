@@ -1,7 +1,20 @@
-FROM eclipse-temurin:17-jdk-jammy AS layers
+# syntax=docker/dockerfile:1.7
+FROM eclipse-temurin:17-jdk-jammy AS build
+WORKDIR /workspace
+COPY --chmod=0755 mvnw pom.xml ./
+COPY .mvn/ .mvn/
+COPY services/common/pom.xml services/common/pom.xml
+COPY services/common/src/ services/common/src/
+COPY services/api-gateway/pom.xml services/api-gateway/pom.xml
+COPY services/api-gateway/src/ services/api-gateway/src/
+RUN --mount=type=cache,target=/root/.m2,sharing=locked \
+    ./mvnw -B -ntp -DskipTests -f services/common/pom.xml install \
+ && ./mvnw -B -ntp -DskipTests -f services/api-gateway/pom.xml clean package
+
+FROM build AS layers
 WORKDIR /work
-COPY services/api-gateway/target/api-gateway-1.0.0-SNAPSHOT.jar app.jar
-RUN java -Djarmode=layertools -jar app.jar extract --destination /work/extracted
+RUN cp /workspace/services/api-gateway/target/api-gateway-*.jar app.jar \
+ && java -Djarmode=layertools -jar app.jar extract --destination /work/extracted
 
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
