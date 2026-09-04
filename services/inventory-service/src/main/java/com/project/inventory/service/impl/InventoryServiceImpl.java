@@ -4,12 +4,15 @@ import com.project.common.constant.Topics;
 import com.project.common.event.InventoryEvent;
 import com.project.common.exception.DuplicateResourceException;
 import com.project.common.exception.ResourceNotFoundException;
+import com.project.common.exception.ValidationException;
 import com.project.inventory.api.dto.request.InventoryRequest;
 import com.project.inventory.api.dto.response.InventoryResponse;
 import com.project.inventory.application.mapper.InventoryMapper;
 import com.project.inventory.application.validator.InventoryValidator;
 import com.project.inventory.domain.model.InventoryItem;
-import com.project.inventory.exception.InsufficientStockException;
+import com.project.inventory.domain.model.ReservationStatus;
+import com.project.inventory.domain.model.StockReservation;
+import com.project.inventory.domain.exception.InsufficientStockException;
 import com.project.inventory.repository.InventoryRepository;
 import com.project.inventory.service.InventoryService;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +42,7 @@ import java.util.stream.Collectors;
 public class InventoryServiceImpl implements InventoryService {
 
     private static final String REDIS_KEY_PREFIX = "inventory:";
+    private static final String RESERVATIONS_FIELD = "reservations.";
     private static final long REDIS_TTL_HOURS = 2;
 
     private final InventoryRepository inventoryRepository;
@@ -132,7 +136,14 @@ public class InventoryServiceImpl implements InventoryService {
     public InventoryResponse reserveStock(String productId, int quantity, String orderId) {
         inventoryValidator.validateReservation(quantity, orderId);
 
+        InventoryItem current = findByProductId(productId);
+        StockReservation existingReservation = reservation(current, orderId);
+        if (existingReservation != null) {
+            return handleRepeatedReservation(current, existingReservation, quantity, orderId);
+        }
+
         Query query = new Query(Criteria.where("productId").is(productId)
+                .and(RESERVATIONS_FIELD + orderId).exists(false)
                 .andOperator(Criteria.where("$expr").is(
                         new Document("$gte", List.of(
                                 new Document("$subtract", List.of("$quantity", "$reservedQuantity")),
@@ -140,18 +151,20 @@ public class InventoryServiceImpl implements InventoryService {
                         )))));
         Update update = new Update()
                 .inc("reservedQuantity", quantity)
+                .set(RESERVATIONS_FIELD + orderId,
+                        new StockReservation(quantity, ReservationStatus.RESERVED, LocalDateTime.now()))
                 .set("updatedAt", LocalDateTime.now());
 
         InventoryItem updated = mongoTemplate.findAndModify(query, update,
                 FindAndModifyOptions.options().returnNew(true), InventoryItem.class);
 
         if (updated == null) {
-            // Either product not found OR insufficient stock; disambiguate.
-            InventoryItem existing = inventoryRepository.findByProductId(productId).orElse(null);
-            if (existing == null) {
-                throw new ResourceNotFoundException("Inventory for product", productId);
+            InventoryItem latest = findByProductId(productId);
+            StockReservation concurrentReservation = reservation(latest, orderId);
+            if (concurrentReservation != null) {
+                return handleRepeatedReservation(latest, concurrentReservation, quantity, orderId);
             }
-            int available = existing.getQuantity() - existing.getReservedQuantity();
+            int available = latest.getQuantity() - latest.getReservedQuantity();
             throw new InsufficientStockException(
                     "Insufficient stock for " + productId + ": available=" + available + ", requested=" + quantity);
         }
@@ -162,21 +175,83 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
-    public InventoryResponse releaseStock(String productId, int quantity, String orderId) {
+    public InventoryResponse commitStock(String productId, int quantity, String orderId) {
         inventoryValidator.validateReservation(quantity, orderId);
+        InventoryItem current = findByProductId(productId);
+        StockReservation existing = requireReservation(current, orderId, quantity);
+        if (existing.status() == ReservationStatus.COMMITTED) {
+            return inventoryMapper.toResponse(current);
+        }
+        if (existing.status() != ReservationStatus.RESERVED) {
+            throw new ValidationException(
+                    "Reservation for order " + orderId + " is not active");
+        }
 
+        String reservationPath = RESERVATIONS_FIELD + orderId;
         Query query = new Query(Criteria.where("productId").is(productId)
-                .and("reservedQuantity").gte(quantity));
+                .and(reservationPath + ".status").is(ReservationStatus.RESERVED)
+                .and(reservationPath + ".quantity").is(quantity)
+                .and("reservedQuantity").gte(quantity)
+                .and("quantity").gte(quantity));
         Update update = new Update()
                 .inc("reservedQuantity", -quantity)
+                .inc("quantity", -quantity)
+                .set(reservationPath + ".status", ReservationStatus.COMMITTED)
+                .set(reservationPath + ".updatedAt", LocalDateTime.now())
                 .set("updatedAt", LocalDateTime.now());
 
         InventoryItem updated = mongoTemplate.findAndModify(query, update,
                 FindAndModifyOptions.options().returnNew(true), InventoryItem.class);
         if (updated == null) {
-            log.warn("Release no-op for {} qty {}: nothing to release", productId, quantity);
-            return inventoryMapper.toResponse(inventoryRepository.findByProductId(productId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Inventory for product", productId)));
+            InventoryItem latest = findByProductId(productId);
+            StockReservation latestReservation = requireReservation(latest, orderId, quantity);
+            if (latestReservation.status() == ReservationStatus.COMMITTED) {
+                return inventoryMapper.toResponse(latest);
+            }
+            throw new ValidationException(
+                    "Reservation for order " + orderId + " could not be committed");
+        }
+
+        invalidateCache(productId);
+        publish(InventoryEvent.Type.STOCK_COMMITTED, updated, -quantity, orderId);
+        return inventoryMapper.toResponse(updated);
+    }
+
+    @Override
+    public InventoryResponse releaseStock(String productId, int quantity, String orderId) {
+        inventoryValidator.validateReservation(quantity, orderId);
+
+        InventoryItem current = findByProductId(productId);
+        StockReservation existing = requireReservation(current, orderId, quantity);
+        if (existing.status() == ReservationStatus.RELEASED) {
+            return inventoryMapper.toResponse(current);
+        }
+        if (existing.status() != ReservationStatus.RESERVED) {
+            throw new ValidationException(
+                    "Reservation for order " + orderId + " is not active");
+        }
+
+        String reservationPath = RESERVATIONS_FIELD + orderId;
+        Query query = new Query(Criteria.where("productId").is(productId)
+                .and(reservationPath + ".status").is(ReservationStatus.RESERVED)
+                .and(reservationPath + ".quantity").is(quantity)
+                .and("reservedQuantity").gte(quantity));
+        Update update = new Update()
+                .inc("reservedQuantity", -quantity)
+                .set(reservationPath + ".status", ReservationStatus.RELEASED)
+                .set(reservationPath + ".updatedAt", LocalDateTime.now())
+                .set("updatedAt", LocalDateTime.now());
+
+        InventoryItem updated = mongoTemplate.findAndModify(query, update,
+                FindAndModifyOptions.options().returnNew(true), InventoryItem.class);
+        if (updated == null) {
+            InventoryItem latest = findByProductId(productId);
+            StockReservation latestReservation = requireReservation(latest, orderId, quantity);
+            if (latestReservation.status() == ReservationStatus.RELEASED) {
+                return inventoryMapper.toResponse(latest);
+            }
+            throw new ValidationException(
+                    "Reservation for order " + orderId + " could not be released");
         }
 
         invalidateCache(productId);
@@ -229,6 +304,37 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     // ----- helpers -----
+
+    private InventoryItem findByProductId(String productId) {
+        return inventoryRepository.findByProductId(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Inventory for product", productId));
+    }
+
+    private StockReservation reservation(InventoryItem item, String orderId) {
+        return item.getReservations() == null ? null : item.getReservations().get(orderId);
+    }
+
+    private StockReservation requireReservation(InventoryItem item, String orderId, int quantity) {
+        StockReservation existing = reservation(item, orderId);
+        if (existing == null) {
+            throw new ValidationException(
+                    "No active reservation exists for order " + orderId);
+        }
+        if (existing.quantity() != quantity) {
+            throw new ValidationException(
+                    "Reservation quantity does not match order " + orderId);
+        }
+        return existing;
+    }
+
+    private InventoryResponse handleRepeatedReservation(InventoryItem item, StockReservation reservation,
+                                                        int quantity, String orderId) {
+        if (reservation.quantity() == quantity && reservation.status() == ReservationStatus.RESERVED) {
+            return inventoryMapper.toResponse(item);
+        }
+        throw new ValidationException(
+                "Order " + orderId + " already has a different or completed reservation");
+    }
 
     private void cacheItem(InventoryItem item) {
         try {

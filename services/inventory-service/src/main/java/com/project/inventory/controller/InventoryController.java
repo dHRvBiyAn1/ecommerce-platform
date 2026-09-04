@@ -141,6 +141,15 @@ public class InventoryController {
                 inventoryService.reserveStock(productId, request.quantity(), request.orderId()));
     }
 
+    @PostMapping("/{productId}/commit")
+    @Operation(summary = "Commit reserved stock after successful payment")
+    public ResponseEntity<InventoryResponse> commitStock(@PathVariable String productId,
+                                                          @Valid @RequestBody StockReservationRequest request) {
+        inventoryValidator.validateReservation(request.quantity(), request.orderId());
+        return ResponseEntity.ok(
+                inventoryService.commitStock(productId, request.quantity(), request.orderId()));
+    }
+
     @PostMapping("/{productId}/release")
     @Operation(summary = "Release an order stock reservation")
     @PreAuthorize("isAuthenticated()")

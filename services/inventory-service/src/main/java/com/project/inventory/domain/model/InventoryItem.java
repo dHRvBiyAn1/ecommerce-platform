@@ -11,6 +11,8 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 @Document(collection = "inventory")
 @Getter
@@ -23,6 +25,7 @@ public class InventoryItem {
     @Indexed private String sku;
     private int quantity;
     private int reservedQuantity;
+    private Map<String, StockReservation> reservations = new HashMap<>();
     private int lowStockThreshold = 10;
     private String location;
     private LocalDateTime lastRestockedAt;

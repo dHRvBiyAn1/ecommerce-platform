@@ -20,6 +20,10 @@ public interface InventoryClient {
     InventoryReservationResult reserve(@PathVariable("productId") String productId,
                                        @RequestBody StockReservationCommand command);
 
+    @PostMapping("/{productId}/commit")
+    InventoryReservationResult commit(@PathVariable("productId") String productId,
+                                      @RequestBody StockReservationCommand command);
+
     @PostMapping("/{productId}/release")
     InventoryReservationResult release(@PathVariable("productId") String productId,
                                        @RequestBody StockReservationCommand command);

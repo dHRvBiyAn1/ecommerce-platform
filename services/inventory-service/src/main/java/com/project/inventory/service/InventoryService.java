@@ -22,6 +22,8 @@ public interface InventoryService {
 
     InventoryResponse reserveStock(String productId, int quantity, String orderId);
 
+    InventoryResponse commitStock(String productId, int quantity, String orderId);
+
     InventoryResponse releaseStock(String productId, int quantity, String orderId);
 
     InventoryResponse addStock(String productId, int quantity);

@@ -53,6 +53,7 @@ class InventoryOpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/v1/inventory']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/inventory/{productId}']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/inventory/{productId}/reserve']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/inventory/{productId}/commit']").exists())
                 .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.type").value("http"))
                 .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
                 .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.bearerFormat").value("JWT"))
@@ -106,6 +107,11 @@ class InventoryOpenApiContractTest {
 
                 @Override
                 public com.project.inventory.api.dto.response.InventoryResponse reserveStock(String productId, int quantity, String orderId) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public com.project.inventory.api.dto.response.InventoryResponse commitStock(String productId, int quantity, String orderId) {
                     throw new UnsupportedOperationException();
                 }
 

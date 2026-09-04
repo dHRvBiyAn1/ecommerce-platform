@@ -299,6 +299,10 @@ public class OrderServiceImpl implements OrderService {
 
         switch (paymentStatus) {
             case COMPLETED -> {
+                if (order.getPaymentStatus() == PaymentStatus.COMPLETED) {
+                    log.info("Ignoring duplicate payment completion for order {}", orderId);
+                    return;
+                }
                 onPaymentCompletedInternal(orderId, paymentId);
             }
             case FAILED -> {
@@ -325,6 +329,11 @@ public class OrderServiceImpl implements OrderService {
     public void onPaymentCompletedInternal(String orderId, String paymentId) {
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order != null) {
+            for (OrderItem item : order.getItems()) {
+                inventoryClient.commit(item.getProductId(),
+                        new StockReservationCommand(item.getQuantity(), orderId));
+            }
+
             order.setPaymentId(paymentId);
             order.setPaymentStatus(PaymentStatus.COMPLETED);
             order.setStatus(OrderStatus.CONFIRMED);
