@@ -20,6 +20,8 @@ newman-report.json
 .agents/
 .worktrees/
 graphify-out/
+.tools/
+.graphify_*.json
 *.swp
 *.swo
 
