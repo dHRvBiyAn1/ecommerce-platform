@@ -5,8 +5,14 @@ import com.project.authservice.dto.ChangePasswordRequest;
 import com.project.authservice.dto.RegistrationRequest;
 import com.project.authservice.dto.TokenResponse;
 import com.project.authservice.dto.UserProfileDto;
+import com.project.authservice.dto.request.ClientCredentialsRequest;
+import com.project.authservice.dto.response.ServiceTokenResponse;
 import com.project.authservice.service.AuthService;
+import com.project.authservice.service.ClientCredentialsService;
 import com.project.authservice.util.CookieUtils;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -29,6 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final ClientCredentialsService clientCredentialsService;
 
     @Value("${jwt.refresh-token-expiration:2592000000}")
     private long refreshTokenDurationMs;
@@ -43,17 +50,34 @@ public class AuthController {
     }
 
     /**
-     * OAuth2-style token endpoint supporting {@code password} and {@code refresh_token}
+     * OAuth2-style token endpoint supporting {@code password}, {@code refresh_token}, and
+     * {@code client_credentials}
      * grants. The refresh token is delivered as an HttpOnly Secure SameSite=Strict cookie;
      * only the access token is returned in the body.
      */
     @PostMapping("/token")
-    public ResponseEntity<ApiResponse<TokenResponse>> token(
+    @Operation(summary = "Issue an access token", description = "Supports password, refresh_token, and client_credentials grants")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Token issued"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Invalid credentials or requested scope")
+    })
+    public ResponseEntity<?> token(
             @RequestParam("grant_type") String grantType,
             @RequestParam(value = "email", required = false) String email,
             @RequestParam(value = "password", required = false) String password,
+            @Parameter(name = "client_id")
+            @RequestParam(value = "client_id", required = false) String clientId,
+            @Parameter(name = "client_secret")
+            @RequestParam(value = "client_secret", required = false) String clientSecret,
+            @RequestParam(value = "scope", required = false) String scope,
             HttpServletRequest request,
             HttpServletResponse response) {
+
+        if ("client_credentials".equals(grantType)) {
+            ServiceTokenResponse serviceToken = clientCredentialsService.issue(
+                    new ClientCredentialsRequest(clientId, clientSecret, scope));
+            return ResponseEntity.ok(serviceToken);
+        }
 
         String existingRefresh = CookieUtils.getCookieValue(request, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
         String userAgent = request.getHeader(HttpHeaders.USER_AGENT);
@@ -65,7 +89,8 @@ public class AuthController {
         CookieUtils.addCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME,
                 result.getRefreshToken(), (int) (refreshTokenDurationMs / 1000), secureCookie);
 
-        return ResponseEntity.ok(ApiResponse.success(new TokenResponse(result.getAccessToken())));
+        return ResponseEntity.ok(com.project.authservice.dto.ApiResponse.success(
+                new TokenResponse(result.getAccessToken())));
     }
 
     @PostMapping("/logout")

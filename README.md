@@ -14,6 +14,11 @@ git clone <repo> && cd ecommerce-platform
 make env
 make keys
 
+# Generate three distinct machine-client secrets and set them in .env (see below)
+# Run separately for ORDER_SERVICE_CLIENT_SECRET, PAYMENT_SERVICE_CLIENT_SECRET,
+# and CART_SERVICE_CLIENT_SECRET:
+openssl rand -hex 32
+
 # 2. Build and verify the Maven reactor
 make build
 
@@ -76,11 +81,37 @@ Compose network.
 - The api-gateway no longer authenticates: it strips client-supplied `X-User-*`
   headers (defence-in-depth) and forwards the `Authorization: Bearer <jwt>` header
   unchanged. Rate limiting is per-IP via Bucket4j.
-- The order saga propagates the user's JWT to inventory-service via Feign
-  (`com.project.common.feign.FeignAuthForwardingConfig`), so service-to-service
-  calls remain authenticated end-to-end.
+- Order, payment, and cart use scoped client-credentials tokens for internal
+  Feign calls, including when a user is logged in. These configured services
+  must fail closed on invalid configuration or token exchange failure, never
+  fall back to forwarding the user's JWT.
 - Refresh tokens are stored as SHA-256 hashes (`TokenHasher`) — never raw — with
   family-based reuse detection.
+
+### Service authentication setup
+
+| Client | Scopes | Secret environment variable |
+| --- | --- | --- |
+| order-service | `inventory.write coupons.read coupons.write` | `ORDER_SERVICE_CLIENT_SECRET` |
+| payment-service | `orders.read` | `PAYMENT_SERVICE_CLIENT_SECRET` |
+| cart-service | `coupons.read` | `CART_SERVICE_CLIENT_SECRET` |
+
+Generate each secret independently with `openssl rand -hex 32` and populate the
+blank entries in your gitignored `.env` before running Compose. Compose rejects
+unset or empty client secrets; required callers also rely on application
+validation to reject blank secrets and disabled or incomplete `service.auth`
+configuration when launched outside Compose.
+
+Each caller receives only its own client secret; auth-service receives all three
+for its allowlist. Keep secrets out of `config-repo`, config-server's environment,
+and the shared Compose environment anchor: the config endpoint is unauthenticated.
+Checked-in configuration contains environment placeholders, not client secrets.
+
+The callers set `service.auth.enabled: true`, `token-uri`, `client-id`,
+`client-secret`, and space-delimited `scope`. `SERVICE_AUTH_TOKEN_URI` overrides
+the local default `http://auth-service:8081/api/auth/token`. HTTP is only suitable
+for an isolated local network; production requires TLS (HTTPS) for token exchange
+and protected internal traffic, plus restricted access to the config endpoint.
 
 ## What works today
 
@@ -108,7 +139,7 @@ Tracked in `.todo/` (or follow-up sessions). Big buckets remaining:
 
 1. **Tests**: broaden unit coverage, add Testcontainers integration tests for every service; Spring Cloud
    Contract between order/payment/inventory; E2E happy path.
-2. **Service identity**: scoped client-credentials tokens for internal calls.
+2. **Service identity**: extend scoped client-credentials coverage to future callers.
 3. **Observability**: Prometheus/Grafana dashboards committed; OpenTelemetry
    bridge; structured JSON logs to Loki.
 4. **CI/CD**: GHCR push; SBOM via

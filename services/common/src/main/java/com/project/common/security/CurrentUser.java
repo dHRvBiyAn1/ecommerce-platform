@@ -21,7 +21,8 @@ import java.util.UUID;
 public class CurrentUser {
 
     public static Optional<UUID> id() {
-        return jwt().map(Jwt::getSubject).map(UUID::fromString);
+        if (isService()) return Optional.empty();
+        return jwt().map(Jwt::getSubject).flatMap(CurrentUser::parseUuid);
     }
 
     public static UUID requireId() {
@@ -46,6 +47,19 @@ public class CurrentUser {
 
     public static boolean isAdmin() {
         return hasRole("ROLE_ADMIN");
+    }
+
+    public static boolean isService() {
+        return jwt().map(token -> "service".equals(token.getClaimAsString("token_type")))
+                .orElse(false);
+    }
+
+    private static Optional<UUID> parseUuid(String value) {
+        try {
+            return Optional.of(UUID.fromString(value));
+        } catch (IllegalArgumentException exception) {
+            return Optional.empty();
+        }
     }
 
     private static java.util.stream.Stream<String> authorities() {

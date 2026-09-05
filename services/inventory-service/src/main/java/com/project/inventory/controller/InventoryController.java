@@ -1,6 +1,7 @@
 package com.project.inventory.controller;
 
 import com.project.common.constant.Permissions;
+import com.project.common.constant.ServiceScopes;
 import com.project.inventory.api.dto.request.InventoryRequest;
 import com.project.inventory.api.dto.request.StockReservationRequest;
 import com.project.inventory.api.dto.response.InventoryResponse;
@@ -47,7 +48,7 @@ public class InventoryController {
     private final InventoryService inventoryService;
     private final InventoryValidator inventoryValidator;
 
-    // Reads — sellers and admins, plus order-service callers (carrying user JWT)
+    // Reads for sellers, admins, and authenticated callers.
     @GetMapping
     @Operation(summary = "List inventory")
     @PreAuthorize("hasAuthority('" + Permissions.INVENTORY_READ + "') or hasRole('ADMIN') or hasRole('SELLER')")
@@ -122,9 +123,7 @@ public class InventoryController {
         return ResponseEntity.ok(inventoryService.addStock(productId, quantity));
     }
 
-    // Reservation endpoints — called by order-service inside the saga.
-    // Any authenticated user creating an order can reserve their own items;
-    // order-service propagates the user's JWT.
+    // Reservation endpoints are machine-only operations within the order saga.
     @PostMapping("/{productId}/reserve")
     @Operation(summary = "Reserve stock for an order")
     @ApiResponses({
@@ -133,7 +132,7 @@ public class InventoryController {
             @ApiResponse(responseCode = "404", ref = NOT_FOUND_ERROR),
             @ApiResponse(responseCode = "409", description = "Insufficient stock", content = @Content)
     })
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("T(com.project.common.security.CurrentUser).isService() and hasAuthority('" + ServiceScopes.AUTHORITY_INVENTORY_WRITE + "')")
     public ResponseEntity<InventoryResponse> reserveStock(@PathVariable String productId,
                                                            @Valid @RequestBody StockReservationRequest request) {
         inventoryValidator.validateReservation(request.quantity(), request.orderId());
@@ -143,6 +142,7 @@ public class InventoryController {
 
     @PostMapping("/{productId}/commit")
     @Operation(summary = "Commit reserved stock after successful payment")
+    @PreAuthorize("T(com.project.common.security.CurrentUser).isService() and hasAuthority('" + ServiceScopes.AUTHORITY_INVENTORY_WRITE + "')")
     public ResponseEntity<InventoryResponse> commitStock(@PathVariable String productId,
                                                           @Valid @RequestBody StockReservationRequest request) {
         inventoryValidator.validateReservation(request.quantity(), request.orderId());
@@ -152,7 +152,7 @@ public class InventoryController {
 
     @PostMapping("/{productId}/release")
     @Operation(summary = "Release an order stock reservation")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("T(com.project.common.security.CurrentUser).isService() and hasAuthority('" + ServiceScopes.AUTHORITY_INVENTORY_WRITE + "')")
     public ResponseEntity<InventoryResponse> releaseStock(@PathVariable String productId,
                                                            @Valid @RequestBody StockReservationRequest request) {
         inventoryValidator.validateReservation(request.quantity(), request.orderId());

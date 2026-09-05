@@ -15,9 +15,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
+import java.time.Duration;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -70,6 +73,24 @@ public class JwtService {
                 .claim("email", user.getEmail())
                 .claim("roles", roles)
                 .claim("permissions", permissions)
+                .signWith(key.getPrivateKey(), Jwts.SIG.RS256)
+                .compact();
+    }
+
+    public String generateServiceToken(String clientId, Set<String> scopes, Duration ttl) {
+        JwtKey key = keyManager.getCurrentKey();
+        long now = System.currentTimeMillis();
+        String scope = String.join(" ", new TreeSet<>(scopes));
+
+        return Jwts.builder()
+                .header().keyId(key.getKid()).type("JWT").and()
+                .subject(clientId)
+                .issuer(issuer)
+                .id(UUID.randomUUID().toString())
+                .issuedAt(new Date(now))
+                .expiration(new Date(now + ttl.toMillis()))
+                .claim("token_type", "service")
+                .claim("scope", scope)
                 .signWith(key.getPrivateKey(), Jwts.SIG.RS256)
                 .compact();
     }

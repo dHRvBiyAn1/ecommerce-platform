@@ -31,6 +31,14 @@ common:
     resource-server:
       enabled: false
 
+service:
+  auth:
+    enabled: true
+    token-uri: ${SERVICE_AUTH_TOKEN_URI:http://auth-service:8081/api/auth/token}
+    client-id: payment-service
+    client-secret: ${PAYMENT_SERVICE_CLIENT_SECRET:}
+    scope: orders.read
+
 logging:
   level:
     com.project.payment: INFO

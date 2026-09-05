@@ -10,7 +10,6 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Maps JWT claims into Spring Security {@link GrantedAuthority}s.
@@ -30,22 +29,7 @@ public class JwtAuthenticationConverter implements Converter<Jwt, AbstractAuthen
 
     @Override
     public AbstractAuthenticationToken convert(Jwt jwt) {
-        Collection<GrantedAuthority> authorities = new ArrayList<>();
-
-        // Roles claim: already includes ROLE_ prefix
-        Optional.ofNullable(jwt.getClaimAsStringList("roles"))
-                .ifPresent(roles -> roles.stream()
-                        .map(SimpleGrantedAuthority::new)
-                        .forEach(authorities::add));
-
-        // Permissions claim: fine-grained authorities like products:create
-        Optional.ofNullable(jwt.getClaimAsStringList("permissions"))
-                .ifPresent(perms -> perms.stream()
-                        .map(SimpleGrantedAuthority::new)
-                        .forEach(authorities::add));
-
-        // Subject is the user id (UUID string). Use it as principal name.
-        return new JwtAuthenticationToken(jwt, authorities, jwt.getSubject());
+        return new JwtAuthenticationToken(jwt, extractAuthorities(jwt), jwt.getSubject());
     }
 
     /**
@@ -57,6 +41,18 @@ public class JwtAuthenticationConverter implements Converter<Jwt, AbstractAuthen
         if (roles != null) roles.forEach(r -> authorities.add(new SimpleGrantedAuthority(r)));
         List<String> permissions = jwt.getClaimAsStringList("permissions");
         if (permissions != null) permissions.forEach(p -> authorities.add(new SimpleGrantedAuthority(p)));
+        Object scopeClaim = jwt.getClaims().get("scope");
+        if (scopeClaim instanceof String scopes) {
+            scopes.lines()
+                    .flatMap(line -> java.util.Arrays.stream(line.trim().split("\\s+")))
+                    .filter(scope -> !scope.isBlank())
+                    .map(scope -> new SimpleGrantedAuthority("SCOPE_" + scope))
+                    .forEach(authorities::add);
+        } else if (scopeClaim instanceof Collection<?> scopes) {
+            scopes.stream().map(Object::toString)
+                    .map(scope -> new SimpleGrantedAuthority("SCOPE_" + scope))
+                    .forEach(authorities::add);
+        }
         return authorities;
     }
 }

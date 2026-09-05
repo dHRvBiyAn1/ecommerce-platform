@@ -1,6 +1,7 @@
 package com.project.order.controller;
 
 import com.project.common.constant.Permissions;
+import com.project.common.constant.ServiceScopes;
 import com.project.common.dto.ApiResponse;
 import com.project.common.security.CurrentUser;
 import com.project.order.dto.OrderRequest;
@@ -8,6 +9,7 @@ import com.project.order.dto.OrderResponse;
 import com.project.order.dto.OrderStatusUpdateRequest;
 import com.project.order.model.OrderStatus;
 import com.project.order.service.OrderService;
+import com.project.order.validation.OrderAccessValidator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +36,7 @@ import java.util.UUID;
 public class OrderController {
 
     private final OrderService orderService;
+    private final OrderAccessValidator orderAccessValidator;
 
     @PostMapping
     @PreAuthorize("hasAuthority('" + Permissions.ORDERS_CREATE + "')")
@@ -59,22 +62,18 @@ public class OrderController {
     }
 
     @GetMapping("/{orderId}")
-    @PreAuthorize("hasAuthority('" + Permissions.ORDERS_READ + "')")
+    @PreAuthorize("T(com.project.common.security.CurrentUser).isService() ? hasAuthority('" + ServiceScopes.AUTHORITY_ORDERS_READ + "') : hasAuthority('" + Permissions.ORDERS_READ + "')")
     public ResponseEntity<ApiResponse<OrderResponse>> getOrder(@PathVariable String orderId) {
         OrderResponse order = orderService.getOrder(orderId);
-        if (!CurrentUser.isAdmin() && !order.getUserId().equals(CurrentUser.requireId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        orderAccessValidator.validateRead(order.getUserId());
         return ResponseEntity.ok(ApiResponse.success(order));
     }
 
     @GetMapping("/number/{orderNumber}")
-    @PreAuthorize("hasAuthority('" + Permissions.ORDERS_READ + "')")
+    @PreAuthorize("T(com.project.common.security.CurrentUser).isService() ? hasAuthority('" + ServiceScopes.AUTHORITY_ORDERS_READ + "') : hasAuthority('" + Permissions.ORDERS_READ + "')")
     public ResponseEntity<ApiResponse<OrderResponse>> getOrderByNumber(@PathVariable String orderNumber) {
         OrderResponse order = orderService.getOrderByNumber(orderNumber);
-        if (!CurrentUser.isAdmin() && !order.getUserId().equals(CurrentUser.requireId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        orderAccessValidator.validateRead(order.getUserId());
         return ResponseEntity.ok(ApiResponse.success(order));
     }
 

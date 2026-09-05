@@ -46,6 +46,27 @@ jwt:
   refresh-token-expiration: 604800000   # 7 days
   issuer: auth-service
 
+# Explicit machine-client allowlist. Blank secrets disable issuance until the
+# corresponding environment secret is configured.
+auth:
+  service-clients:
+    token-ttl: 5m
+    clients:
+      order-service:
+        secret: ${ORDER_SERVICE_CLIENT_SECRET:}
+        allowed-scopes:
+          - inventory.write
+          - coupons.read
+          - coupons.write
+      payment-service:
+        secret: ${PAYMENT_SERVICE_CLIENT_SECRET:}
+        allowed-scopes:
+          - orders.read
+      cart-service:
+        secret: ${CART_SERVICE_CLIENT_SECRET:}
+        allowed-scopes:
+          - coupons.read
+
 # RSA keys (loaded by KeyManager); paths are URI-style (file:, classpath:, etc).
 rsa:
   private-key-location: ${AUTH_RSA_PRIVATE_KEY_LOCATION}
