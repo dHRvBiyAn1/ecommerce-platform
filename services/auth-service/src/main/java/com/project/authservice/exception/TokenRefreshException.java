@@ -1,11 +1,11 @@
 package com.project.authservice.exception;
 
+import com.project.common.constant.ErrorCode;
+import com.project.common.exception.BusinessException;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
 
-@ResponseStatus(HttpStatus.FORBIDDEN)
-public class TokenRefreshException extends RuntimeException {
+public class TokenRefreshException extends BusinessException {
     public TokenRefreshException(String message) {
-        super(message);
+        super(HttpStatus.FORBIDDEN, ErrorCode.FORBIDDEN.value(), message);
     }
 }

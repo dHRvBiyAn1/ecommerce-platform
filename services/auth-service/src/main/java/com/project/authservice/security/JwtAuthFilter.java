@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Validates self-issued JWTs on auth-service's own protected endpoints (/api/user,
@@ -60,7 +61,17 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         try {
             if (jwtService.validateToken(token)) {
+                if (!jwtService.isUserToken(token)) {
+                    SecurityContextHolder.clearContext();
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
+                }
                 String userId = jwtService.getUserIdFromToken(token);
+                if (!isUuid(userId)) {
+                    SecurityContextHolder.clearContext();
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
+                }
                 Set<String> roles = jwtService.getRolesFromToken(token);
                 Set<String> permissions = jwtService.getPermissionsFromToken(token);
 
@@ -78,5 +89,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         chain.doFilter(request, response);
+    }
+
+    private static boolean isUuid(String value) {
+        try {
+            UUID.fromString(value);
+            return true;
+        } catch (RuntimeException ex) {
+            return false;
+        }
     }
 }

@@ -1,6 +1,5 @@
 package com.project.authservice.controller;
 
-import com.project.authservice.dto.ApiResponse;
 import com.project.authservice.dto.UserProfileDto;
 import com.project.authservice.dto.admin.AssignRolesRequest;
 import com.project.authservice.dto.admin.CreateRoleRequest;
@@ -14,6 +13,7 @@ import com.project.authservice.repository.RoleRepository;
 import com.project.authservice.repository.UserRepository;
 import com.project.common.exception.DuplicateResourceException;
 import com.project.common.exception.ResourceNotFoundException;
+import com.project.common.dto.ApiResponse;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

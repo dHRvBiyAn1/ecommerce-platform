@@ -4,6 +4,7 @@ import com.project.authservice.config.ServiceClientProperties;
 import com.project.authservice.dto.request.ClientCredentialsRequest;
 import com.project.authservice.dto.response.ServiceTokenResponse;
 import com.project.authservice.exception.AuthException;
+import com.project.authservice.exception.InvalidScopeException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +19,8 @@ import java.util.TreeSet;
 @RequiredArgsConstructor
 public class ClientCredentialsService {
 
+    private static final Duration MIN_TOKEN_TTL = Duration.ofSeconds(1);
+    private static final Duration MAX_TOKEN_TTL = Duration.ofMinutes(15);
     private static final byte[] UNKNOWN_CLIENT_SECRET =
             "invalid-unconfigured-client-secret".getBytes(StandardCharsets.UTF_8);
 
@@ -43,12 +46,12 @@ public class ClientCredentialsService {
 
         Set<String> requestedScopes = parseScopes(request.scope(), client.allowedScopes());
         if (requestedScopes.isEmpty() || !client.allowedScopes().containsAll(requestedScopes)) {
-            throw new AuthException("Requested scope is not allowed");
+            throw new InvalidScopeException("Requested scope is not allowed");
         }
 
         Duration tokenTtl = properties.tokenTtl();
-        if (tokenTtl == null || tokenTtl.isZero() || tokenTtl.isNegative()) {
-            throw new IllegalStateException("Service token TTL must be positive");
+        if (tokenTtl == null || tokenTtl.compareTo(MIN_TOKEN_TTL) < 0 || tokenTtl.compareTo(MAX_TOKEN_TTL) > 0) {
+            throw new IllegalStateException("Service token TTL must be between 1 second and 15 minutes");
         }
 
         String normalizedScope = String.join(" ", requestedScopes);

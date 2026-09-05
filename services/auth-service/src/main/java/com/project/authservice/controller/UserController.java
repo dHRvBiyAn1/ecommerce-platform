@@ -1,12 +1,12 @@
 package com.project.authservice.controller;
 
-import com.project.authservice.dto.ApiResponse;
 import com.project.authservice.dto.UserProfileDto;
 import com.project.authservice.dto.UserUpdateRequest;
 import com.project.authservice.entity.User;
 import com.project.authservice.mapper.UserMapper;
 import com.project.authservice.repository.UserRepository;
 import com.project.common.exception.ResourceNotFoundException;
+import com.project.common.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

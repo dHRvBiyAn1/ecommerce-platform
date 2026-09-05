@@ -1,11 +1,11 @@
 package com.project.authservice.controller;
 
-import com.project.authservice.dto.ApiResponse;
 import com.project.authservice.dto.seller.RejectApplicationRequest;
 import com.project.authservice.dto.seller.SellerApplicationRequest;
 import com.project.authservice.dto.seller.SellerApplicationResponse;
 import com.project.authservice.entity.SellerApplicationStatus;
 import com.project.authservice.service.SellerApplicationService;
+import com.project.common.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

@@ -18,6 +18,7 @@ import java.util.UUID;
 public class ApiResponse<T> {
     private int status;
     private String message;
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     private T data;
     private String traceId;
     private Instant timestamp = Instant.now();

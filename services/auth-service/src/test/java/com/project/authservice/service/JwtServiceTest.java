@@ -23,7 +23,7 @@ class JwtServiceTest {
 
         String token = jwtService.generateServiceToken(
                 "order-service",
-                Set.of("inventory.reserve", "inventory.commit"),
+                Set.of("inventory.write", "coupons.read"),
                 Duration.ofMinutes(5));
 
         Claims claims = Jwts.parser()
@@ -35,7 +35,7 @@ class JwtServiceTest {
 
         assertThat(claims.getSubject()).isEqualTo("order-service");
         assertThat(claims.get("token_type", String.class)).isEqualTo("service");
-        assertThat(claims.get("scope", String.class)).isEqualTo("inventory.commit inventory.reserve");
+        assertThat(claims.get("scope", String.class)).isEqualTo("coupons.read inventory.write");
         assertThat(claims.getId()).isNotBlank();
         assertThat(claims.getExpiration().getTime() - claims.getIssuedAt().getTime()).isEqualTo(300_000L);
     }

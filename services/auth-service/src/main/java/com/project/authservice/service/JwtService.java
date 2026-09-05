@@ -44,6 +44,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class JwtService {
 
+    private static final String SERVICE_TOKEN_TYPE = "service";
+
     private final KeyManager keyManager;
 
     @Value("${jwt.access-token-expiration:900000}")
@@ -89,7 +91,7 @@ public class JwtService {
                 .id(UUID.randomUUID().toString())
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + ttl.toMillis()))
-                .claim("token_type", "service")
+                .claim("token_type", SERVICE_TOKEN_TYPE)
                 .claim("scope", scope)
                 .signWith(key.getPrivateKey(), Jwts.SIG.RS256)
                 .compact();
@@ -103,6 +105,10 @@ public class JwtService {
             log.debug("JWT validation failed: {}", e.getMessage());
             return false;
         }
+    }
+
+    public boolean isUserToken(String token) {
+        return !SERVICE_TOKEN_TYPE.equals(parseClaims(token).get("token_type", String.class));
     }
 
     public String getUserIdFromToken(String token) {

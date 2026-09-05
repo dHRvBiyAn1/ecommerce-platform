@@ -1,12 +1,14 @@
 package com.project.authservice.controller;
 
-import com.project.authservice.dto.ApiResponse;
 import com.project.authservice.dto.ChangePasswordRequest;
 import com.project.authservice.dto.RegistrationRequest;
 import com.project.authservice.dto.TokenResponse;
 import com.project.authservice.dto.UserProfileDto;
 import com.project.authservice.dto.request.ClientCredentialsRequest;
 import com.project.authservice.dto.response.ServiceTokenResponse;
+import com.project.authservice.exception.InvalidScopeException;
+import com.project.authservice.exception.AuthException;
+import com.project.common.dto.ApiResponse;
 import com.project.authservice.service.AuthService;
 import com.project.authservice.service.ClientCredentialsService;
 import com.project.authservice.util.CookieUtils;
@@ -28,6 +30,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -62,7 +66,7 @@ public class AuthController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Invalid credentials or requested scope")
     })
     public ResponseEntity<?> token(
-            @RequestParam("grant_type") String grantType,
+            @RequestParam(value = "grant_type", required = false) String grantType,
             @RequestParam(value = "email", required = false) String email,
             @RequestParam(value = "password", required = false) String password,
             @Parameter(name = "client_id")
@@ -73,10 +77,24 @@ public class AuthController {
             HttpServletRequest request,
             HttpServletResponse response) {
 
+        if (grantType == null || grantType.isBlank()) {
+            return oauthError(HttpStatus.BAD_REQUEST, "invalid_request", "Missing grant_type");
+        }
+
         if ("client_credentials".equals(grantType)) {
-            ServiceTokenResponse serviceToken = clientCredentialsService.issue(
-                    new ClientCredentialsRequest(clientId, clientSecret, scope));
-            return ResponseEntity.ok(serviceToken);
+            try {
+                ServiceTokenResponse serviceToken = clientCredentialsService.issue(
+                        new ClientCredentialsRequest(clientId, clientSecret, scope));
+                return ResponseEntity.ok(serviceToken);
+            } catch (InvalidScopeException ex) {
+                return oauthError(HttpStatus.BAD_REQUEST, "invalid_scope", ex.getMessage());
+            } catch (AuthException ex) {
+                return oauthError(HttpStatus.UNAUTHORIZED, "invalid_client", "Invalid client credentials");
+            }
+        }
+
+        if (!"password".equals(grantType) && !"refresh_token".equals(grantType)) {
+            return oauthError(HttpStatus.BAD_REQUEST, "unsupported_grant_type", "Unsupported grant_type");
         }
 
         String existingRefresh = CookieUtils.getCookieValue(request, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
@@ -89,7 +107,7 @@ public class AuthController {
         CookieUtils.addCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME,
                 result.getRefreshToken(), (int) (refreshTokenDurationMs / 1000), secureCookie);
 
-        return ResponseEntity.ok(com.project.authservice.dto.ApiResponse.success(
+        return ResponseEntity.ok(ApiResponse.success(
                 new TokenResponse(result.getAccessToken())));
     }
 
@@ -133,5 +151,11 @@ public class AuthController {
         String xff = req.getHeader("X-Forwarded-For");
         if (xff != null && !xff.isBlank()) return xff.split(",")[0].trim();
         return req.getRemoteAddr();
+    }
+
+    private static ResponseEntity<Map<String, String>> oauthError(HttpStatus status, String error, String description) {
+        return ResponseEntity.status(status).body(Map.of(
+                "error", error,
+                "error_description", description));
     }
 }
