@@ -3,11 +3,12 @@ package com.project.authservice.controller;
 import com.project.authservice.dto.request.ChangePasswordRequest;
 import com.project.authservice.dto.request.RegistrationRequest;
 import com.project.authservice.dto.TokenResponse;
-import com.project.authservice.dto.UserProfileDto;
+import com.project.authservice.dto.response.UserProfileDto;
 import com.project.authservice.dto.request.ClientCredentialsRequest;
 import com.project.authservice.dto.response.ServiceTokenResponse;
 import com.project.authservice.exception.InvalidScopeException;
 import com.project.authservice.exception.AuthException;
+import com.project.authservice.security.AuthenticatedUserValidator;
 import com.project.common.dto.ApiResponse;
 import com.project.authservice.service.AuthService;
 import com.project.authservice.service.ClientCredentialsService;
@@ -40,6 +41,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final ClientCredentialsService clientCredentialsService;
+    private final AuthenticatedUserValidator authenticatedUserValidator;
 
     @Value("${jwt.refresh-token-expiration:2592000000}")
     private long refreshTokenDurationMs;
@@ -130,19 +132,8 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @Valid @RequestBody ChangePasswordRequest request,
             Authentication authentication) {
-        // Principal is the user id (UUID string) from the JWT subject claim. We use the
-        // Authentication.getName() to load the email indirectly via the service; in the
-        // common-resource-server flow we'd read 'email' claim instead.
-        // For the auth-service self-call we keep the legacy form: authentication.getName()
-        // here will be the user id; the service signature accepts email lookup directly so
-        // we surface it explicitly via the Authentication.principal token.
-        String userId = authentication.getName();
-        // We need the email for matching. AuthService.changePassword expects email — but the
-        // caller is the authenticated user, so resolve email by loading the user once.
-        // (Done inside AuthService.changePassword via UserRepository.)
-        // We pass userId-as-email for compatibility with downstream lookup-by-email which
-        // we replace here with a lookup-by-id helper.
-        authService.changePasswordByUserId(java.util.UUID.fromString(userId), request.oldPassword(),
+        java.util.UUID userId = authenticatedUserValidator.requireUserId(authentication);
+        authService.changePasswordByUserId(userId, request.oldPassword(),
                 request.newPassword());
         return ResponseEntity.ok(ApiResponse.success(null));
     }

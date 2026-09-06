@@ -1,17 +1,19 @@
 package com.project.authservice.controller;
 
-import com.project.authservice.dto.UserProfileDto;
+import com.project.authservice.dto.response.UserProfileDto;
 import com.project.authservice.entity.User;
-import com.project.authservice.mapper.UserMapper;
-import com.project.authservice.repository.UserRepository;
+import com.project.authservice.security.AuthenticatedUserValidator;
+import com.project.authservice.service.UserProfileService;
 import com.project.authservice.security.CustomOAuth2SuccessHandler;
 import com.project.authservice.security.KeyManager;
 import com.project.authservice.security.JwtAuthFilter;
 import com.project.authservice.security.OAuth2ClientConfig;
 import com.project.authservice.security.SecurityConfig;
+import com.project.authservice.security.JwtKey;
 import com.project.authservice.service.JwtService;
 import com.project.authservice.service.TokenBlacklistService;
 import com.project.common.exception.GlobalExceptionHandler;
+import io.jsonwebtoken.Jwts;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -30,9 +32,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.time.Duration;
+import java.util.Date;
 
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -43,7 +47,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.cloud.config.enabled=false",
         "spring.config.import=optional:file:/dev/null"
 })
-@Import({SecurityConfig.class, JwtAuthFilter.class, GlobalExceptionHandler.class, UserControllerSecurityHttpTest.JwtTestConfig.class})
+@Import({SecurityConfig.class, JwtAuthFilter.class, GlobalExceptionHandler.class, AuthenticatedUserValidator.class,
+        UserControllerSecurityHttpTest.JwtTestConfig.class})
 @ExtendWith(OutputCaptureExtension.class)
 class UserControllerSecurityHttpTest {
 
@@ -54,10 +59,7 @@ class UserControllerSecurityHttpTest {
     private TokenBlacklistService blacklist;
 
     @MockBean
-    private UserRepository userRepository;
-
-    @MockBean
-    private UserMapper userMapper;
+    private UserProfileService userProfileService;
 
     @MockBean
     private CustomOAuth2SuccessHandler oAuth2SuccessHandler;
@@ -71,6 +73,21 @@ class UserControllerSecurityHttpTest {
         mockMvc.perform(get("/api/user/profile")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void malformedSignedJwtIsRejectedByFilterWithBareUnauthorizedResponse() throws Exception {
+        String token = signedUserToken("not-a-uuid");
+        when(blacklist.isBlacklisted(token)).thenReturn(false);
+
+        org.assertj.core.api.Assertions.assertThat(jwtService.isUserToken(token)).isTrue();
+
+        mockMvc.perform(get("/api/user/profile")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().string(""));
+
+        verifyNoInteractions(userProfileService);
     }
 
     @Test
@@ -91,12 +108,10 @@ class UserControllerSecurityHttpTest {
         user.setId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
         user.setEmail("customer@example.com");
         String token = jwtService.generateToken(user);
-        UserProfileDto profile = new UserProfileDto();
-        profile.setId(user.getId());
-        profile.setEmail(user.getEmail());
+        UserProfileDto profile = new UserProfileDto(user.getId(), user.getEmail(), null, null, null, false,
+                null, Set.of(), Set.of(), null, null, false);
         when(blacklist.isBlacklisted(token)).thenThrow(new IllegalStateException("redis connection details"));
-        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
-        when(userMapper.toDto(user)).thenReturn(profile);
+        when(userProfileService.getProfile(user.getId())).thenReturn(profile);
 
         mockMvc.perform(get("/api/user/profile")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
@@ -108,7 +123,7 @@ class UserControllerSecurityHttpTest {
                 .andExpect(header().string(HttpHeaders.PRAGMA, "no-cache"))
                 .andExpect(header().string(HttpHeaders.EXPIRES, "0"));
 
-        verifyNoInteractions(userRepository, userMapper);
+        verifyNoInteractions(userProfileService);
         org.assertj.core.api.Assertions.assertThat(output.getOut())
                 .contains("Blacklist check failed; rejecting request")
                 .doesNotContain("redis connection details");
@@ -121,18 +136,26 @@ class UserControllerSecurityHttpTest {
         user.setId(userId);
         user.setEmail("customer@example.com");
         String token = jwtService.generateToken(user);
-        UserProfileDto profile = new UserProfileDto();
-        profile.setId(userId);
-        profile.setEmail("customer@example.com");
+        UserProfileDto profile = new UserProfileDto(userId, "customer@example.com", null, null, null, false,
+                null, Set.of(), Set.of(), null, null, false);
 
         when(blacklist.isBlacklisted(token)).thenReturn(false);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userMapper.toDto(user)).thenReturn(profile);
+        when(userProfileService.getProfile(userId)).thenReturn(profile);
 
         mockMvc.perform(get("/api/user/profile")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.email").value("customer@example.com"));
+    }
+
+    @Test
+    void malformedAuthenticatedPrincipalIsRejectedBeforeProfileServiceWithStructuredUnauthorizedResponse() throws Exception {
+        mockMvc.perform(get("/api/user/profile").with(user("not-a-uuid")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.message").value("Invalid authenticated user"));
+
+        verifyNoInteractions(userProfileService);
     }
 
     @TestConfiguration
@@ -145,6 +168,22 @@ class UserControllerSecurityHttpTest {
 
     @Autowired
     private JwtService jwtService;
+
+    private String signedUserToken(String subject) {
+        KeyManager keyManager = (KeyManager) org.springframework.test.util.ReflectionTestUtils
+                .getField(jwtService, "keyManager");
+        JwtKey key = keyManager.getCurrentKey();
+        long now = System.currentTimeMillis();
+        return Jwts.builder()
+                .header().keyId(key.getKid()).type("JWT").and()
+                .subject(subject)
+                .issuer("auth-service")
+                .issuedAt(new Date(now))
+                .expiration(new Date(now + Duration.ofMinutes(5).toMillis()))
+                .claim("email", "customer@example.com")
+                .signWith(key.getPrivateKey(), Jwts.SIG.RS256)
+                .compact();
+    }
 
     @TestConfiguration
     static class JwtTestConfig {

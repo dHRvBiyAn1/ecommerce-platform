@@ -1,7 +1,7 @@
 package com.project.authservice.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.project.authservice.dto.UserProfileDto;
+import com.project.authservice.dto.response.UserProfileDto;
 import com.project.authservice.dto.request.ClientCredentialsRequest;
 import com.project.authservice.dto.request.RegistrationRequest;
 import com.project.authservice.dto.response.ServiceTokenResponse;
@@ -13,6 +13,7 @@ import com.project.authservice.service.JwtService;
 import com.project.authservice.service.AuthService;
 import com.project.authservice.service.ClientCredentialsService;
 import com.project.authservice.service.TokenBlacklistService;
+import com.project.authservice.security.AuthenticatedUserValidator;
 import com.project.common.constant.ErrorCode;
 import com.project.common.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.Test;
@@ -63,15 +64,14 @@ class AuthControllerHttpContractTest {
     @MockBean
     private TokenBlacklistService tokenBlacklistService;
 
+    @MockBean
+    private AuthenticatedUserValidator authenticatedUserValidator;
+
     @Test
     void registerReturnsCommonSuccessEnvelopeWithTraceAndTimestamp() throws Exception {
-        UserProfileDto profile = new UserProfileDto();
-        profile.setId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
-        profile.setEmail("customer@example.com");
-        profile.setDisplayName("Customer One");
-        profile.setActive(true);
-        profile.setCreatedAt(LocalDateTime.parse("2026-09-05T10:15:30"));
-        profile.setHasPassword(true);
+        UserProfileDto profile = new UserProfileDto(UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                "customer@example.com", "Customer One", null, null, true,
+                LocalDateTime.parse("2026-09-05T10:15:30"), java.util.Set.of(), java.util.Set.of(), null, null, true);
 
         when(authService.register(any(RegistrationRequest.class))).thenReturn(profile);
 
@@ -273,10 +273,9 @@ class AuthControllerHttpContractTest {
 
     @Test
     void registerBindsJsonToNormalizedRecordRequest() throws Exception {
-        UserProfileDto profile = new UserProfileDto();
-        profile.setId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
-        profile.setEmail("customer@example.com");
-        profile.setDisplayName("Customer One");
+        UserProfileDto profile = new UserProfileDto(UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                "customer@example.com", "Customer One", null, null, false, null, java.util.Set.of(),
+                java.util.Set.of(), null, null, false);
 
         when(authService.register(any(RegistrationRequest.class))).thenAnswer(invocation -> {
             Object request = invocation.getArgument(0);

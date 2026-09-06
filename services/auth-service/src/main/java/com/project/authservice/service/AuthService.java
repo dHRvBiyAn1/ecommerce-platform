@@ -2,7 +2,7 @@ package com.project.authservice.service;
 
 import com.project.authservice.dto.request.RegistrationRequest;
 import com.project.authservice.dto.TokenResponse;
-import com.project.authservice.dto.UserProfileDto;
+import com.project.authservice.dto.response.UserProfileDto;
 import com.project.authservice.entity.AuthProvider;
 import com.project.authservice.entity.RefreshToken;
 import com.project.authservice.entity.Role;
@@ -82,7 +82,7 @@ public class AuthService {
                 .displayName(user.getDisplayName())
                 .build());
 
-        return userMapper.toDto(user);
+        return userMapper.toDto(user, true);
     }
 
     @Transactional

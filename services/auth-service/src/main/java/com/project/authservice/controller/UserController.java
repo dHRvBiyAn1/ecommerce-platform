@@ -1,12 +1,10 @@
 package com.project.authservice.controller;
 
-import com.project.authservice.dto.UserProfileDto;
+import com.project.authservice.dto.response.UserProfileDto;
 import com.project.authservice.dto.request.UserUpdateRequest;
-import com.project.authservice.entity.User;
-import com.project.authservice.mapper.UserMapper;
-import com.project.authservice.repository.UserRepository;
-import com.project.common.exception.ResourceNotFoundException;
 import com.project.common.dto.ApiResponse;
+import com.project.authservice.security.AuthenticatedUserValidator;
+import com.project.authservice.service.UserProfileService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -25,16 +23,14 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserController {
 
-    private final UserRepository userRepository;
-    private final UserMapper userMapper;
+    private final UserProfileService userProfileService;
+    private final AuthenticatedUserValidator authenticatedUserValidator;
 
     @GetMapping("/profile")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<UserProfileDto>> getProfile(Authentication authentication) {
-        UUID userId = UUID.fromString(authentication.getName());
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
-        return ResponseEntity.ok(ApiResponse.success(userMapper.toDto(user)));
+        UUID userId = authenticatedUserValidator.requireUserId(authentication);
+        return ResponseEntity.ok(ApiResponse.success(userProfileService.getProfile(userId)));
     }
 
     @PutMapping("/profile")
@@ -42,18 +38,7 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserProfileDto>> updateProfile(
             @Valid @RequestBody UserUpdateRequest request,
             Authentication authentication) {
-        UUID userId = UUID.fromString(authentication.getName());
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
-        if (request.displayName() != null) user.setDisplayName(request.displayName());
-        if (request.imageUrl() != null) user.setImageUrl(request.imageUrl());
-        if (request.phone() != null) user.setPhone(request.phone());
-        if (request.shippingAddress() != null) {
-            user.setShippingAddress(userMapper.toAddressEntity(request.shippingAddress()));
-        }
-        if (request.billingAddress() != null) {
-            user.setBillingAddress(userMapper.toAddressEntity(request.billingAddress()));
-        }
-        return ResponseEntity.ok(ApiResponse.success(userMapper.toDto(userRepository.save(user))));
+        UUID userId = authenticatedUserValidator.requireUserId(authentication);
+        return ResponseEntity.ok(ApiResponse.success(userProfileService.updateProfile(userId, request)));
     }
 }

@@ -1,13 +1,13 @@
 package com.project.authservice.controller;
 
-import com.project.authservice.dto.UserProfileDto;
+import com.project.authservice.dto.response.UserProfileDto;
 import com.project.authservice.dto.request.admin.AssignRolesRequest;
 import com.project.authservice.dto.request.admin.CreateRoleRequest;
 import com.project.authservice.dto.request.admin.UpdateRolePermissionsRequest;
 import com.project.authservice.entity.Permission;
 import com.project.authservice.entity.Role;
 import com.project.authservice.entity.User;
-import com.project.authservice.mapper.UserMapper;
+import com.project.authservice.service.UserProfileService;
 import com.project.authservice.repository.PermissionRepository;
 import com.project.authservice.repository.RoleRepository;
 import com.project.authservice.repository.UserRepository;
@@ -45,12 +45,12 @@ public class AdminController {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
-    private final UserMapper userMapper;
+    private final UserProfileService userProfileService;
 
     @GetMapping("/users")
     @PreAuthorize("hasAuthority('admin:users:read')")
     public ResponseEntity<ApiResponse<Page<UserProfileDto>>> listUsers(Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.success(userRepository.findAll(pageable).map(userMapper::toDto)));
+        return ResponseEntity.ok(ApiResponse.success(userRepository.findAll(pageable).map(userProfileService::toDto)));
     }
 
     @GetMapping("/users/{userId}")
@@ -58,7 +58,7 @@ public class AdminController {
     public ResponseEntity<ApiResponse<UserProfileDto>> getUser(@PathVariable UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
-        return ResponseEntity.ok(ApiResponse.success(userMapper.toDto(user)));
+        return ResponseEntity.ok(ApiResponse.success(userProfileService.toDto(user)));
     }
 
     @GetMapping("/roles")
@@ -109,7 +109,7 @@ public class AdminController {
                         .orElseThrow(() -> new ResourceNotFoundException("Role", name)))
                 .collect(Collectors.toSet());
         user.setRoles(roles);
-        return ResponseEntity.ok(ApiResponse.success(userMapper.toDto(userRepository.save(user))));
+        return ResponseEntity.ok(ApiResponse.success(userProfileService.toDto(userRepository.save(user))));
     }
 
     @PutMapping("/users/{userId}/active")
@@ -121,7 +121,7 @@ public class AdminController {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
         user.setActive(active);
-        return ResponseEntity.ok(ApiResponse.success(userMapper.toDto(userRepository.save(user))));
+        return ResponseEntity.ok(ApiResponse.success(userProfileService.toDto(userRepository.save(user))));
     }
 
     @DeleteMapping("/roles/{roleId}")

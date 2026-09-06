@@ -143,27 +143,20 @@ public class SellerApplicationService {
     private Address toEntity(AddressDto dto) {
         if (dto == null) return null;
         return Address.builder()
-                .fullName(dto.getFullName())
-                .phone(dto.getPhone())
-                .street(dto.getStreet())
-                .city(dto.getCity())
-                .state(dto.getState())
-                .zipCode(dto.getZipCode())
-                .country(dto.getCountry() == null ? "IN" : dto.getCountry())
+                .fullName(dto.fullName())
+                .phone(dto.phone())
+                .street(dto.street())
+                .city(dto.city())
+                .state(dto.state())
+                .zipCode(dto.zipCode())
+                .country(dto.country() == null ? "IN" : dto.country())
                 .build();
     }
 
     private AddressDto toAddressDto(Address a) {
         if (a == null) return null;
-        AddressDto dto = new AddressDto();
-        dto.setFullName(a.getFullName());
-        dto.setPhone(a.getPhone());
-        dto.setStreet(a.getStreet());
-        dto.setCity(a.getCity());
-        dto.setState(a.getState());
-        dto.setZipCode(a.getZipCode());
-        dto.setCountry(a.getCountry());
-        return dto;
+        return new AddressDto(a.getFullName(), a.getPhone(), a.getStreet(), a.getCity(), a.getState(),
+                a.getZipCode(), a.getCountry());
     }
 
     private SellerApplicationResponse toResponse(SellerApplication app) {
