@@ -1,12 +1,13 @@
 package com.project.authservice.controller;
 
-import com.project.authservice.dto.seller.RejectApplicationRequest;
-import com.project.authservice.dto.seller.SellerApplicationRequest;
-import com.project.authservice.dto.seller.SellerApplicationResponse;
+import com.project.authservice.dto.request.seller.RejectApplicationRequest;
+import com.project.authservice.dto.request.seller.SellerApplicationRequest;
+import com.project.authservice.dto.response.seller.SellerApplicationResponse;
 import com.project.authservice.entity.SellerApplicationStatus;
 import com.project.authservice.service.SellerApplicationService;
 import com.project.authservice.security.AuthenticatedUserValidator;
 import com.project.common.dto.ApiResponse;
+import com.project.common.constant.Permissions;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -73,7 +74,7 @@ class AdminSellerApplicationController {
     private final AuthenticatedUserValidator authenticatedUserValidator;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('admin:users:read')")
+    @PreAuthorize("hasAuthority('" + Permissions.USERS_READ + "')")
     public ResponseEntity<ApiResponse<Page<SellerApplicationResponse>>> list(
             @RequestParam(required = false) SellerApplicationStatus status,
             @PageableDefault(size = 20, sort = "submittedAt", direction = Sort.Direction.DESC) Pageable pageable) {
@@ -81,13 +82,13 @@ class AdminSellerApplicationController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('admin:users:read')")
+    @PreAuthorize("hasAuthority('" + Permissions.USERS_READ + "')")
     public ResponseEntity<ApiResponse<SellerApplicationResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(service.get(id)));
     }
 
     @PutMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('admin:users:write')")
+    @PreAuthorize("hasAuthority('" + Permissions.USERS_WRITE + "')")
     public ResponseEntity<ApiResponse<SellerApplicationResponse>> approve(
             @PathVariable UUID id, Authentication auth) {
         UUID adminId = authenticatedUserValidator.requireUserId(auth);
@@ -95,7 +96,7 @@ class AdminSellerApplicationController {
     }
 
     @PutMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('admin:users:write')")
+    @PreAuthorize("hasAuthority('" + Permissions.USERS_WRITE + "')")
     public ResponseEntity<ApiResponse<SellerApplicationResponse>> reject(
             @PathVariable UUID id,
             @Valid @RequestBody RejectApplicationRequest req,

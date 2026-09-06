@@ -1,14 +1,15 @@
 package com.project.authservice.service;
 
-import com.project.authservice.dto.AddressDto;
-import com.project.authservice.dto.seller.RejectApplicationRequest;
-import com.project.authservice.dto.seller.SellerApplicationRequest;
-import com.project.authservice.dto.seller.SellerApplicationResponse;
+import com.project.authservice.dto.request.seller.RejectApplicationRequest;
+import com.project.authservice.dto.request.seller.SellerApplicationRequest;
+import com.project.authservice.dto.response.seller.SellerApplicationResponse;
 import com.project.authservice.entity.Address;
 import com.project.authservice.entity.Role;
 import com.project.authservice.entity.SellerApplication;
 import com.project.authservice.entity.SellerApplicationStatus;
 import com.project.authservice.entity.User;
+import com.project.authservice.mapper.AddressMapper;
+import com.project.authservice.mapper.SellerApplicationMapper;
 import com.project.authservice.repository.RoleRepository;
 import com.project.authservice.repository.SellerApplicationRepository;
 import com.project.authservice.repository.UserRepository;
@@ -40,6 +41,8 @@ public class SellerApplicationService {
     private final SellerApplicationRepository repository;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final AddressMapper addressMapper;
+    private final SellerApplicationMapper sellerApplicationMapper;
 
     // ---------------------------------------------------------------- Customer
 
@@ -71,12 +74,14 @@ public class SellerApplicationService {
         } else {
             app = SellerApplication.builder().userId(userId).build();
         }
-        app.setBusinessName(req.getBusinessName());
-        app.setGstin(blankToNull(req.getGstin()));
-        app.setContactPhone(req.getContactPhone());
-        app.setPickupAddress(toEntity(req.getPickupAddress()));
-        app.setBankAccountLast4(blankToNull(req.getBankAccountLast4()));
-        app.setNotes(req.getNotes());
+        app.setBusinessName(req.businessName());
+        app.setGstin(blankToNull(req.gstin()));
+        app.setContactPhone(req.contactPhone());
+        Address pickupAddress = addressMapper.toEntity(req.pickupAddress());
+        if (pickupAddress != null && pickupAddress.getCountry() == null) pickupAddress.setCountry("IN");
+        app.setPickupAddress(pickupAddress);
+        app.setBankAccountLast4(blankToNull(req.bankAccountLast4()));
+        app.setNotes(req.notes());
         return toResponse(repository.save(app));
     }
 
@@ -131,7 +136,7 @@ public class SellerApplicationService {
             throw new ValidationException("Only pending applications can be rejected");
         }
         app.setStatus(SellerApplicationStatus.REJECTED);
-        app.setRejectionReason(req.getReason());
+        app.setRejectionReason(req.reason());
         app.setReviewedAt(LocalDateTime.now());
         app.setReviewedBy(adminId);
         log.info("Seller application {} rejected by {}", applicationId, adminId);
@@ -140,45 +145,10 @@ public class SellerApplicationService {
 
     // ----------------------------------------------------------------- Helpers
 
-    private Address toEntity(AddressDto dto) {
-        if (dto == null) return null;
-        return Address.builder()
-                .fullName(dto.fullName())
-                .phone(dto.phone())
-                .street(dto.street())
-                .city(dto.city())
-                .state(dto.state())
-                .zipCode(dto.zipCode())
-                .country(dto.country() == null ? "IN" : dto.country())
-                .build();
-    }
-
-    private AddressDto toAddressDto(Address a) {
-        if (a == null) return null;
-        return new AddressDto(a.getFullName(), a.getPhone(), a.getStreet(), a.getCity(), a.getState(),
-                a.getZipCode(), a.getCountry());
-    }
-
     private SellerApplicationResponse toResponse(SellerApplication app) {
         // Lookup user for denormalized email/displayName fields.
         var user = userRepository.findById(app.getUserId()).orElse(null);
-        return SellerApplicationResponse.builder()
-                .id(app.getId())
-                .userId(app.getUserId())
-                .userEmail(user != null ? user.getEmail() : null)
-                .userDisplayName(user != null ? user.getDisplayName() : null)
-                .status(app.getStatus())
-                .businessName(app.getBusinessName())
-                .gstin(app.getGstin())
-                .contactPhone(app.getContactPhone())
-                .pickupAddress(toAddressDto(app.getPickupAddress()))
-                .bankAccountLast4(app.getBankAccountLast4())
-                .notes(app.getNotes())
-                .rejectionReason(app.getRejectionReason())
-                .submittedAt(app.getSubmittedAt())
-                .reviewedAt(app.getReviewedAt())
-                .reviewedBy(app.getReviewedBy())
-                .build();
+        return sellerApplicationMapper.toResponse(app, user);
     }
 
     private static String blankToNull(String s) {
