@@ -1,7 +1,7 @@
 package com.project.authservice.controller;
 
 import com.project.authservice.dto.UserProfileDto;
-import com.project.authservice.dto.UserUpdateRequest;
+import com.project.authservice.dto.request.UserUpdateRequest;
 import com.project.authservice.entity.User;
 import com.project.authservice.mapper.UserMapper;
 import com.project.authservice.repository.UserRepository;
@@ -45,14 +45,14 @@ public class UserController {
         UUID userId = UUID.fromString(authentication.getName());
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
-        if (request.getDisplayName() != null) user.setDisplayName(request.getDisplayName());
-        if (request.getImageUrl() != null) user.setImageUrl(request.getImageUrl());
-        if (request.getPhone() != null) user.setPhone(request.getPhone());
-        if (request.getShippingAddress() != null) {
-            user.setShippingAddress(userMapper.toAddressEntity(request.getShippingAddress()));
+        if (request.displayName() != null) user.setDisplayName(request.displayName());
+        if (request.imageUrl() != null) user.setImageUrl(request.imageUrl());
+        if (request.phone() != null) user.setPhone(request.phone());
+        if (request.shippingAddress() != null) {
+            user.setShippingAddress(userMapper.toAddressEntity(request.shippingAddress()));
         }
-        if (request.getBillingAddress() != null) {
-            user.setBillingAddress(userMapper.toAddressEntity(request.getBillingAddress()));
+        if (request.billingAddress() != null) {
+            user.setBillingAddress(userMapper.toAddressEntity(request.billingAddress()));
         }
         return ResponseEntity.ok(ApiResponse.success(userMapper.toDto(userRepository.save(user))));
     }

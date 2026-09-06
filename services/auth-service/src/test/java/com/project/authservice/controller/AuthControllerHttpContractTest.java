@@ -1,9 +1,9 @@
 package com.project.authservice.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.project.authservice.dto.RegistrationRequest;
 import com.project.authservice.dto.UserProfileDto;
 import com.project.authservice.dto.request.ClientCredentialsRequest;
+import com.project.authservice.dto.request.RegistrationRequest;
 import com.project.authservice.dto.response.ServiceTokenResponse;
 import com.project.authservice.exception.AuthException;
 import com.project.authservice.exception.InvalidScopeException;
@@ -25,10 +25,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -267,5 +269,37 @@ class AuthControllerHttpContractTest {
                 .andExpect(jsonPath("$.error").value("invalid_scope"))
                 .andExpect(jsonPath("$.error_description").value("Scope wording intentionally changed"))
                 .andExpect(header().doesNotExist("Set-Cookie"));
+    }
+
+    @Test
+    void registerBindsJsonToNormalizedRecordRequest() throws Exception {
+        UserProfileDto profile = new UserProfileDto();
+        profile.setId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        profile.setEmail("customer@example.com");
+        profile.setDisplayName("Customer One");
+
+        when(authService.register(any(RegistrationRequest.class))).thenAnswer(invocation -> {
+            Object request = invocation.getArgument(0);
+            assertThat(request.getClass().getName())
+                    .isEqualTo("com.project.authservice.dto.request.RegistrationRequest");
+            assertThat(request.getClass().isRecord()).isTrue();
+            assertThat(objectMapper.convertValue(request, Map.class))
+                    .containsEntry("email", "customer@example.com")
+                    .containsEntry("password", "ValidPass123")
+                    .containsEntry("displayName", "Customer One");
+            return profile;
+        });
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "customer@example.com",
+                                  "password": "ValidPass123",
+                                  "displayName": "Customer One"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.email").value("customer@example.com"));
     }
 }

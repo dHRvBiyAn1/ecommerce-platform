@@ -1,4 +1,4 @@
-package com.project.authservice.dto;
+package com.project.authservice.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

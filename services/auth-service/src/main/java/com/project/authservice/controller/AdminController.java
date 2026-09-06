@@ -1,9 +1,9 @@
 package com.project.authservice.controller;
 
 import com.project.authservice.dto.UserProfileDto;
-import com.project.authservice.dto.admin.AssignRolesRequest;
-import com.project.authservice.dto.admin.CreateRoleRequest;
-import com.project.authservice.dto.admin.UpdateRolePermissionsRequest;
+import com.project.authservice.dto.request.admin.AssignRolesRequest;
+import com.project.authservice.dto.request.admin.CreateRoleRequest;
+import com.project.authservice.dto.request.admin.UpdateRolePermissionsRequest;
 import com.project.authservice.entity.Permission;
 import com.project.authservice.entity.Role;
 import com.project.authservice.entity.User;

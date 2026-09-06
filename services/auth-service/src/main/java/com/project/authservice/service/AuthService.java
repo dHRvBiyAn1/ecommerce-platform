@@ -1,6 +1,6 @@
 package com.project.authservice.service;
 
-import com.project.authservice.dto.RegistrationRequest;
+import com.project.authservice.dto.request.RegistrationRequest;
 import com.project.authservice.dto.TokenResponse;
 import com.project.authservice.dto.UserProfileDto;
 import com.project.authservice.entity.AuthProvider;
@@ -56,15 +56,15 @@ public class AuthService {
      */
     @Transactional
     public UserProfileDto register(RegistrationRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmail(request.email())) {
             throw new UserAlreadyExistsException("Email already in use");
         }
         Role customerRole = roleRepository.findByName(Roles.CUSTOMER)
                 .orElseThrow(() -> new IllegalStateException(Roles.CUSTOMER + " role missing"));
 
         User user = new User();
-        user.setEmail(request.getEmail());
-        user.setDisplayName(request.getDisplayName());
+        user.setEmail(request.email());
+        user.setDisplayName(request.displayName());
         user.setActive(true);
         user.getRoles().add(customerRole);
         user = userRepository.save(user);
@@ -72,7 +72,7 @@ public class AuthService {
         UserCredential credential = new UserCredential();
         credential.setUser(user);
         credential.setAuthProvider(AuthProvider.LOCAL);
-        credential.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        credential.setPasswordHash(passwordEncoder.encode(request.password()));
         userCredentialRepository.save(credential);
 
         userEventPublisher.publish(UserEvent.userEventBuilder()

@@ -1,4 +1,4 @@
-package com.project.authservice.dto.admin;
+package com.project.authservice.dto.request.admin;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;

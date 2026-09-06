@@ -1,7 +1,7 @@
 package com.project.authservice.controller;
 
-import com.project.authservice.dto.ChangePasswordRequest;
-import com.project.authservice.dto.RegistrationRequest;
+import com.project.authservice.dto.request.ChangePasswordRequest;
+import com.project.authservice.dto.request.RegistrationRequest;
 import com.project.authservice.dto.TokenResponse;
 import com.project.authservice.dto.UserProfileDto;
 import com.project.authservice.dto.request.ClientCredentialsRequest;
