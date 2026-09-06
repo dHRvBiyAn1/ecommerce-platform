@@ -56,7 +56,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 return;
             }
         } catch (Exception e) {
-            log.warn("Blacklist check failed; falling through: {}", e.getMessage());
+            log.warn("Blacklist check failed; rejecting request");
+            SecurityContextHolder.clearContext();
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            return;
         }
 
         try {

@@ -13,7 +13,10 @@ import com.project.authservice.service.JwtService;
 import com.project.authservice.service.TokenBlacklistService;
 import com.project.common.exception.GlobalExceptionHandler;
 import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -28,8 +31,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.time.Duration;
 
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -38,6 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.config.import=optional:file:/dev/null"
 })
 @Import({SecurityConfig.class, JwtAuthFilter.class, GlobalExceptionHandler.class, UserControllerSecurityHttpTest.JwtTestConfig.class})
+@ExtendWith(OutputCaptureExtension.class)
 class UserControllerSecurityHttpTest {
 
     @Autowired
@@ -64,6 +71,47 @@ class UserControllerSecurityHttpTest {
         mockMvc.perform(get("/api/user/profile")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void blacklistedUserJwtIsRejected() throws Exception {
+        User user = new User();
+        user.setId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        String token = jwtService.generateToken(user);
+        when(blacklist.isBlacklisted(token)).thenReturn(true);
+
+        mockMvc.perform(get("/api/user/profile")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void blacklistBackendFailureFailsClosedWithoutLeakingTheInternalError(CapturedOutput output) throws Exception {
+        User user = new User();
+        user.setId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        user.setEmail("customer@example.com");
+        String token = jwtService.generateToken(user);
+        UserProfileDto profile = new UserProfileDto();
+        profile.setId(user.getId());
+        profile.setEmail(user.getEmail());
+        when(blacklist.isBlacklisted(token)).thenThrow(new IllegalStateException("redis connection details"));
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(userMapper.toDto(user)).thenReturn(profile);
+
+        mockMvc.perform(get("/api/user/profile")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(content().string(""))
+                .andExpect(header().doesNotExist(HttpHeaders.WWW_AUTHENTICATE))
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL,
+                        "no-cache, no-store, max-age=0, must-revalidate"))
+                .andExpect(header().string(HttpHeaders.PRAGMA, "no-cache"))
+                .andExpect(header().string(HttpHeaders.EXPIRES, "0"));
+
+        verifyNoInteractions(userRepository, userMapper);
+        org.assertj.core.api.Assertions.assertThat(output.getOut())
+                .contains("Blacklist check failed; rejecting request")
+                .doesNotContain("redis connection details");
     }
 
     @Test
