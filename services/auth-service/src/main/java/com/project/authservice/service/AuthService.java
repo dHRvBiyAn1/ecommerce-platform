@@ -85,7 +85,7 @@ public class AuthService {
         return userMapper.toDto(user, true);
     }
 
-    @Transactional
+    @Transactional(dontRollbackOn = TokenRefreshException.class)
     public TokenResponseWithRefresh authenticate(String grantType, String email, String password,
                                                  String refreshTokenCookie, String userAgent, String ipAddress) {
         return switch (grantType == null ? "" : grantType) {
@@ -126,7 +126,7 @@ public class AuthService {
         }
         String hash = TokenHasher.sha256(refreshTokenCookie);
 
-        RefreshToken stored = refreshTokenRepository.findByTokenHash(hash)
+        RefreshToken stored = refreshTokenRepository.findForUpdateByTokenHash(hash)
                 .orElseThrow(() -> new TokenRefreshException("Refresh token invalid"));
 
         // Token-reuse detection: if a previously-rotated token is presented, revoke the entire family.

@@ -20,7 +20,7 @@ import java.util.UUID;
 
 /**
  * Refresh token entity. Stores the SHA-256 of the random opaque token so a leaked DB
- * dump can't be replayed. Lookups go through {@code findByTokenHash(...)}.
+ * dump can't be replayed. Rotation locks the matching row before replacing it.
  */
 @Entity
 @Table(name = "refresh_tokens", indexes = {
