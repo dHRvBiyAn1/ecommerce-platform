@@ -3,6 +3,11 @@ package com.project.cart.service;
 import com.project.cart.client.CouponClient;
 import com.project.cart.client.CouponValidationRequest;
 import com.project.cart.client.CouponValidationResponse;
+import com.project.cart.client.ProductClient;
+import com.project.cart.client.ProductSummary;
+import com.project.cart.application.mapper.CartMapper;
+import com.project.cart.exception.ProductServiceUnavailableException;
+import feign.FeignException;
 import com.project.cart.dto.AddCartItemRequest;
 import com.project.cart.dto.ApplyCouponRequest;
 import com.project.cart.dto.CartResponse;
@@ -34,6 +39,8 @@ public class CartService {
 
     private final CartRepository cartRepository;
     private final CouponClient couponClient;
+    private final ProductClient productClient;
+    private final CartMapper cartMapper;
 
     @Transactional(readOnly = true)
     public CartResponse getMyCart(UUID userId) {
@@ -43,27 +50,32 @@ public class CartService {
 
     @Transactional
     public CartResponse addItem(UUID userId, AddCartItemRequest req) {
+        ProductSummary product;
+        try {
+            product = productClient.getProduct(req.productId());
+        } catch (ResourceNotFoundException | ProductServiceUnavailableException e) {
+            throw e;
+        } catch (FeignException.NotFound e) {
+            throw new ResourceNotFoundException("Product", req.productId());
+        } catch (RuntimeException e) {
+            throw new ProductServiceUnavailableException(e);
+        }
+        if (product == null) throw new ProductServiceUnavailableException(
+                new IllegalStateException("Product service returned no product"));
+        if (!product.active()) throw new ResourceNotFoundException("Product", req.productId());
         Cart cart = cartRepository.findByUserId(userId).orElseGet(() -> emptyCart(userId));
         if (cart.getCurrency() == null) {
-            cart.setCurrency(req.getCurrency() != null ? req.getCurrency() : "INR");
-        } else if (req.getCurrency() != null && !cart.getCurrency().equalsIgnoreCase(req.getCurrency())) {
-            throw new ValidationException("Currency mismatch: cart=" + cart.getCurrency()
-                    + " item=" + req.getCurrency());
+            cart.setCurrency("INR");
         }
 
-        CartItem existing = findItem(cart, req.getProductId());
+        CartItem existing = findItem(cart, req.productId());
         if (existing != null) {
-            existing.setQuantity(existing.getQuantity() + req.getQuantity());
-            existing.setUnitPrice(req.getUnitPrice()); // refresh price snapshot
+            existing.setQuantity(existing.getQuantity() + req.quantity());
+            copyProductSnapshot(existing, product);
         } else {
-            cart.getItems().add(CartItem.builder()
-                    .productId(req.getProductId())
-                    .sku(req.getSku())
-                    .productName(req.getProductName())
-                    .imageUrl(req.getImageUrl())
-                    .unitPrice(req.getUnitPrice())
-                    .quantity(req.getQuantity())
-                    .build());
+            CartItem item = CartItem.builder().productId(product.id()).quantity(req.quantity()).build();
+            copyProductSnapshot(item, product);
+            cart.getItems().add(item);
         }
         invalidateAppliedCoupon(cart, "items changed");
         return toResponse(cartRepository.save(cart));
@@ -76,10 +88,10 @@ public class CartService {
         CartItem item = findItem(cart, productId);
         if (item == null) throw new ResourceNotFoundException("Cart item", productId);
 
-        if (req.getQuantity() == 0) {
+        if (req.quantity() == 0) {
             cart.getItems().remove(item);
         } else {
-            item.setQuantity(req.getQuantity());
+            item.setQuantity(req.quantity());
         }
         invalidateAppliedCoupon(cart, "quantity updated");
         return toResponse(cartRepository.save(cart));
@@ -124,13 +136,13 @@ public class CartService {
         CouponValidationResponse v;
         try {
             v = couponClient.validate(CouponValidationRequest.builder()
-                    .code(req.getCode())
+                    .code(req.code())
                     .userId(userId)
                     .subtotal(subtotal)
                     .currency(cart.getCurrency() != null ? cart.getCurrency() : "INR")
                     .build());
         } catch (Exception e) {
-            log.warn("Coupon validation call failed for code {}: {}", req.getCode(), e.getMessage());
+            log.warn("Coupon validation call failed for code {}: {}", req.code(), e.getMessage());
             throw new ValidationException("Coupon validation is currently unavailable. Try again shortly.");
         }
         if (!v.isValid()) {
@@ -189,17 +201,14 @@ public class CartService {
         BigDecimal total = subtotal.subtract(discount).max(BigDecimal.ZERO)
                 .setScale(2, RoundingMode.HALF_UP);
         int itemCount = cart.getItems().stream().mapToInt(CartItem::getQuantity).sum();
-        return CartResponse.builder()
-                .id(cart.getId())
-                .userId(cart.getUserId())
-                .items(cart.getItems())
-                .currency(cart.getCurrency())
-                .appliedCouponCode(cart.getAppliedCouponCode())
-                .appliedDiscountAmount(discount)
-                .subtotal(subtotal)
-                .total(total)
-                .itemCount(itemCount)
-                .updatedAt(cart.getUpdatedAt())
-                .build();
+        return cartMapper.toResponse(cart, subtotal, total, discount, itemCount);
+    }
+
+    private void copyProductSnapshot(CartItem item, ProductSummary product) {
+        item.setSku(product.sku());
+        item.setProductName(product.name());
+        item.setImageUrl(product.imageUrls() == null || product.imageUrls().isEmpty()
+                ? null : product.imageUrls().get(0));
+        item.setUnitPrice(product.price());
     }
 }
