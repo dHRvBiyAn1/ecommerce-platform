@@ -127,7 +127,8 @@ public class ProductController {
     public ResponseEntity<ProductResponse> updateStock(
             @PathVariable String id,
             @Valid @RequestBody StockUpdateRequest request) {
-        return ResponseEntity.ok(productService.updateStock(id, request.stockQuantity()));
+        return ResponseEntity.ok(productService.updateStock(
+                id, request.stockQuantity(), CurrentUser.requireId(), CurrentUser.isAdmin()));
     }
 
     @PutMapping("/{id}/active")

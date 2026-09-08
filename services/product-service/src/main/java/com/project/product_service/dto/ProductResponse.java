@@ -1,39 +1,26 @@
 package com.project.product_service.dto;
 
-import java.io.Serial;
-import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
-public class ProductResponse implements Serializable {
-    @Serial
-    private static final long serialVersionUID = 2L;
-
-    private String id;
-    private String sku;
-    private String name;
-    private String description;
-    private String categoryId;
-    private String categoryName; // optional: populate with category name
-    private BigDecimal price;
-    private Integer stockQuantity;
-    private List<String> imageUrls;
-    private UUID sellerId;
-    private boolean active;
-    private String approvalStatus;
-    private String rejectionReason;
-
-    /** Flexible key-value attributes (e.g. color, size, material). */
-    private Map<String, Object> attributes;
-}
+public record ProductResponse(
+        String id,
+        String sku,
+        String name,
+        String description,
+        String categoryId,
+        String categoryName,
+        BigDecimal price,
+        Integer stockQuantity,
+        List<String> imageUrls,
+        UUID sellerId,
+        boolean active,
+        String approvalStatus,
+        String rejectionReason,
+        Map<String, Object> attributes,
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
+) {}

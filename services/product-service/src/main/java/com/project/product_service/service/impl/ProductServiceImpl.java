@@ -1,8 +1,10 @@
 package com.project.product_service.service.impl;
 
 import com.project.common.exception.DuplicateResourceException;
-import com.project.common.exception.ForbiddenOperationException;
 import com.project.common.exception.ResourceNotFoundException;
+import com.project.product_service.application.mapper.ProductMapper;
+import com.project.product_service.application.validator.CategoryIntegrityValidator;
+import com.project.product_service.application.validator.ProductAccessValidator;
 import com.project.product_service.dto.ProductRequest;
 import com.project.product_service.dto.ProductResponse;
 import com.project.product_service.model.Product;
@@ -33,16 +35,18 @@ import java.util.UUID;
 public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
-    private final CategoryService categoryService;
     private final ProductEventPublisher eventPublisher;
     private final ProductSearchRepository productSearchRepository;
+    private final ProductMapper productMapper;
+    private final ProductAccessValidator productAccessValidator;
+    private final CategoryIntegrityValidator categoryIntegrityValidator;
 
     @Override
     public Page<ProductResponse> getAllActiveProducts(Pageable pageable) {
         return productRepository
                 .findByActiveTrueAndApprovalStatus(
                         com.project.product_service.model.ProductApprovalStatus.APPROVED, pageable)
-                .map(this::mapToResponse);
+                .map(productMapper::toResponse);
     }
 
     @Override
@@ -57,7 +61,7 @@ public class ProductServiceImpl implements ProductService {
                 != com.project.product_service.model.ProductApprovalStatus.APPROVED) {
             throw new ResourceNotFoundException("Product", id);
         }
-        return mapToResponse(product);
+        return productMapper.toResponse(product);
     }
 
     @Override
@@ -67,7 +71,7 @@ public class ProductServiceImpl implements ProductService {
                         categoryId,
                         com.project.product_service.model.ProductApprovalStatus.APPROVED,
                         pageable)
-                .map(this::mapToResponse);
+                .map(productMapper::toResponse);
     }
 
     @Override
@@ -79,19 +83,19 @@ public class ProductServiceImpl implements ProductService {
                     .map(doc -> productRepository.findById(doc.getId()))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .map(this::mapToResponse)
+                    .map(productMapper::toResponse)
                     .toList();
             return new PageImpl<>(products, pageable, total);
         } catch (Exception e) {
             log.warn("Elasticsearch search failed, falling back to MongoDB text search: {}", e.getMessage());
-            return productRepository.searchByText(keyword, pageable).map(this::mapToResponse);
+            return productRepository.searchByText(keyword, pageable).map(productMapper::toResponse);
         }
     }
 
     @Override
     public Page<ProductResponse> getProductsBySeller(UUID sellerId, Pageable pageable) {
         // Sellers see ALL their products, regardless of active flag or approval status.
-        return productRepository.findBySellerId(sellerId, pageable).map(this::mapToResponse);
+        return productRepository.findBySellerId(sellerId, pageable).map(productMapper::toResponse);
     }
 
     @Override
@@ -103,7 +107,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @CacheEvict(value = "products", allEntries = true)
     public ProductResponse createProduct(ProductRequest request, boolean isAdmin) {
-        categoryService.getCategory(request.getCategoryId());
+        categoryIntegrityValidator.requireActiveCategory(request.getCategoryId());
         if (productRepository.findBySku(request.getSku()).isPresent()) {
             throw new DuplicateResourceException("SKU already exists: " + request.getSku());
         }
@@ -115,8 +119,7 @@ public class ProductServiceImpl implements ProductService {
         product.setCategoryId(request.getCategoryId());
         product.setPrice(request.getPrice());
         product.setStockQuantity(request.getStockQuantity());
-        // Image URLs intentionally null for now (CDN pipeline not yet wired).
-        product.setImageUrls(null);
+        product.setImageUrls(request.getImageUrls());
         product.setSellerId(request.getSellerId());
         product.setAttributes(request.getAttributes() != null
                 ? request.getAttributes() : Collections.emptyMap());
@@ -132,7 +135,7 @@ public class ProductServiceImpl implements ProductService {
 
         product = productRepository.save(product);
         eventPublisher.publishCreated(product);
-        return mapToResponse(product);
+        return productMapper.toResponse(product);
     }
 
     @Override
@@ -141,9 +144,8 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
 
-        if (!isAdmin && !product.getSellerId().equals(request.getSellerId())) {
-            throw new ForbiddenOperationException("You do not own this product");
-        }
+        productAccessValidator.requireSellerOrAdmin(product.getSellerId(), request.getSellerId(), isAdmin);
+        categoryIntegrityValidator.requireActiveCategory(request.getCategoryId());
 
         boolean priceChanged = product.getPrice().compareTo(request.getPrice()) != 0;
 
@@ -170,7 +172,7 @@ public class ProductServiceImpl implements ProductService {
         eventPublisher.publishUpdated(product);
         if (priceChanged) eventPublisher.publishPriceChanged(product);
 
-        return mapToResponse(product);
+        return productMapper.toResponse(product);
     }
 
     @Override
@@ -192,13 +194,13 @@ public class ProductServiceImpl implements ProductService {
         product.setReviewedBy(adminId);
         product = productRepository.save(product);
         log.info("Product {} {} by admin {}", id, status, adminId);
-        return mapToResponse(product);
+        return productMapper.toResponse(product);
     }
 
     @Override
     public Page<ProductResponse> listByApprovalStatus(
             com.project.product_service.model.ProductApprovalStatus status, Pageable pageable) {
-        return productRepository.findByApprovalStatus(status, pageable).map(this::mapToResponse);
+        return productRepository.findByApprovalStatus(status, pageable).map(productMapper::toResponse);
     }
 
     @Override
@@ -206,9 +208,7 @@ public class ProductServiceImpl implements ProductService {
     public void deleteProduct(String id, UUID sellerId, boolean isAdmin) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
-        if (!isAdmin && !product.getSellerId().equals(sellerId)) {
-            throw new ForbiddenOperationException("You do not own this product");
-        }
+        productAccessValidator.requireSellerOrAdmin(product.getSellerId(), sellerId, isAdmin);
         product.setActive(false);
         productRepository.save(product);
         eventPublisher.publishDeleted(product);
@@ -219,53 +219,32 @@ public class ProductServiceImpl implements ProductService {
     public ProductResponse setProductActiveStatus(String id, boolean active, UUID sellerId, boolean isAdmin) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
-        if (!isAdmin && !product.getSellerId().equals(sellerId)) {
-            throw new ForbiddenOperationException("You do not own this product");
-        }
+        productAccessValidator.requireSellerOrAdmin(product.getSellerId(), sellerId, isAdmin);
         product.setActive(active);
         product = productRepository.save(product);
         if (active) eventPublisher.publishActivated(product); else eventPublisher.publishDeactivated(product);
-        return mapToResponse(product);
+        return productMapper.toResponse(product);
     }
 
     @Override
     @CacheEvict(value = "products", allEntries = true)
-    public ProductResponse updateStock(String id, Integer stockQuantity) {
+    public ProductResponse updateStock(String id, Integer stockQuantity, UUID sellerId, boolean isAdmin) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
+        productAccessValidator.requireSellerOrAdmin(product.getSellerId(), sellerId, isAdmin);
         product.setStockQuantity(stockQuantity);
         product = productRepository.save(product);
         eventPublisher.publishStockChanged(product);
-        return mapToResponse(product);
+        return productMapper.toResponse(product);
     }
 
     @Override
     public Page<ProductResponse> getProductsByPriceRange(BigDecimal min, BigDecimal max, Pageable pageable) {
-        return productRepository.findByPriceBetweenAndActiveTrue(min, max, pageable).map(this::mapToResponse);
+        return productRepository.findByPriceBetweenAndActiveTrue(min, max, pageable).map(productMapper::toResponse);
     }
 
     @Override
     public Page<ProductResponse> filterByAttribute(String key, Object value, Pageable pageable) {
-        return productRepository.findByAttribute(key, value, pageable).map(this::mapToResponse);
-    }
-
-
-    private ProductResponse mapToResponse(Product product) {
-        ProductResponse response = new ProductResponse();
-        response.setId(product.getId());
-        response.setSku(product.getSku());
-        response.setName(product.getName());
-        response.setDescription(product.getDescription());
-        response.setCategoryId(product.getCategoryId());
-        response.setPrice(product.getPrice());
-        response.setStockQuantity(product.getStockQuantity());
-        response.setImageUrls(product.getImageUrls());
-        response.setSellerId(product.getSellerId());
-        response.setActive(product.isActive());
-        response.setApprovalStatus(product.getApprovalStatus() == null
-                ? null : product.getApprovalStatus().name());
-        response.setRejectionReason(product.getRejectionReason());
-        response.setAttributes(product.getAttributes());
-        return response;
+        return productRepository.findByAttribute(key, value, pageable).map(productMapper::toResponse);
     }
 }

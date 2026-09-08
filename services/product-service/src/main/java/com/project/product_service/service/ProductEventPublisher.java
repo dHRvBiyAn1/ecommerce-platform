@@ -6,6 +6,8 @@ import com.project.product_service.model.Product;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Publishes typed {@link ProductEvent}s defined in the common module. The previous
@@ -31,6 +33,19 @@ public class ProductEventPublisher {
     public void publishDeactivated(Product product)  { publish(ProductEvent.Type.DEACTIVATED, product); }
 
     private void publish(ProductEvent.Type type, Product p) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    send(type, p);
+                }
+            });
+            return;
+        }
+        send(type, p);
+    }
+
+    private void send(ProductEvent.Type type, Product p) {
         ProductEvent event = ProductEvent.productEventBuilder()
                 .type(type)
                 .productId(p.getId())

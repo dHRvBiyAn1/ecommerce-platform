@@ -2,6 +2,8 @@ package com.project.product_service.service.impl;
 
 import com.project.common.exception.DuplicateResourceException;
 import com.project.common.exception.ResourceNotFoundException;
+import com.project.product_service.application.mapper.CategoryMapper;
+import com.project.product_service.application.validator.CategoryIntegrityValidator;
 import com.project.product_service.dto.CategoryRequest;
 import com.project.product_service.dto.CategoryResponse;
 import com.project.product_service.model.Category;
@@ -11,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,50 +23,58 @@ import java.util.stream.Collectors;
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final CategoryMapper categoryMapper;
+    private final CategoryIntegrityValidator categoryIntegrityValidator;
 
     @Override
     @Cacheable("categories")
     public List<CategoryResponse> getAllCategories() {
-        return categoryRepository.findAll().stream().map(this::mapToResponse).collect(Collectors.toList());
+        return categoryRepository.findAll().stream().map(categoryMapper::toResponse).collect(Collectors.toList());
     }
 
     @Override
     public CategoryResponse getCategory(String id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", id));
-        return mapToResponse(category);
+        return categoryMapper.toResponse(category);
     }
 
     @Override
     @CacheEvict(value = "categories", allEntries = true)
+    @Transactional
     public CategoryResponse createCategory(CategoryRequest request) {
         if (categoryRepository.findByName(request.getName()).isPresent()) {
             throw new DuplicateResourceException("Category already exists: " + request.getName());
         }
+        categoryIntegrityValidator.requireActiveParent(request.getParentCategoryId());
         Category category = new Category();
         category.setName(request.getName());
         category.setDescription(request.getDescription());
         category.setParentCategoryId(request.getParentCategoryId());
         // imageUrl null per requirements
-        category.setImageUrl(null);
+        category.setImageUrl(request.getImageUrl());
         category = categoryRepository.save(category);
-        return mapToResponse(category);
+        return categoryMapper.toResponse(category);
     }
 
     @Override
     @CacheEvict(value = "categories", allEntries = true)
+    @Transactional
     public CategoryResponse updateCategory(String id, CategoryRequest request) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", id));
+        categoryIntegrityValidator.requireActiveParent(request.getParentCategoryId());
         category.setName(request.getName());
         category.setDescription(request.getDescription());
         category.setParentCategoryId(request.getParentCategoryId());
+        category.setImageUrl(request.getImageUrl());
         category = categoryRepository.save(category);
-        return mapToResponse(category);
+        return categoryMapper.toResponse(category);
     }
 
     @Override
     @CacheEvict(value = "categories", allEntries = true)
+    @Transactional
     public void deleteCategory(String id) {
         if (!categoryRepository.existsById(id)) {
             throw new ResourceNotFoundException("Category", id);
@@ -71,13 +82,4 @@ public class CategoryServiceImpl implements CategoryService {
         categoryRepository.deleteById(id);
     }
 
-    private CategoryResponse mapToResponse(Category category) {
-        CategoryResponse response = new CategoryResponse();
-        response.setId(category.getId());
-        response.setName(category.getName());
-        response.setDescription(category.getDescription());
-        response.setParentCategoryId(category.getParentCategoryId());
-        response.setImageUrl(category.getImageUrl());
-        return response;
-    }
 }

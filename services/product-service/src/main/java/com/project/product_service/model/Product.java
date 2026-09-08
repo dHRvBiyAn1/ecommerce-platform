@@ -3,6 +3,8 @@ package com.project.product_service.model;
 import lombok.*;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.index.TextIndexed;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -72,4 +74,10 @@ public class Product {
     private java.time.LocalDateTime reviewedAt;
 
     private UUID reviewedBy;
+
+    @CreatedDate
+    private java.time.LocalDateTime createdAt;
+
+    @LastModifiedDate
+    private java.time.LocalDateTime updatedAt;
 }
