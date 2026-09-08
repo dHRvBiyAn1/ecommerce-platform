@@ -1,7 +1,9 @@
 package com.project.order.model;
 
 import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.math.BigDecimal;
@@ -36,7 +38,9 @@ public class Order {
     private PaymentStatus paymentStatus;
     private String couponCode;
     private String notes;
+    @CreatedDate
     private LocalDateTime createdAt;
+    @LastModifiedDate
     private LocalDateTime updatedAt;
     private LocalDateTime paidAt;
     private LocalDateTime shippedAt;

@@ -9,7 +9,13 @@ import com.project.order.client.dto.CouponValidationResponse;
 import com.project.order.client.dto.ProductSummary;
 import com.project.order.dto.OrderItemRequest;
 import com.project.order.dto.OrderRequest;
+import com.project.order.dto.OrderResponse;
+import com.project.order.dto.ShippingAddressRequest;
 import com.project.order.exception.OrderValidationException;
+import com.project.order.application.mapper.OrderMapper;
+import com.project.order.application.mapper.OrderMapperImpl;
+import com.project.order.application.validator.OrderRequestValidator;
+import com.project.order.constant.OrderPricing;
 import com.project.order.model.Order;
 import com.project.order.model.OrderItem;
 import com.project.order.model.OrderStatus;
@@ -27,6 +33,8 @@ import java.util.Optional;
 import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -48,7 +56,8 @@ class OrderServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new OrderServiceImpl(orderRepository, productClient, inventoryClient, couponClient, redis);
+        service = new OrderServiceImpl(orderRepository, productClient, inventoryClient, couponClient, redis,
+                new OrderMapperImpl(), new OrderRequestValidator());
     }
 
     @Test
@@ -120,6 +129,69 @@ class OrderServiceImplTest {
     }
 
     @Test
+    void requestAndResponseBoundariesAreImmutableRecords() {
+        assertThat(OrderRequest.class.isRecord()).isTrue();
+        assertThat(OrderItemRequest.class.isRecord()).isTrue();
+        assertThat(ShippingAddressRequest.class.isRecord()).isTrue();
+        assertThat(OrderResponse.class.isRecord()).isTrue();
+    }
+
+    @Test
+    void mapperMapsAnOrderWithoutExposingItsOutboxEvents() {
+        Order order = pendingOrder();
+        order.setOrderNumber("ORD-1");
+        order.setUserId(UUID.randomUUID());
+        order.setOutboxEvents(List.of());
+
+        OrderResponse response = new OrderMapperImpl().toResponse(order);
+
+        assertThat(response.id()).isEqualTo(order.getId());
+        assertThat(response.orderNumber()).isEqualTo(order.getOrderNumber());
+        assertThat(response.items()).hasSize(1);
+        assertThat(response.items().get(0).productId()).isEqualTo("product-1");
+    }
+
+    @Test
+    void validatorRejectsInvalidAddressBeforePersistence() {
+        OrderRequest request = new OrderRequest(
+                List.of(new OrderItemRequest("product-1", 1)),
+                null,
+                new ShippingAddressRequest("", "phone", "street", "city", "state", "zip", "IN"),
+                null,
+                null,
+                "CARD");
+
+        assertThatThrownBy(() -> new OrderRequestValidator().validateCreate(request, UUID.randomUUID()))
+                .isInstanceOf(OrderValidationException.class)
+                .hasMessageContaining("Shipping address");
+    }
+
+    @Test
+    void validatorRejectsInvalidItemQuantityBeforePersistence() {
+        OrderRequest request = new OrderRequest(
+                List.of(new OrderItemRequest("product-1", 0)),
+                null, null, null, null, "CARD");
+
+        assertThatThrownBy(() -> new OrderRequestValidator().validateCreate(request, UUID.randomUUID()))
+                .isInstanceOf(OrderValidationException.class)
+                .hasMessage("Quantity must be at least 1");
+    }
+
+    @Test
+    void orderUsesCentralPricingConstants() {
+        assertThat(OrderPricing.DEFAULT_CURRENCY).isEqualTo("INR");
+        assertThat(OrderPricing.TAX_RATE).isEqualByComparingTo("0.18");
+        assertThat(OrderPricing.SHIPPING_COST).isEqualByComparingTo("49.00");
+        assertThat(OrderPricing.FREE_SHIPPING_THRESHOLD).isEqualByComparingTo("499.00");
+    }
+
+    @Test
+    void orderTimestampsAreMongoAudited() throws NoSuchFieldException {
+        assertThat(Order.class.getDeclaredField("createdAt").isAnnotationPresent(CreatedDate.class)).isTrue();
+        assertThat(Order.class.getDeclaredField("updatedAt").isAnnotationPresent(LastModifiedDate.class)).isTrue();
+    }
+
+    @Test
     void inventoryFailureReleasesCouponReservation() {
         UUID userId = UUID.randomUUID();
         AtomicReference<Order> persisted = stubCheckoutDependencies(userId);
@@ -160,11 +232,9 @@ class OrderServiceImplTest {
     }
 
     private OrderRequest orderRequest() {
-        return OrderRequest.builder()
-                .items(List.of(OrderItemRequest.builder().productId("product-1").quantity(2).build()))
-                .couponCode("SAVE10")
-                .paymentMethod("CARD")
-                .build();
+        return new OrderRequest(
+                List.of(new OrderItemRequest("product-1", 2)),
+                "SAVE10", null, null, null, "CARD");
     }
 
     private Order pendingOrder() {

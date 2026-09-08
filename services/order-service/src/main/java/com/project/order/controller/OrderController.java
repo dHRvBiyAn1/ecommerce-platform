@@ -65,7 +65,7 @@ public class OrderController {
     @PreAuthorize("T(com.project.common.security.CurrentUser).isService() ? hasAuthority('" + ServiceScopes.AUTHORITY_ORDERS_READ + "') : hasAuthority('" + Permissions.ORDERS_READ + "')")
     public ResponseEntity<ApiResponse<OrderResponse>> getOrder(@PathVariable String orderId) {
         OrderResponse order = orderService.getOrder(orderId);
-        orderAccessValidator.validateRead(order.getUserId());
+        orderAccessValidator.validateRead(order.userId());
         return ResponseEntity.ok(ApiResponse.success(order));
     }
 
@@ -73,7 +73,7 @@ public class OrderController {
     @PreAuthorize("T(com.project.common.security.CurrentUser).isService() ? hasAuthority('" + ServiceScopes.AUTHORITY_ORDERS_READ + "') : hasAuthority('" + Permissions.ORDERS_READ + "')")
     public ResponseEntity<ApiResponse<OrderResponse>> getOrderByNumber(@PathVariable String orderNumber) {
         OrderResponse order = orderService.getOrderByNumber(orderNumber);
-        orderAccessValidator.validateRead(order.getUserId());
+        orderAccessValidator.validateRead(order.userId());
         return ResponseEntity.ok(ApiResponse.success(order));
     }
 

@@ -11,6 +11,9 @@ import com.project.order.client.dto.CouponValidationRequest;
 import com.project.order.client.dto.CouponValidationResponse;
 import com.project.order.client.dto.CouponReservationCommand;
 import com.project.order.client.dto.CouponTransitionCommand;
+import com.project.order.application.mapper.OrderMapper;
+import com.project.order.application.validator.OrderRequestValidator;
+import com.project.order.constant.OrderPricing;
 import com.project.order.dto.BillingAddressRequest;
 import com.project.order.dto.OrderItemRequest;
 import com.project.order.dto.OrderRequest;
@@ -47,17 +50,12 @@ public class OrderServiceImpl implements OrderService {
     private final InventoryClient inventoryClient;
     private final CouponClient couponClient;
     private final StringRedisTemplate redis;
-
-    private static final BigDecimal TAX_RATE = new BigDecimal("0.18");
-    private static final BigDecimal SHIPPING_COST = new BigDecimal("49.00");
-    private static final BigDecimal FREE_SHIPPING_THRESHOLD = new BigDecimal("499.00");
-    private static final String DEFAULT_CURRENCY = "INR";
+    private final OrderMapper orderMapper;
+    private final OrderRequestValidator orderRequestValidator;
 
     @Override
     public OrderResponse createOrder(OrderRequest request, UUID userId, String userEmail, String idempotencyKey) {
-        if (request.getItems() == null || request.getItems().isEmpty()) {
-            throw new OrderValidationException("Order must contain at least one item");
-        }
+        orderRequestValidator.validateCreate(request, userId);
 
         // Idempotency: same idempotency key from same user returns the existing order.
         String lockKey = null;
@@ -65,7 +63,7 @@ public class OrderServiceImpl implements OrderService {
             lockKey = "order:idemp:" + userId + ":" + idempotencyKey;
             String existingId = redis.opsForValue().get(lockKey);
             if (existingId != null) {
-                return mapToResponse(orderRepository.findById(existingId).orElseThrow(
+                return orderMapper.toResponse(orderRepository.findById(existingId).orElseThrow(
                         () -> new ResourceNotFoundException("Order", existingId)));
             }
             // Acquire idempotency lock for 10 minutes
@@ -77,27 +75,27 @@ public class OrderServiceImpl implements OrderService {
 
         // 1. Fetch product snapshots (Feign HTTP I/O - OUTSIDE TRANSACTION)
         List<OrderItem> items = new ArrayList<>();
-        for (OrderItemRequest item : request.getItems()) {
+        for (OrderItemRequest item : request.items()) {
             ProductSummary p;
             try {
-                p = productClient.getProduct(item.getProductId());
+                p = productClient.getProduct(item.productId());
             } catch (Exception e) {
                 if (lockKey != null) redis.delete(lockKey);
-                throw new OrderValidationException("Product not found: " + item.getProductId());
+                throw new OrderValidationException("Product not found: " + item.productId());
             }
             if (!p.isActive()) {
                 if (lockKey != null) redis.delete(lockKey);
                 throw new OrderValidationException("Product not available: " + p.getId());
             }
             BigDecimal unitPrice = p.getPrice();
-            BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(item.getQuantity()))
+            BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(item.quantity()))
                     .setScale(2, RoundingMode.HALF_UP);
             items.add(OrderItem.builder()
                     .productId(p.getId())
                     .sku(p.getSku())
                     .productName(p.getName())
                     .imageUrl(null)
-                    .quantity(item.getQuantity())
+                    .quantity(item.quantity())
                     .unitPrice(unitPrice)
                     .discountAmount(BigDecimal.ZERO)
                     .totalPrice(lineTotal)
@@ -106,18 +104,18 @@ public class OrderServiceImpl implements OrderService {
 
         BigDecimal subtotal = items.stream().map(OrderItem::getTotalPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal taxAmount = subtotal.multiply(TAX_RATE).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal shippingCost = subtotal.compareTo(FREE_SHIPPING_THRESHOLD) >= 0
-                ? BigDecimal.ZERO.setScale(2) : SHIPPING_COST;
+        BigDecimal taxAmount = subtotal.multiply(OrderPricing.TAX_RATE).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal shippingCost = subtotal.compareTo(OrderPricing.FREE_SHIPPING_THRESHOLD) >= 0
+                ? BigDecimal.ZERO.setScale(2) : OrderPricing.SHIPPING_COST;
         BigDecimal discount = BigDecimal.ZERO.setScale(2);
         
-        if (request.getCouponCode() != null && !request.getCouponCode().isBlank()) {
+        if (request.couponCode() != null && !request.couponCode().isBlank()) {
             CouponValidationResponse couponRes = couponClient.validate(
                     CouponValidationRequest.builder()
-                            .code(request.getCouponCode())
+                            .code(request.couponCode())
                             .userId(userId)
                             .subtotal(subtotal)
-                            .currency(DEFAULT_CURRENCY)
+                            .currency(OrderPricing.DEFAULT_CURRENCY)
                             .build()
             );
             if (!couponRes.isValid()) {
@@ -141,12 +139,12 @@ public class OrderServiceImpl implements OrderService {
         order.setShippingCost(shippingCost);
         order.setDiscountAmount(discount);
         order.setTotalAmount(totalAmount);
-        order.setCurrency(DEFAULT_CURRENCY);
-        order.setPaymentMethod(request.getPaymentMethod());
-        order.setCouponCode(request.getCouponCode());
-        order.setNotes(request.getNotes());
-        order.setShippingAddress(map(request.getShippingAddress()));
-        order.setBillingAddress(map(request.getBillingAddress()));
+        order.setCurrency(OrderPricing.DEFAULT_CURRENCY);
+        order.setPaymentMethod(request.paymentMethod());
+        order.setCouponCode(request.couponCode());
+        order.setNotes(request.notes());
+        order.setShippingAddress(map(request.shippingAddress()));
+        order.setBillingAddress(map(request.billingAddress()));
         order.setCreatedAt(LocalDateTime.now());
         order.setUpdatedAt(LocalDateTime.now());
         order.setOutboxEvents(new ArrayList<>());
@@ -200,7 +198,7 @@ public class OrderServiceImpl implements OrderService {
             redis.opsForValue().set("order:idemp:" + userId + ":" + idempotencyKey, orderId, Duration.ofHours(24));
         }
 
-        return mapToResponse(order);
+        return orderMapper.toResponse(order);
     }
 
     private void saveOutboxEvent(Order order, String eventType) {
@@ -231,29 +229,29 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderResponse getOrder(String orderId) {
-        return mapToResponse(orderRepository.findById(orderId)
+        return orderMapper.toResponse(orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId)));
     }
 
     @Override
     public OrderResponse getOrderByNumber(String orderNumber) {
-        return mapToResponse(orderRepository.findByOrderNumber(orderNumber)
+        return orderMapper.toResponse(orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderNumber)));
     }
 
     @Override
     public Page<OrderResponse> getUserOrders(UUID userId, Pageable pageable) {
-        return orderRepository.findByUserId(userId, pageable).map(this::mapToResponse);
+        return orderRepository.findByUserId(userId, pageable).map(orderMapper::toResponse);
     }
 
     @Override
     public Page<OrderResponse> getAllOrders(Pageable pageable) {
-        return orderRepository.findAll(pageable).map(this::mapToResponse);
+        return orderRepository.findAll(pageable).map(orderMapper::toResponse);
     }
 
     @Override
     public Page<OrderResponse> getOrdersByStatus(OrderStatus status, Pageable pageable) {
-        return orderRepository.findByStatus(status, pageable).map(this::mapToResponse);
+        return orderRepository.findByStatus(status, pageable).map(orderMapper::toResponse);
     }
 
     @Override
@@ -272,7 +270,7 @@ public class OrderServiceImpl implements OrderService {
         }
         saveOutboxEvent(order, "STATUS_CHANGED");
         order = orderRepository.save(order);
-        return mapToResponse(order);
+        return orderMapper.toResponse(order);
     }
 
     @Override
@@ -299,7 +297,7 @@ public class OrderServiceImpl implements OrderService {
         releaseCoupon(order);
 
         cancelOrderInternal(orderId);
-        return mapToResponse(orderRepository.findById(orderId).orElse(order));
+        return orderMapper.toResponse(orderRepository.findById(orderId).orElse(order));
     }
 
     @Override
@@ -422,34 +420,16 @@ public class OrderServiceImpl implements OrderService {
     private ShippingAddress map(ShippingAddressRequest r) {
         if (r == null) return null;
         return ShippingAddress.builder()
-                .fullName(r.getFullName()).phone(r.getPhone()).street(r.getStreet())
-                .city(r.getCity()).state(r.getState()).zipCode(r.getZipCode()).country(r.getCountry())
+                .fullName(r.fullName()).phone(r.phone()).street(r.street())
+                .city(r.city()).state(r.state()).zipCode(r.zipCode()).country(r.country())
                 .build();
     }
 
     private BillingAddress map(BillingAddressRequest r) {
         if (r == null) return null;
         return BillingAddress.builder()
-                .fullName(r.getFullName()).phone(r.getPhone()).street(r.getStreet())
-                .city(r.getCity()).state(r.getState()).zipCode(r.getZipCode()).country(r.getCountry())
-                .build();
-    }
-
-    private OrderResponse mapToResponse(Order order) {
-        return OrderResponse.builder()
-                .id(order.getId()).orderNumber(order.getOrderNumber())
-                .userId(order.getUserId()).userEmail(order.getUserEmail())
-                .status(order.getStatus()).items(order.getItems())
-                .subtotal(order.getSubtotal()).taxAmount(order.getTaxAmount())
-                .shippingCost(order.getShippingCost()).discountAmount(order.getDiscountAmount())
-                .totalAmount(order.getTotalAmount()).currency(order.getCurrency())
-                .shippingAddress(order.getShippingAddress()).billingAddress(order.getBillingAddress())
-                .paymentId(order.getPaymentId()).paymentMethod(order.getPaymentMethod())
-                .paymentStatus(order.getPaymentStatus()).couponCode(order.getCouponCode())
-                .notes(order.getNotes())
-                .createdAt(order.getCreatedAt()).updatedAt(order.getUpdatedAt())
-                .paidAt(order.getPaidAt()).shippedAt(order.getShippedAt())
-                .deliveredAt(order.getDeliveredAt()).cancelledAt(order.getCancelledAt())
+                .fullName(r.fullName()).phone(r.phone()).street(r.street())
+                .city(r.city()).state(r.state()).zipCode(r.zipCode()).country(r.country())
                 .build();
     }
 }
