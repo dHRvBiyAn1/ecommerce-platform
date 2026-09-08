@@ -60,7 +60,7 @@ public class CouponMapper {
     }
 
     public String normalizeCode(String code) {
-        return code.toUpperCase(Locale.ROOT);
+        return code.trim().toUpperCase(Locale.ROOT);
     }
 
     private String normalizeCurrency(String currency, String fallback) {

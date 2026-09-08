@@ -1,13 +1,10 @@
 package com.project.coupon.exception;
 
-import com.project.common.exception.BusinessException;
-import org.springframework.http.HttpStatus;
+import com.project.common.exception.ValidationException;
 
-import static com.project.common.constant.ErrorCode.COUPON_UNAVAILABLE;
-
-public class CouponUnavailableException extends BusinessException {
+public class CouponUnavailableException extends ValidationException {
 
     public CouponUnavailableException(String message) {
-        super(HttpStatus.UNPROCESSABLE_ENTITY, COUPON_UNAVAILABLE.value(), message);
+        super(message);
     }
 }

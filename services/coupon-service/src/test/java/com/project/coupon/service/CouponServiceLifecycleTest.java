@@ -144,6 +144,27 @@ class CouponServiceLifecycleTest {
     }
 
     @Test
+    void committedRedemptionCannotBeReleasedAndDoesNotMutateCouponOrRedemption() {
+        CouponRedemption committed = reservation("order-committed", RedemptionStatus.COMMITTED);
+        coupon.setReservedCount(3);
+        coupon.setUsageCount(2);
+        when(redemptionRepository.findByOrderIdForUpdate("order-committed"))
+                .thenReturn(Optional.of(committed));
+
+        assertThatThrownBy(() -> service.release(
+                new CouponTransitionRequest("SAVE10", userId, "order-committed")))
+                .isInstanceOf(CouponReservationConflictException.class);
+
+        assertThat(committed.getStatus()).isEqualTo(RedemptionStatus.COMMITTED);
+        assertThat(committed.getReleasedAt()).isNull();
+        assertThat(coupon.getReservedCount()).isEqualTo(3);
+        assertThat(coupon.getUsageCount()).isEqualTo(2);
+        verify(couponRepository, never()).findByIdForUpdate(any());
+        verify(couponRepository, never()).save(any());
+        verify(redemptionRepository, never()).save(any());
+    }
+
+    @Test
     void legacyRedeemIsIdempotentForTheSameOrder() {
         when(redemptionRepository.findByOrderId("order-1")).thenReturn(Optional.empty());
         when(couponRepository.findByCodeForUpdate("SAVE10")).thenReturn(Optional.of(coupon));
