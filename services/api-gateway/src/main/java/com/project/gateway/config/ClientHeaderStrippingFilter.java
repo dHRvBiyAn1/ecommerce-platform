@@ -1,14 +1,10 @@
 package com.project.gateway.config;
 
-import jakarta.servlet.Filter;
-import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.core.Ordered;
 
 import java.io.IOException;
@@ -24,21 +20,16 @@ import java.util.Set;
  * resource-server migration we no longer do that — backends derive identity from
  * the JWT directly. This filter is belt-and-suspenders.
  */
-@Configuration
-public class ClientHeaderStrippingFilter {
+public class ClientHeaderStrippingFilter extends OncePerRequestFilter {
+    public static final int FILTER_ORDER = Ordered.HIGHEST_PRECEDENCE + 1;
 
     private static final Set<String> BLOCKED_HEADER_NAMES = Set.of(
             "x-user-id", "x-user-email", "x-roles", "x-roles-claim",
             "x-internal-token", "x-system-actor"
     );
 
-    @Bean
-    public Filter stripClientIdentityHeadersFilter() {
-        return new Filter() {
-            @Override
-            public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
-                    throws IOException, ServletException {
-                HttpServletRequest http = (HttpServletRequest) req;
+    protected void doFilterInternal(HttpServletRequest http, HttpServletResponse response,
+                                    jakarta.servlet.FilterChain chain) throws IOException, ServletException {
                 chain.doFilter(new HttpServletRequestWrapper(http) {
                     @Override
                     public String getHeader(String name) {
@@ -59,16 +50,7 @@ public class ClientHeaderStrippingFilter {
                                         .filter(n -> !BLOCKED_HEADER_NAMES.contains(n.toLowerCase(Locale.ROOT)))
                                         .toList());
                     }
-                }, res);
-            }
-        };
+                }, response);
     }
 
-    @Bean
-    public org.springframework.boot.web.servlet.FilterRegistrationBean<Filter> headerStripperRegistration(Filter stripClientIdentityHeadersFilter) {
-        org.springframework.boot.web.servlet.FilterRegistrationBean<Filter> bean = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(stripClientIdentityHeadersFilter);
-        bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
-        bean.addUrlPatterns("/*");
-        return bean;
-    }
 }

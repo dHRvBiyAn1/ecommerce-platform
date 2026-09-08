@@ -24,6 +24,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.filter.OncePerRequestFilter;
+import com.project.gateway.filter.ForwardedIpTrustFilter;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -37,6 +39,7 @@ import java.time.Duration;
 @Configuration
 @RequiredArgsConstructor
 public class RateLimitConfig {
+    public static final int RATE_LIMIT_FILTER_ORDER = Ordered.HIGHEST_PRECEDENCE + 10;
 
     @Value("${gateway.rate-limit.default.capacity:100}")
     private long defaultCapacity;
@@ -65,6 +68,7 @@ public class RateLimitConfig {
     private final MeterRegistry meterRegistry;
 
     @Bean(destroyMethod = "shutdown")
+    @ConditionalOnProperty(name = "gateway.rate-limit.redis.enabled", havingValue = "true", matchIfMissing = true)
     public RedisClient redisClient() {
         String uri = "redis://" + (redisPassword.isEmpty() ? "" : ":" + redisPassword + "@") + redisHost + ":" + redisPort;
         log.info("Connecting Bucket4j to Redis cluster at {}:{}", redisHost, redisPort);
@@ -72,6 +76,7 @@ public class RateLimitConfig {
     }
 
     @Bean
+    @ConditionalOnProperty(name = "gateway.rate-limit.redis.enabled", havingValue = "true", matchIfMissing = true)
     public ProxyManager<byte[]> lettuceProxyManager(RedisClient redisClient) {
         StatefulRedisConnection<byte[], byte[]> connection = redisClient.connect(
                 RedisCodec.of(new ByteArrayCodec(), new ByteArrayCodec())
@@ -86,10 +91,22 @@ public class RateLimitConfig {
 
     @Bean
     public FilterRegistrationBean<OncePerRequestFilter> rateLimitFilterRegistration(ProxyManager<byte[]> proxyManager) {
-        FilterRegistrationBean<OncePerRequestFilter> reg = new FilterRegistrationBean<>(new OncePerRequestFilter() {
-            @Override
-            protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
-                    throws ServletException, IOException {
+        FilterRegistrationBean<OncePerRequestFilter> reg = new FilterRegistrationBean<>(new RateLimitFilter(proxyManager));
+        reg.addUrlPatterns("/*");
+        reg.setOrder(RATE_LIMIT_FILTER_ORDER);
+        return reg;
+    }
+
+    private class RateLimitFilter extends OncePerRequestFilter {
+        private final ProxyManager<byte[]> proxyManager;
+
+        private RateLimitFilter(ProxyManager<byte[]> proxyManager) {
+            this.proxyManager = proxyManager;
+        }
+
+        @Override
+        protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
+                throws ServletException, IOException {
                 if (seedEnabled) {
                     chain.doFilter(req, res);
                     return;
@@ -111,11 +128,7 @@ public class RateLimitConfig {
                     res.getWriter().write("{\"error\": \"Too many requests\", \"message\": \"Rate limit exceeded.\"}");
                 }
             }
-        });
-        reg.addUrlPatterns("/*");
-        reg.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);
-        return reg;
-    }
+        }
 
     private BucketConfiguration getConfiguration(boolean authPath) {
         Bandwidth limit = authPath
@@ -131,8 +144,7 @@ public class RateLimitConfig {
     }
 
     private static String clientIp(HttpServletRequest req) {
-        String xff = req.getHeader("X-Forwarded-For");
-        if (xff != null && !xff.isBlank()) return xff.split(",")[0].trim();
-        return req.getRemoteAddr();
+        Object trustedIp = req.getAttribute(ForwardedIpTrustFilter.CLIENT_IP_ATTRIBUTE);
+        return trustedIp instanceof String ip && !ip.isBlank() ? ip : req.getRemoteAddr();
     }
 }

@@ -4,25 +4,6 @@ server:
 spring:
   mvc:
     dispatch-options-request: true
-    cors:
-      configurations:
-        '[/**]':
-          allowedOrigins:
-            - "http://localhost:5173"
-            - "http://localhost:5174"
-          allowedMethods:
-            - "GET"
-            - "POST"
-            - "PUT"
-            - "PATCH"
-            - "DELETE"
-            - "OPTIONS"
-          allowedHeaders:
-            - "*"
-          allowCredentials: true
-          exposedHeaders:
-            - "*"
-          maxAge: 3600
   cloud:
     gateway:
       mvc:
@@ -114,6 +95,14 @@ spring:
 
 # Bucket4j-based rate limiting; tunable per route via headers and IP/user.
 gateway:
+  forwarded:
+    trusted-cidrs: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+  cors:
+    allowed-origins: http://localhost:5173,http://localhost:5174
+    allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+    allowed-headers: Authorization,Content-Type,Accept
+    allow-credentials: true
+    max-age: 3600
   rate-limit:
     default:
       capacity: 100
