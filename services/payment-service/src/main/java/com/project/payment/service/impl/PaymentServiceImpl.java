@@ -5,8 +5,10 @@ import com.project.common.exception.ResourceNotFoundException;
 import com.project.payment.api.dto.request.PaymentRequest;
 import com.project.payment.api.dto.request.PaymentWebhookRequest;
 import com.project.payment.api.dto.response.PaymentResponse;
+import com.project.payment.api.dto.response.PaymentInitiationResponse;
 import com.project.payment.application.mapper.PaymentMapper;
 import com.project.payment.application.validator.PaymentOrderValidator;
+import com.project.payment.application.validator.PaymentTransitionValidator;
 import com.project.payment.client.OrderClient;
 import com.project.payment.client.dto.OrderSummary;
 import com.project.payment.exception.PaymentException;
@@ -41,32 +43,40 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentMapper paymentMapper;
     private final OrderClient orderClient;
     private final PaymentOrderValidator orderValidator;
+    private final PaymentTransitionValidator transitionValidator;
 
     @Override
     @Transactional
-    public PaymentResponse createPayment(PaymentRequest request, UUID userId, String userEmail,
-                                         String idempotencyKey) {
+    public PaymentInitiationResponse createPayment(PaymentRequest request, UUID userId, String userEmail,
+                                                   String idempotencyKey) {
         String redisKey = null;
+        String existingPaymentId = null;
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             redisKey = "payment:create:" + userId + ":" + idempotencyKey;
             String existing = redis.opsForValue().get(redisKey);
             if (existing != null) {
-                if ("PENDING".equals(existing)) {
-                    throw new PaymentException("Duplicate payment request in flight");
-                }
-                return paymentMapper.toResponse(paymentRepository.findById(existing)
-                        .orElseThrow(() -> new ResourceNotFoundException("Payment", existing)));
+                existingPaymentId = existing;
             }
-            Boolean acquired = redis.opsForValue().setIfAbsent(redisKey, "PENDING", Duration.ofMinutes(10));
-            if (!Boolean.TRUE.equals(acquired)) {
+            if (existingPaymentId == null && !Boolean.TRUE.equals(redis.opsForValue()
+                    .setIfAbsent(redisKey, "PENDING", Duration.ofMinutes(10)))) {
                 throw new PaymentException("Duplicate payment request in flight");
             }
         }
 
         try {
-            PaymentResponse response = createNewPayment(request, userId, userEmail);
+            OrderSummary order = validateOrder(request, userId);
+            if (existingPaymentId != null) {
+                if ("PENDING".equals(existingPaymentId)) {
+                    throw new PaymentException("Duplicate payment request in flight");
+                }
+                String paymentId = existingPaymentId;
+                return new PaymentInitiationResponse(paymentMapper.toResponse(paymentRepository.findById(paymentId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Payment", paymentId))), null);
+            }
+
+            PaymentInitiationResponse response = createNewPayment(request, userId, userEmail, order);
             if (redisKey != null) {
-                redis.opsForValue().set(redisKey, response.id(), Duration.ofHours(24));
+                redis.opsForValue().set(redisKey, response.payment().id(), Duration.ofHours(24));
             }
             return response;
         } catch (RuntimeException exception) {
@@ -77,15 +87,18 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
-    private PaymentResponse createNewPayment(PaymentRequest request, UUID userId, String userEmail) {
+    private OrderSummary validateOrder(PaymentRequest request, UUID userId) {
+        var orderResponse = orderClient.getOrder(request.orderId());
+        return orderValidator.validateForPayment(
+                orderResponse == null ? null : orderResponse.getData(), userId);
+    }
+
+    private PaymentInitiationResponse createNewPayment(PaymentRequest request, UUID userId, String userEmail,
+                                                       OrderSummary order) {
         Optional<Payment> existing = paymentRepository.findByOrderId(request.orderId());
         if (existing.isPresent()) {
             throw new PaymentException("A payment already exists for order: " + request.orderId());
         }
-
-        var orderResponse = orderClient.getOrder(request.orderId());
-        OrderSummary order = orderValidator.validateForPayment(
-                orderResponse == null ? null : orderResponse.getData(), userId);
 
         Payment payment = Payment.builder()
                 .paymentReference("PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
@@ -106,12 +119,15 @@ public class PaymentServiceImpl implements PaymentService {
         payment = paymentRepository.save(payment);
 
         // Create the gateway intent (Stripe in production; sandbox-stub for dev)
+        String clientSecret;
         try {
-            String intentId = gateway.createIntent(payment);
-            payment.setTransactionId(intentId);
+            PaymentGateway.IntentResult intent = gateway.createIntent(payment);
+            payment.setTransactionId(intent.transactionId());
+            clientSecret = intent.clientSecret();
             payment = paymentRepository.save(payment);
         } catch (Exception e) {
             log.error("Gateway createIntent failed for payment {}: {}", payment.getId(), e.getMessage());
+            transitionValidator.validate(payment.getStatus(), PaymentStatus.FAILED);
             payment.setStatus(PaymentStatus.FAILED);
             payment.setFailureReason("Gateway error: " + e.getMessage());
             payment = paymentRepository.save(payment);
@@ -120,7 +136,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         eventPublisher.publish(toEvent(PaymentEvent.Type.INITIATED, payment));
-        return paymentMapper.toResponse(payment);
+        return new PaymentInitiationResponse(paymentMapper.toResponse(payment), clientSecret);
     }
 
     @Override
@@ -158,6 +174,10 @@ public class PaymentServiceImpl implements PaymentService {
         if (payment.getStatus() != PaymentStatus.PENDING) {
             throw new PaymentException("Payment cannot be processed; status=" + payment.getStatus());
         }
+        if (gateway.requiresVerifiedWebhook()) {
+            throw new PaymentException("Payment completion requires a verified webhook");
+        }
+        transitionValidator.validate(payment.getStatus(), PaymentStatus.PROCESSING);
         payment.setStatus(PaymentStatus.PROCESSING);
         payment.setUpdatedAt(LocalDateTime.now());
         payment = paymentRepository.save(payment);
@@ -165,10 +185,12 @@ public class PaymentServiceImpl implements PaymentService {
 
         boolean ok = gateway.confirm(payment);
         if (ok) {
+            transitionValidator.validate(payment.getStatus(), PaymentStatus.COMPLETED);
             payment.setStatus(PaymentStatus.COMPLETED);
             payment.setCompletedAt(LocalDateTime.now());
             payment.setGatewayResponse("OK");
         } else {
+            transitionValidator.validate(payment.getStatus(), PaymentStatus.FAILED);
             payment.setStatus(PaymentStatus.FAILED);
             payment.setFailureReason("Gateway declined");
         }
@@ -190,16 +212,19 @@ public class PaymentServiceImpl implements PaymentService {
         PaymentEvent.Type eventType;
         switch (webhook.status().toUpperCase()) {
             case "COMPLETED", "SUCCEEDED" -> {
+                transitionValidator.validate(payment.getStatus(), PaymentStatus.COMPLETED);
                 payment.setStatus(PaymentStatus.COMPLETED);
                 payment.setCompletedAt(LocalDateTime.now());
                 eventType = PaymentEvent.Type.COMPLETED;
             }
             case "FAILED" -> {
+                transitionValidator.validate(payment.getStatus(), PaymentStatus.FAILED);
                 payment.setStatus(PaymentStatus.FAILED);
                 payment.setFailureReason(webhook.failureReason());
                 eventType = PaymentEvent.Type.FAILED;
             }
             case "CANCELLED" -> {
+                transitionValidator.validate(payment.getStatus(), PaymentStatus.CANCELLED);
                 payment.setStatus(PaymentStatus.CANCELLED);
                 eventType = PaymentEvent.Type.CANCELLED;
             }
@@ -240,10 +265,12 @@ public class PaymentServiceImpl implements PaymentService {
             }
             BigDecimal cumulativeRefund = alreadyRefunded.add(refundAmount);
             boolean partial = cumulativeRefund.compareTo(payment.getAmount()) < 0;
+            PaymentStatus nextStatus = partial ? PaymentStatus.PARTIALLY_REFUNDED : PaymentStatus.REFUNDED;
+            transitionValidator.validate(payment.getStatus(), nextStatus);
 
             gateway.refund(payment, refundAmount, reason);
 
-            payment.setStatus(partial ? PaymentStatus.PARTIALLY_REFUNDED : PaymentStatus.REFUNDED);
+            payment.setStatus(nextStatus);
             payment.setRefundedAmount(cumulativeRefund);
             payment.setGatewayResponse("Refund: " + reason);
             payment.setUpdatedAt(LocalDateTime.now());
@@ -272,6 +299,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         if (payment.getStatus() == PaymentStatus.PENDING || payment.getStatus() == PaymentStatus.PROCESSING) {
+            transitionValidator.validate(payment.getStatus(), PaymentStatus.CANCELLED);
             payment.setStatus(PaymentStatus.CANCELLED);
             payment.setUpdatedAt(LocalDateTime.now());
             payment = paymentRepository.save(payment);

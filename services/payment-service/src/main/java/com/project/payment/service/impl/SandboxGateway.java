@@ -19,10 +19,11 @@ import java.util.UUID;
 public class SandboxGateway implements PaymentGateway {
 
     @Override
-    public String createIntent(Payment payment) {
+    public IntentResult createIntent(Payment payment) {
         log.info("[sandbox] createIntent for {} amount {} {}",
                 payment.getPaymentReference(), payment.getAmount(), payment.getCurrency());
-        return "SBX-" + UUID.randomUUID().toString().substring(0, 12);
+        return new IntentResult("SBX-" + UUID.randomUUID().toString().substring(0, 12),
+                "sandbox_client_secret_" + UUID.randomUUID());
     }
 
     @Override

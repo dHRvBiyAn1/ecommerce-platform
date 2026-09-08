@@ -9,6 +9,7 @@ import com.project.payment.api.dto.request.PaymentRequest;
 import com.project.payment.api.dto.request.PaymentWebhookRequest;
 import com.project.payment.api.dto.request.RefundRequest;
 import com.project.payment.api.dto.response.PaymentResponse;
+import com.project.payment.api.dto.response.PaymentInitiationResponse;
 import com.project.payment.exception.PaymentException;
 import com.project.payment.service.PaymentService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -57,7 +58,7 @@ public class PaymentController {
 
     @PostMapping
     @PreAuthorize("hasAuthority('" + Permissions.PAYMENTS_PROCESS + "') or hasRole('CUSTOMER')")
-    public ResponseEntity<ApiResponse<PaymentResponse>> createPayment(
+    public ResponseEntity<ApiResponse<PaymentInitiationResponse>> createPayment(
             @Valid @RequestBody PaymentRequest request,
             @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
         UUID userId = CurrentUser.requireId();

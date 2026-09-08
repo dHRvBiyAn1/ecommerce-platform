@@ -13,8 +13,15 @@ import java.math.BigDecimal;
  */
 public interface PaymentGateway {
 
-    /** Create a PaymentIntent / charge intent. Returns a gateway transaction id. */
-    String createIntent(Payment payment);
+    record IntentResult(String transactionId, String clientSecret) {}
+
+    /** Create a PaymentIntent / charge intent. The secret is returned only in memory. */
+    IntentResult createIntent(Payment payment);
+
+    /** Whether terminal payment state may only be established by a verified webhook. */
+    default boolean requiresVerifiedWebhook() {
+        return false;
+    }
 
     /** Capture / confirm. Returns true on success. */
     boolean confirm(Payment payment);

@@ -3,6 +3,7 @@ package com.project.payment.service;
 import com.project.payment.api.dto.request.PaymentRequest;
 import com.project.payment.api.dto.request.PaymentWebhookRequest;
 import com.project.payment.api.dto.response.PaymentResponse;
+import com.project.payment.api.dto.response.PaymentInitiationResponse;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -10,7 +11,7 @@ import java.util.UUID;
 
 public interface PaymentService {
 
-    PaymentResponse createPayment(PaymentRequest request, UUID userId, String userEmail, String idempotencyKey);
+    PaymentInitiationResponse createPayment(PaymentRequest request, UUID userId, String userEmail, String idempotencyKey);
 
     PaymentResponse getPayment(String paymentId);
 

@@ -45,7 +45,7 @@ public class StripeGateway implements PaymentGateway {
     }
 
     @Override
-    public String createIntent(Payment payment) {
+    public IntentResult createIntent(Payment payment) {
         long minorUnits = toMinorUnits(payment.getAmount(), payment.getCurrency());
         Map<String, String> metadata = new HashMap<>();
         metadata.put("orderId", payment.getOrderId());
@@ -65,7 +65,7 @@ public class StripeGateway implements PaymentGateway {
                     .setIdempotencyKey("create-intent:" + payment.getPaymentReference())
                     .build();
             PaymentIntent intent = PaymentIntent.create(params, opts);
-            return intent.getId();
+            return new IntentResult(intent.getId(), intent.getClientSecret());
         } catch (StripeException e) {
             throw new PaymentException("Stripe createIntent failed: " + e.getMessage());
         }
@@ -75,6 +75,11 @@ public class StripeGateway implements PaymentGateway {
     public boolean confirm(Payment payment) {
         // Confirmation happens client-side via Stripe.js → final status arrives by webhook.
         // We treat this server call as a no-op success.
+        return true;
+    }
+
+    @Override
+    public boolean requiresVerifiedWebhook() {
         return true;
     }
 
