@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
+import { afterAll, afterEach, beforeAll } from "vitest";
+import { server } from "./server";
 
 const entries = new Map<string, string>();
 const memoryStorage: Storage = {
@@ -29,7 +30,28 @@ Object.defineProperty(globalThis, "localStorage", {
   value: memoryStorage,
 });
 
+Object.defineProperty(window, "matchMedia", {
+  configurable: true,
+  value: () => ({
+    matches: false,
+    media: "",
+    onchange: null,
+    addEventListener() {},
+    removeEventListener() {},
+    addListener() {},
+    removeListener() {},
+    dispatchEvent() {
+      return false;
+    },
+  }),
+});
+
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+
 afterEach(() => {
   cleanup();
   memoryStorage.clear();
+  server.resetHandlers();
 });
+
+afterAll(() => server.close());

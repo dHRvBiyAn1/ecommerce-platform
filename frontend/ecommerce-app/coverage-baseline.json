@@ -1,0 +1,857 @@
+{
+  "schemaVersion": 1,
+  "modules": {
+    "src/App.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 115
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/main.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 46
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/api/admin.ts": {
+      "lines": {
+        "covered": 0,
+        "total": 31
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/api/auth.ts": {
+      "lines": {
+        "covered": 1,
+        "total": 43
+      },
+      "branches": {
+        "covered": 0,
+        "total": 0
+      }
+    },
+    "src/api/cart.ts": {
+      "lines": {
+        "covered": 1,
+        "total": 36
+      },
+      "branches": {
+        "covered": 0,
+        "total": 0
+      }
+    },
+    "src/api/client.ts": {
+      "lines": {
+        "covered": 21,
+        "total": 94
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/api/discovery.ts": {
+      "lines": {
+        "covered": 0,
+        "total": 9
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/api/inventory.ts": {
+      "lines": {
+        "covered": 0,
+        "total": 31
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/api/notifications.ts": {
+      "lines": {
+        "covered": 0,
+        "total": 15
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/api/orders.ts": {
+      "lines": {
+        "covered": 0,
+        "total": 33
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/api/payments.ts": {
+      "lines": {
+        "covered": 0,
+        "total": 22
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/api/products.ts": {
+      "lines": {
+        "covered": 0,
+        "total": 105
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/api/seller.ts": {
+      "lines": {
+        "covered": 0,
+        "total": 45
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/api/types.ts": {
+      "lines": {
+        "covered": 0,
+        "total": 0
+      },
+      "branches": {
+        "covered": 1,
+        "total": 1
+      }
+    },
+    "src/components/error-boundary.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 35
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/mobile-bottom-nav.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 39
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/product-art.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 50
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/seo.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 43
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/skip-to-content.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 7
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/theme-provider.tsx": {
+      "lines": {
+        "covered": 46,
+        "total": 58
+      },
+      "branches": {
+        "covered": 9,
+        "total": 15
+      }
+    },
+    "src/components/theme-toggle.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 18
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/auth/customer-only-route.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 10
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/auth/protected-route.tsx": {
+      "lines": {
+        "covered": 9,
+        "total": 13
+      },
+      "branches": {
+        "covered": 3,
+        "total": 6
+      }
+    },
+    "src/components/auth/unauthorized.tsx": {
+      "lines": {
+        "covered": 2,
+        "total": 44
+      },
+      "branches": {
+        "covered": 0,
+        "total": 0
+      }
+    },
+    "src/components/bits/animated-gradient.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 20
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/bits/border-glow.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 26
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/bits/decrypted-text.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 43
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/bits/dot-field.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 56
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/bits/glow-button.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 18
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/bits/loading-dots.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 21
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/bits/spotlight.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 35
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/bits/text-type.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 31
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/skeletons/category-skeleton.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 15
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/skeletons/product-card-skeleton.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 22
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/skeletons/product-detail-skeleton.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 38
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/skeletons/table-skeleton.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 34
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/ui/badge.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 22
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/ui/button.tsx": {
+      "lines": {
+        "covered": 34,
+        "total": 42
+      },
+      "branches": {
+        "covered": 0,
+        "total": 0
+      }
+    },
+    "src/components/ui/card.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 42
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/ui/data-table.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 133
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/ui/dialog.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 67
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/ui/dropdown-menu.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 59
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/ui/input.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 14
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/ui/label.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 13
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/ui/scroll-animation.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 59
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/ui/select.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 56
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/ui/separator.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 16
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/ui/sheet.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 97
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/ui/skeleton.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 11
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/ui/spinner.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 13
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/ui/tabs.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 35
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/components/ui/textarea.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 13
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/layouts/admin-layout.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 122
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/layouts/auth-layout.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 48
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/layouts/storefront-layout.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 324
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/lib/utils.ts": {
+      "lines": {
+        "covered": 7,
+        "total": 54
+      },
+      "branches": {
+        "covered": 0,
+        "total": 0
+      }
+    },
+    "src/pages/not-found.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 13
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/account/become-seller.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 199
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/account/notifications.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 83
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/account/order-detail.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 97
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/account/orders.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 100
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/account/profile.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 427
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/admin/dashboard.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 155
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/admin/inventory.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 135
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/admin/orders.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 144
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/admin/product-approvals.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 189
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/admin/product-form.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 188
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/admin/products.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 166
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/admin/seller-applications.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 245
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/admin/users.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 187
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/auth/login.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 137
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/auth/oauth2-redirect.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 32
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/auth/register.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 120
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/storefront/cart.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 186
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/storefront/catalog.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 309
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/storefront/checkout.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 223
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/storefront/home.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 199
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/storefront/order-success.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 88
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/pages/storefront/product-detail.tsx": {
+      "lines": {
+        "covered": 0,
+        "total": 177
+      },
+      "branches": {
+        "covered": 0,
+        "total": 1
+      }
+    },
+    "src/stores/auth.ts": {
+      "lines": {
+        "covered": 28,
+        "total": 45
+      },
+      "branches": {
+        "covered": 4,
+        "total": 7
+      }
+    },
+    "src/stores/cart.ts": {
+      "lines": {
+        "covered": 24,
+        "total": 155
+      },
+      "branches": {
+        "covered": 1,
+        "total": 1
+      }
+    }
+  },
+  "criticalFiles": {
+    "checkout": {
+      "files": [
+        "src/pages/storefront/checkout.tsx"
+      ],
+      "threshold": {
+        "lines": 0,
+        "branches": 0
+      }
+    },
+    "payment": {
+      "files": [
+        "src/api/payments.ts"
+      ],
+      "threshold": {
+        "lines": 0,
+        "branches": 0
+      }
+    },
+    "cart": {
+      "files": [
+        "src/pages/storefront/cart.tsx",
+        "src/api/cart.ts"
+      ],
+      "threshold": {
+        "lines": 0,
+        "branches": 0
+      }
+    },
+    "auth": {
+      "files": [
+        "src/pages/auth/login.tsx",
+        "src/pages/auth/register.tsx",
+        "src/api/auth.ts",
+        "src/stores/auth.ts"
+      ],
+      "threshold": {
+        "lines": 0,
+        "branches": 0
+      }
+    }
+  }
+}
