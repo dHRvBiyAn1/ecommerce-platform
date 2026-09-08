@@ -153,7 +153,7 @@ class UserControllerSecurityHttpTest {
         mockMvc.perform(get("/api/user/profile").with(user("not-a-uuid")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401))
-                .andExpect(jsonPath("$.message").value("Invalid authenticated user"));
+                .andExpect(jsonPath("$.message").value("Request could not be processed"));
 
         verifyNoInteractions(userProfileService);
     }
