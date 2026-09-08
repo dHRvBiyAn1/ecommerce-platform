@@ -1,5 +1,6 @@
 package com.project.common.exception;
 
+import com.project.common.dto.ApiResponse;
 import com.project.common.dto.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -21,14 +22,21 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static com.project.common.constant.ErrorCode.ACCESS_DENIED;
 import static com.project.common.constant.ErrorCode.BAD_CREDENTIALS;
+import static com.project.common.constant.ErrorCode.COUPON_RESERVATION_CONFLICT;
+import static com.project.common.constant.ErrorCode.COUPON_UNAVAILABLE;
+import static com.project.common.constant.ErrorCode.DUPLICATE_RESOURCE;
 import static com.project.common.constant.ErrorCode.INTERNAL_ERROR;
+import static com.project.common.constant.ErrorCode.INSUFFICIENT_STOCK;
+import static com.project.common.constant.ErrorCode.INVALID_COUPON_REQUEST;
 import static com.project.common.constant.ErrorCode.METHOD_NOT_ALLOWED;
 import static com.project.common.constant.ErrorCode.NOT_FOUND;
 import static com.project.common.constant.ErrorCode.OAUTH2_PROVIDER_NOT_CONFIGURED;
+import static com.project.common.constant.ErrorCode.RESOURCE_NOT_FOUND;
 import static com.project.common.constant.ErrorCode.TYPE_MISMATCH;
 import static com.project.common.constant.ErrorCode.UNAUTHENTICATED;
 import static com.project.common.constant.ErrorCode.VALIDATION_FAILED;
@@ -41,9 +49,21 @@ import static com.project.common.constant.ErrorCode.VALIDATION_FAILED;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Set<String> SAFE_PUBLIC_CODES = Set.of(
+            VALIDATION_FAILED.value(),
+            "ORDER_VALIDATION",
+            RESOURCE_NOT_FOUND.value(),
+            NOT_FOUND.value(),
+            DUPLICATE_RESOURCE.value(),
+            INSUFFICIENT_STOCK.value(),
+            COUPON_RESERVATION_CONFLICT.value(),
+            COUPON_UNAVAILABLE.value(),
+            INVALID_COUPON_REQUEST.value());
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusiness(BusinessException ex, HttpServletRequest req) {
-        return build(ex.getStatus(), ex.getCode(), ex.getMessage(), req, null);
+        String message = businessMessage(ex);
+        return build(ex.getStatus(), ex.getCode(), message, req, null);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -109,7 +129,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorResponse> handleAuthentication(AuthenticationException ex, HttpServletRequest req) {
-        return build(HttpStatus.UNAUTHORIZED, UNAUTHENTICATED.value(), ex.getMessage(), req, null);
+        return build(HttpStatus.UNAUTHORIZED, UNAUTHENTICATED.value(), "Authentication required", req, null);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -126,9 +146,29 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ErrorResponse> build(HttpStatus status, String code, String message,
                                                 HttpServletRequest req, Map<String, String> fieldErrors) {
-        ErrorResponse body = new ErrorResponse(
-                status.value(), status.getReasonPhrase(), message, req.getRequestURI(), code,
-                fieldErrors, UUID.randomUUID().toString(), Instant.now());
+        ErrorResponse body = ApiResponse.errorResponse(
+                status.value(), code, message, req.getRequestURI(), fieldErrors, requestId(req));
         return ResponseEntity.status(status).body(body);
+    }
+
+    private boolean isRetryable(HttpStatus status) {
+        return status == HttpStatus.BAD_GATEWAY
+                || status == HttpStatus.SERVICE_UNAVAILABLE
+                || status == HttpStatus.GATEWAY_TIMEOUT;
+    }
+
+    private String businessMessage(BusinessException ex) {
+        if (isRetryable(ex.getStatus())) {
+            return "Upstream service temporarily unavailable";
+        }
+        if (SAFE_PUBLIC_CODES.contains(ex.getCode())) {
+            return ex.getMessage();
+        }
+        return "Request could not be processed";
+    }
+
+    private String requestId(HttpServletRequest req) {
+        String requestId = req.getHeader("X-Request-Id");
+        return requestId == null || requestId.isBlank() ? UUID.randomUUID().toString() : requestId;
     }
 }

@@ -15,4 +15,13 @@ class ApiResponseSerializationTest {
 
         assertThat(json).contains("\"data\":null");
     }
+
+    @Test
+    void usesSafeReasonPhraseForNonstandardStatus() {
+        ErrorResponse response = ApiResponse.errorResponse(599, "UPSTREAM_ERROR", "Request failed",
+                "/checkout", null, "request-id");
+
+        assertThat(response.status()).isEqualTo(599);
+        assertThat(response.error()).isEqualTo("Unknown Status");
+    }
 }

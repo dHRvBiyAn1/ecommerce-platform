@@ -4,8 +4,10 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.http.HttpStatus;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -48,5 +50,14 @@ public class ApiResponse<T> {
 
     public static <T> ApiResponse<T> error(int status, String message, T data) {
         return new ApiResponse<>(status, message, data);
+    }
+
+    public static ErrorResponse errorResponse(int status, String code, String message,
+                                              String path, Map<String, String> fieldErrors,
+                                              String traceId) {
+        HttpStatus resolvedStatus = HttpStatus.resolve(status);
+        String reason = resolvedStatus == null ? "Unknown Status" : resolvedStatus.getReasonPhrase();
+        return new ErrorResponse(status, reason, message,
+                path, code, fieldErrors, traceId, Instant.now());
     }
 }
