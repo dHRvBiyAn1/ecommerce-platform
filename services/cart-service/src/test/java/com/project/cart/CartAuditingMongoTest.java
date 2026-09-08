@@ -4,6 +4,7 @@ import com.project.cart.model.Cart;
 import com.project.cart.model.CartItem;
 import com.project.cart.repository.CartRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -22,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DataMongoTest
+@EnabledIfSystemProperty(named = "cart.mongo.integration", matches = "true")
 @Testcontainers(disabledWithoutDocker = true)
 @org.springframework.context.annotation.Import(CartAuditingMongoTest.AuditingConfiguration.class)
 class CartAuditingMongoTest {

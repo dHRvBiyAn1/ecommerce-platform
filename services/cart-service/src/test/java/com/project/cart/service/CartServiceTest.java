@@ -17,6 +17,7 @@ import feign.Response;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -33,6 +34,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -139,8 +141,13 @@ class CartServiceTest {
     void boundaryDtosAreRecordsAndCartIsAudited() throws Exception {
         assertTrue(CartResponse.class.isRecord());
         assertTrue(AddCartItemRequest.class.isRecord());
-        assertTrue(Class.forName("com.project.cart.CartAuditingMongoTest")
-                .getAnnotation(Testcontainers.class).disabledWithoutDocker());
+        Class<?> cartAuditingMongoTest = Class.forName("com.project.cart.CartAuditingMongoTest", false,
+                Thread.currentThread().getContextClassLoader());
+        assertTrue(cartAuditingMongoTest.getAnnotation(Testcontainers.class).disabledWithoutDocker());
+        EnabledIfSystemProperty mongoOptIn = cartAuditingMongoTest.getAnnotation(EnabledIfSystemProperty.class);
+        assertNotNull(mongoOptIn);
+        assertEquals("cart.mongo.integration", mongoOptIn.named());
+        assertEquals("true", mongoOptIn.matches());
         assertEquals("productId", ProductClient.class.getDeclaredMethod("getProduct", String.class)
                 .getParameters()[0].getAnnotation(org.springframework.web.bind.annotation.PathVariable.class).value());
         assertTrue(Cart.class.getDeclaredField("createdAt").isAnnotationPresent(CreatedDate.class));
