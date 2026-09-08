@@ -3,6 +3,8 @@ FROM eclipse-temurin:17-jdk-jammy AS build
 WORKDIR /workspace
 COPY --chmod=0755 mvnw pom.xml ./
 COPY .mvn/ .mvn/
+RUN --mount=type=cache,target=/root/.m2,sharing=locked \
+    ./mvnw -B -ntp -DskipTests -N install
 COPY services/common/pom.xml services/common/pom.xml
 COPY services/common/src/ services/common/src/
 COPY services/product-service/pom.xml services/product-service/pom.xml
