@@ -16,7 +16,7 @@ public class NotificationMapper {
                 notification.getCategory(),
                 notification.getSubject(),
                 notification.getBody(),
-                notification.getStatus(),
+                NotificationResponse.Status.valueOf(notification.getStatus().name()),
                 notification.getFailureReason(),
                 notification.getRetryCount(),
                 notification.getCreatedAt(),

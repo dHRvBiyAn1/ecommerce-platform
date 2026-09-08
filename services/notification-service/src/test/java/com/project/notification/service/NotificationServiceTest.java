@@ -4,7 +4,9 @@ import com.project.common.exception.ForbiddenOperationException;
 import com.project.common.exception.ResourceNotFoundException;
 import com.project.notification.application.mapper.NotificationMapper;
 import com.project.notification.application.validator.NotificationAccessValidator;
+import com.project.notification.api.dto.response.NotificationResponse;
 import com.project.notification.model.Notification;
+import com.project.notification.repository.NotificationDeliveryRepository;
 import com.project.notification.repository.NotificationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +28,7 @@ import static org.mockito.Mockito.when;
 class NotificationServiceTest {
 
     @Mock private NotificationRepository repository;
+    @Mock private NotificationDeliveryRepository deliveryRepository;
     @Mock private EmailService emailService;
 
     private NotificationService service;
@@ -33,7 +36,8 @@ class NotificationServiceTest {
     @BeforeEach
     void setUp() {
         service = new NotificationService(
-                repository, emailService, new NotificationMapper(), new NotificationAccessValidator());
+                repository, deliveryRepository, emailService,
+                new NotificationMapper(), new NotificationAccessValidator());
     }
 
     @Test
@@ -45,7 +49,7 @@ class NotificationServiceTest {
 
         var response = service.markRead("notification-1", ownerId, false);
 
-        assertThat(response.status()).isEqualTo(Notification.Status.READ);
+        assertThat(response.status()).isEqualTo(NotificationResponse.Status.READ);
         assertThat(response.readAt()).isNotNull();
     }
 
@@ -67,7 +71,7 @@ class NotificationServiceTest {
 
         var response = service.markRead("notification-1", UUID.randomUUID(), true);
 
-        assertThat(response.status()).isEqualTo(Notification.Status.READ);
+        assertThat(response.status()).isEqualTo(NotificationResponse.Status.READ);
     }
 
     @Test
