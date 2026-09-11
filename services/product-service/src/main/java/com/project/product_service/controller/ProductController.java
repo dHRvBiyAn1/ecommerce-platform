@@ -6,6 +6,12 @@ import com.project.product_service.dto.ProductRequest;
 import com.project.product_service.dto.ProductResponse;
 import com.project.product_service.dto.StockUpdateRequest;
 import com.project.product_service.service.ProductService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -32,6 +38,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/products")
 @RequiredArgsConstructor
+@SecurityScheme(name = "bearerAuth", type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT")
 public class ProductController {
 
     private final ProductService productService;
@@ -59,11 +66,19 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Get a public product")
+    @ApiResponses(@ApiResponse(responseCode = "404", description = "Product is inactive or not approved"))
     public ResponseEntity<ProductResponse> getProduct(@PathVariable String id) {
         return ResponseEntity.ok(productService.getProduct(id));
     }
 
     @GetMapping("/seller/{sellerId}")
+    @PreAuthorize("hasRole('ADMIN') or #sellerId.toString() == authentication.name")
+    @Operation(summary = "Get one seller's private catalog", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Seller or administrator access required")
+    })
     public ResponseEntity<Page<ProductResponse>> getProductsBySeller(
             @PathVariable UUID sellerId,
             @PageableDefault(size = 20) Pageable pageable) {
@@ -90,6 +105,11 @@ public class ProductController {
 
     @GetMapping("/seller")
     @PreAuthorize("hasRole('SELLER') or hasRole('ADMIN')")
+    @Operation(summary = "Get the current seller's catalog", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Seller or administrator access required")
+    })
     public ResponseEntity<Page<ProductResponse>> getMyProducts(
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(productService.getProductsBySeller(CurrentUser.requireId(), pageable));
@@ -97,6 +117,11 @@ public class ProductController {
 
     @PostMapping
     @PreAuthorize("hasAuthority('" + Permissions.PRODUCTS_CREATE + "')")
+    @Operation(summary = "Create a product", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Product create permission required")
+    })
     public ResponseEntity<ProductResponse> createProduct(@Valid @RequestBody ProductRequest request) {
         UUID sellerId = CurrentUser.requireId();
         request.setSellerId(sellerId);
@@ -107,6 +132,11 @@ public class ProductController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('" + Permissions.PRODUCTS_UPDATE + "')")
+    @Operation(summary = "Update a product", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Product update permission required")
+    })
     public ResponseEntity<ProductResponse> updateProduct(
             @PathVariable String id,
             @Valid @RequestBody ProductRequest request) {
@@ -117,6 +147,11 @@ public class ProductController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('" + Permissions.PRODUCTS_DELETE + "')")
+    @Operation(summary = "Delete a product", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Product delete permission required")
+    })
     public ResponseEntity<Void> deleteProduct(@PathVariable String id) {
         productService.deleteProduct(id, CurrentUser.requireId(), CurrentUser.isAdmin());
         return ResponseEntity.noContent().build();
@@ -124,6 +159,12 @@ public class ProductController {
 
     @PatchMapping("/{id}/stock")
     @PreAuthorize("hasAuthority('" + Permissions.PRODUCTS_UPDATE + "')")
+    @Operation(summary = "Update product stock", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Seller does not own the product"),
+            @ApiResponse(responseCode = "404", description = "Product not found")
+    })
     public ResponseEntity<ProductResponse> updateStock(
             @PathVariable String id,
             @Valid @RequestBody StockUpdateRequest request) {
@@ -133,6 +174,11 @@ public class ProductController {
 
     @PutMapping("/{id}/active")
     @PreAuthorize("hasAuthority('" + Permissions.PRODUCTS_UPDATE + "')")
+    @Operation(summary = "Change public product visibility", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Product update permission required")
+    })
     public ResponseEntity<ProductResponse> toggleProductActive(@PathVariable String id, @RequestParam boolean active) {
         return ResponseEntity.ok(productService.setProductActiveStatus(
                 id, active, CurrentUser.requireId(), CurrentUser.isAdmin()));
@@ -141,6 +187,11 @@ public class ProductController {
     /** Admin moderation: approve a pending product. */
     @PutMapping("/{id}/approve")
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Approve a product", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Administrator role required")
+    })
     public ResponseEntity<ProductResponse> approveProduct(@PathVariable String id) {
         return ResponseEntity.ok(productService.setApprovalStatus(
                 id, com.project.product_service.model.ProductApprovalStatus.APPROVED,
@@ -150,6 +201,11 @@ public class ProductController {
     /** Admin moderation: reject a pending product with a reason. */
     @PutMapping("/{id}/reject")
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Reject a product", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Administrator role required")
+    })
     public ResponseEntity<ProductResponse> rejectProduct(
             @PathVariable String id,
             @RequestParam String reason) {
@@ -161,6 +217,11 @@ public class ProductController {
     /** Admin moderation list — paged products filtered by approval status. */
     @GetMapping("/admin/by-status")
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "List products by moderation status", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Administrator role required")
+    })
     public ResponseEntity<Page<ProductResponse>> listByApprovalStatus(
             @RequestParam com.project.product_service.model.ProductApprovalStatus status,
             @PageableDefault(size = 50) Pageable pageable) {

@@ -41,6 +41,12 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
+                        // Seller and moderation views expose non-public product states.
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/products/seller",
+                                "/api/v1/products/seller/**",
+                                "/api/v1/products/admin/**"
+                        ).authenticated()
                         // Public catalog reads
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/products",

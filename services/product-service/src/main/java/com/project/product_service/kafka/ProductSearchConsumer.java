@@ -56,6 +56,7 @@ public class ProductSearchConsumer {
         doc.setImageUrls(p.getImageUrls());
         doc.setSellerId(p.getSellerId());
         doc.setActive(p.isActive());
+        doc.setApprovalStatus(p.getApprovalStatus());
         doc.setAttributes(p.getAttributes());
         return doc;
     }

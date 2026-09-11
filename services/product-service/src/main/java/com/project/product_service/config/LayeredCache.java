@@ -116,6 +116,14 @@ public class LayeredCache implements Cache {
     @Override
     public void clear() {
         l1Cache.invalidateAll();
+        try {
+            var keys = redisTemplate.keys(name + ":*");
+            if (keys != null && !keys.isEmpty()) {
+                redisTemplate.delete(keys);
+            }
+        } catch (Exception e) {
+            // Fail-silent on Redis connectivity errors; L1 must still be cleared.
+        }
     }
 
     private String buildRedisKey(Object key) {

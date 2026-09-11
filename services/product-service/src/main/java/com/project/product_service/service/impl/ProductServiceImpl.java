@@ -19,14 +19,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -43,10 +41,8 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public Page<ProductResponse> getAllActiveProducts(Pageable pageable) {
-        return productRepository
-                .findByActiveTrueAndApprovalStatus(
-                        com.project.product_service.model.ProductApprovalStatus.APPROVED, pageable)
-                .map(productMapper::toResponse);
+        return productRepository.findByActiveTrueAndApprovalStatus(
+                com.project.product_service.model.ProductApprovalStatus.APPROVED, pageable).map(productMapper::toResponse);
     }
 
     @Override
@@ -56,8 +52,7 @@ public class ProductServiceImpl implements ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
         if (!product.isActive()) throw new ResourceNotFoundException("Product", id);
         // Public reads only see APPROVED. Owner / admin views go through other paths.
-        if (product.getApprovalStatus() != null
-                && product.getApprovalStatus()
+        if (product.getApprovalStatus()
                 != com.project.product_service.model.ProductApprovalStatus.APPROVED) {
             throw new ResourceNotFoundException("Product", id);
         }
@@ -66,30 +61,15 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public Page<ProductResponse> getProductsByCategory(String categoryId, Pageable pageable) {
-        return productRepository
-                .findByCategoryIdAndActiveTrueAndApprovalStatus(
-                        categoryId,
-                        com.project.product_service.model.ProductApprovalStatus.APPROVED,
-                        pageable)
+        return productRepository.findByCategoryIdAndActiveTrueAndApprovalStatus(
+                categoryId, com.project.product_service.model.ProductApprovalStatus.APPROVED, pageable)
                 .map(productMapper::toResponse);
     }
 
     @Override
     public Page<ProductResponse> searchProducts(String keyword, Pageable pageable) {
-        try {
-            var docs = productSearchRepository.search(keyword, pageable);
-            var total = productSearchRepository.count(keyword);
-            var products = docs.stream()
-                    .map(doc -> productRepository.findById(doc.getId()))
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .map(productMapper::toResponse)
-                    .toList();
-            return new PageImpl<>(products, pageable, total);
-        } catch (Exception e) {
-            log.warn("Elasticsearch search failed, falling back to MongoDB text search: {}", e.getMessage());
-            return productRepository.searchByText(keyword, pageable).map(productMapper::toResponse);
-        }
+        // MongoDB's active-and-approved text query is authoritative for both page content and totals.
+        return productRepository.searchByText(keyword, pageable).map(productMapper::toResponse);
     }
 
     @Override
@@ -194,6 +174,7 @@ public class ProductServiceImpl implements ProductService {
         product.setReviewedBy(adminId);
         product = productRepository.save(product);
         log.info("Product {} {} by admin {}", id, status, adminId);
+        eventPublisher.publishUpdated(product);
         return productMapper.toResponse(product);
     }
 
