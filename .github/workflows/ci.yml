@@ -123,21 +123,21 @@ jobs:
 
   images:
     needs: [detect-changes, backend]
-    # Evaluate if the dynamic changes array contains any backend services
-    # and only triggers runners for modules that actually changed!
-    if: |
-      needs.detect-changes.outputs.backend == 'true' && 
-      fromJson(needs.detect-changes.outputs.changes)[0] != null
+    if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # Dynamically map the matrix directly to the changed keys from paths-filter
-        service: ${{ fromJson(needs.detect-changes.outputs.changes) }}
-        # Exclude structural components that aren't deployable docker applications
-        exclude:
-          - service: backend
-          - service: frontend
+        service:
+          - api-gateway
+          - auth-service
+          - product-service
+          - inventory-service
+          - order-service
+          - payment-service
+          - notification-service
+          - cart-service
+          - coupon-service
     steps:
       - uses: actions/checkout@v4
 
