@@ -6,9 +6,19 @@ import com.project.cart.dto.CartResponse;
 import com.project.cart.dto.UpdateQuantityRequest;
 import com.project.cart.service.CartService;
 import com.project.common.security.CurrentUser;
+import com.project.common.dto.ErrorResponse;
+import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -24,6 +34,18 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/cart")
 @RequiredArgsConstructor
 @PreAuthorize("isAuthenticated()")
+@SecurityScheme(name = "bearerAuth", type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT")
+@SecurityRequirement(name = "bearerAuth")
+@ApiResponses({
+        @ApiResponse(responseCode = "401", description = "Authentication required",
+                headers = @Header(name = "WWW-Authenticate", description = "Bearer authentication challenge",
+                        schema = @Schema(type = "string")),
+                content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                        schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Authenticated user required",
+                content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                        schema = @Schema(implementation = ErrorResponse.class)))
+})
 public class CartController {
 
     private final CartService cartService;

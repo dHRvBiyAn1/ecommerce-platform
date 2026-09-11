@@ -60,7 +60,8 @@ class CartServiceTest {
 
     @BeforeEach
     void setUp() {
-        cartService = new CartService(cartRepository, couponClient, productClient, cartMapper);
+        cartService = new CartService(cartRepository, couponClient, productClient, cartMapper,
+                new CartCouponPersistenceService(cartRepository));
     }
 
     @Test

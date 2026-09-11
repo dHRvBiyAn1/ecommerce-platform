@@ -16,6 +16,7 @@ import com.project.cart.model.Cart;
 import com.project.cart.model.CartItem;
 import com.project.cart.repository.CartRepository;
 import com.project.common.exception.ResourceNotFoundException;
+import com.project.common.exception.BusinessException;
 import com.project.common.exception.ValidationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +42,7 @@ public class CartService {
     private final CouponClient couponClient;
     private final ProductClient productClient;
     private final CartMapper cartMapper;
+    private final CartCouponPersistenceService cartCouponPersistenceService;
 
     @Transactional(readOnly = true)
     public CartResponse getMyCart(UUID userId) {
@@ -124,7 +126,6 @@ public class CartService {
      * the current subtotal; if invalid, returns a 422 with the rejection
      * reason (caller-facing message).
      */
-    @Transactional
     public CartResponse applyCoupon(UUID userId, ApplyCouponRequest req) {
         Cart cart = cartRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cart", userId.toString()));
@@ -141,17 +142,25 @@ public class CartService {
                     .subtotal(subtotal)
                     .currency(cart.getCurrency() != null ? cart.getCurrency() : "INR")
                     .build());
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.warn("Coupon validation call failed for code {}: {}", req.code(), e.getMessage());
-            throw new ValidationException("Coupon validation is currently unavailable. Try again shortly.");
+            throw new BusinessException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "COUPON_UNAVAILABLE",
+                    "Coupon validation is currently unavailable. Try again shortly.");
+        }
+        if (v == null) {
+            throw new BusinessException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "COUPON_UNAVAILABLE",
+                    "Coupon validation is currently unavailable. Try again shortly.");
         }
         if (!v.isValid()) {
             throw new ValidationException(v.getReason() != null ? v.getReason() : "Coupon is not valid");
         }
-
-        cart.setAppliedCouponCode(v.getCode());
-        cart.setAppliedDiscountAmount(v.getDiscountAmount());
-        return toResponse(cartRepository.save(cart));
+        if (!req.code().equals(v.getCode()) || v.getDiscountAmount() == null
+                || v.getDiscountAmount().signum() <= 0 || v.getDiscountAmount().compareTo(subtotal) > 0) {
+            throw new ValidationException("Coupon validation response is invalid");
+        }
+        return toResponse(cartCouponPersistenceService.applyValidatedCoupon(cart, v.getCode(), v.getDiscountAmount()));
     }
 
     @Transactional
