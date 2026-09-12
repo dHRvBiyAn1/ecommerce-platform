@@ -1,5 +1,8 @@
 package com.project.order.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.project.common.event.OrderEvent;
 import com.project.common.exception.ForbiddenOperationException;
 import com.project.common.exception.ResourceNotFoundException;
 import com.project.order.client.InventoryClient;
@@ -28,7 +31,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -39,58 +44,55 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Consumer;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
+    private static final int MAX_OPTIMISTIC_ATTEMPTS = 3;
+
     private final OrderRepository orderRepository;
     private final ProductClient productClient;
     private final InventoryClient inventoryClient;
     private final CouponClient couponClient;
-    private final StringRedisTemplate redis;
     private final OrderMapper orderMapper;
     private final OrderRequestValidator orderRequestValidator;
+    private final ObjectMapper objectMapper;
 
     @Override
     public OrderResponse createOrder(OrderRequest request, UUID userId, String userEmail, String idempotencyKey) {
         orderRequestValidator.validateCreate(request, userId);
 
-        // Idempotency: same idempotency key from same user returns the existing order.
-        String lockKey = null;
-        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-            lockKey = "order:idemp:" + userId + ":" + idempotencyKey;
-            String existingId = redis.opsForValue().get(lockKey);
-            if (existingId != null) {
-                return orderMapper.toResponse(orderRepository.findById(existingId).orElseThrow(
-                        () -> new ResourceNotFoundException("Order", existingId)));
-            }
-            // Acquire idempotency lock for 10 minutes
-            Boolean acquired = redis.opsForValue().setIfAbsent(lockKey, "PENDING", Duration.ofMinutes(10));
-            if (!Boolean.TRUE.equals(acquired)) {
-                throw new OrderValidationException("Duplicate order request in flight");
+        String durableKey = idempotencyKey == null || idempotencyKey.isBlank() ? null : idempotencyKey;
+        if (durableKey != null) {
+            Order existing = orderRepository.findByUserIdAndIdempotencyKey(userId, durableKey).orElse(null);
+            if (existing != null) {
+                return orderMapper.toResponse(existing);
             }
         }
 
-        // 1. Fetch product snapshots (Feign HTTP I/O - OUTSIDE TRANSACTION)
         List<OrderItem> items = new ArrayList<>();
         for (OrderItemRequest item : request.items()) {
             ProductSummary p;
             try {
                 p = productClient.getProduct(item.productId());
             } catch (Exception e) {
-                if (lockKey != null) redis.delete(lockKey);
                 throw new OrderValidationException("Product not found: " + item.productId());
             }
             if (!p.isActive()) {
-                if (lockKey != null) redis.delete(lockKey);
                 throw new OrderValidationException("Product not available: " + p.getId());
             }
             BigDecimal unitPrice = p.getPrice();
             BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(item.quantity()))
                     .setScale(2, RoundingMode.HALF_UP);
             items.add(OrderItem.builder()
+                    .lineId(UUID.randomUUID().toString())
                     .productId(p.getId())
                     .sku(p.getSku())
                     .productName(p.getName())
@@ -130,6 +132,7 @@ public class OrderServiceImpl implements OrderService {
         Order order = new Order();
         order.setOrderNumber(generateOrderNumber());
         order.setUserId(userId);
+        order.setIdempotencyKey(durableKey);
         order.setUserEmail(userEmail);
         order.setStatus(OrderStatus.PENDING);
         order.setPaymentStatus(PaymentStatus.PENDING);
@@ -148,56 +151,24 @@ public class OrderServiceImpl implements OrderService {
         order.setCreatedAt(LocalDateTime.now());
         order.setUpdatedAt(LocalDateTime.now());
         order.setOutboxEvents(new ArrayList<>());
+        order.setSagaState(checkoutSaga(order));
 
-        // 2. Persist initially (Atomic MongoDB write - no proxy transaction needed)
-        order = orderRepository.save(order);
-        String orderId = order.getId();
-
-        // 3. Reserve checkout resources (Feign HTTP I/O - OUTSIDE TRANSACTION)
-        List<OrderItem> reserved = new ArrayList<>();
-        boolean couponReserved = false;
         try {
-            if (hasCoupon(order)) {
-                couponClient.reserve(new CouponReservationCommand(
-                        order.getCouponCode(), order.getUserId(), orderId,
-                        order.getSubtotal(), order.getCurrency()));
-                couponReserved = true;
+            order = orderRepository.insert(order);
+        } catch (DuplicateKeyException exception) {
+            if (durableKey == null) {
+                throw exception;
             }
-            for (OrderItem item : items) {
-                inventoryClient.reserve(item.getProductId(),
-                        new StockReservationCommand(item.getQuantity(), orderId));
-                reserved.add(item);
-            }
-        } catch (Exception e) {
-            log.warn("Reservation failed for order {}: {}. Rolling back already-reserved items.",
-                    orderId, e.getMessage());
-            // Compensate
-            for (OrderItem item : reserved) {
-                try {
-                    inventoryClient.release(item.getProductId(),
-                            new StockReservationCommand(item.getQuantity(), orderId));
-                } catch (Exception ex) {
-                    log.error("Compensation release failed for {} qty {}: {}",
-                            item.getProductId(), item.getQuantity(), ex.getMessage());
-                }
-            }
-            if (couponReserved) {
-                releaseCoupon(order);
-            }
-            // Update status to CANCELLED
-            cancelOrderInternal(orderId);
-            if (lockKey != null) redis.delete(lockKey);
+            Order winner = orderRepository.findByUserIdAndIdempotencyKey(userId, durableKey)
+                    .orElseThrow(() -> exception);
+            return orderMapper.toResponse(winner);
+        }
+
+        try {
+            order = executeSaga(order.getId(), true);
+        } catch (RuntimeException exception) {
             throw new OrderValidationException("Unable to reserve checkout resources");
         }
-
-        // 4. Stock reservation succeeded - trigger outbox event
-        saveOutboxEvent(order, "CREATED");
-        order = orderRepository.save(order);
-
-        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-            redis.opsForValue().set("order:idemp:" + userId + ":" + idempotencyKey, orderId, Duration.ofHours(24));
-        }
-
         return orderMapper.toResponse(order);
     }
 
@@ -207,13 +178,274 @@ public class OrderServiceImpl implements OrderService {
         }
         OutboxEvent event = OutboxEvent.builder()
                 .id(UUID.randomUUID().toString())
+                .deliveryId(UUID.randomUUID().toString())
                 .aggregateType("ORDER")
                 .aggregateId(order.getId())
                 .eventType(eventType)
+                .payload(snapshotPayload(order, eventType))
                 .status("PENDING")
+                .attempts(0)
+                .nextAttemptAt(LocalDateTime.now())
                 .createdAt(LocalDateTime.now())
                 .build();
         order.getOutboxEvents().add(event);
+    }
+
+    @Scheduled(fixedDelayString = "${order.saga.recovery-delay-ms:5000}")
+    public void recoverOrders() {
+        for (Order order : orderRepository.findOrdersWithRecoverableSaga(LocalDateTime.now())) {
+            try {
+                executeSaga(order.getId(), false);
+            } catch (RuntimeException exception) {
+                log.warn("Saga recovery attempt failed for order {}: {}", order.getId(), exception.getMessage());
+            }
+        }
+    }
+
+    private Order executeSaga(String orderId, boolean propagateFailure) {
+        ensureUniqueOperationIds(orderId);
+        while (true) {
+            Order current = orderRepository.findById(orderId).orElseThrow(
+                    () -> new ResourceNotFoundException("Order", orderId));
+            SagaState saga = current.getSagaState();
+            if (saga == null || saga.getStage() == SagaState.Stage.COMPLETED) {
+                return current;
+            }
+            SagaState.Operation next = saga.getOperations().stream()
+                    .filter(operation -> operation.getStatus() != SagaState.OperationStatus.COMPLETED)
+                    .findFirst()
+                    .orElse(null);
+            if (next == null) {
+                return completeSaga(orderId);
+            }
+
+            Order claimed = updateOrderWithRetry(orderId, order -> {
+                SagaState.Operation operation = operation(order.getSagaState(), next.getId());
+                operation.setStatus(SagaState.OperationStatus.IN_PROGRESS);
+                order.getSagaState().setStage(SagaState.Stage.RESERVING);
+                order.getSagaState().setNextAttemptAt(LocalDateTime.now().plusSeconds(30));
+                order.getSagaState().setLastError(null);
+            });
+            SagaState.Operation claimedOperation = operation(claimed.getSagaState(), next.getId());
+            try {
+                executeOperation(claimed, claimedOperation);
+            } catch (RuntimeException exception) {
+                updateOrderWithRetry(orderId, order -> {
+                    SagaState failed = order.getSagaState();
+                    failed.setStage(SagaState.Stage.RETRYABLE);
+                    failed.setAttempts(failed.getAttempts() + 1);
+                    failed.setLastError(exception.getMessage());
+                    failed.setNextAttemptAt(LocalDateTime.now().plus(retryDelay(failed.getAttempts())));
+                });
+                if (propagateFailure) {
+                    throw exception;
+                }
+                return orderRepository.findById(orderId).orElse(claimed);
+            }
+            updateOrderWithRetry(orderId, order -> {
+                operation(order.getSagaState(), next.getId()).setStatus(SagaState.OperationStatus.COMPLETED);
+                order.getSagaState().setStage(SagaState.Stage.RESERVING);
+                order.getSagaState().setNextAttemptAt(LocalDateTime.now().plusSeconds(30));
+            });
+        }
+    }
+
+    private void executeOperation(Order order, SagaState.Operation operation) {
+        if (operation.getResourceType() == SagaState.ResourceType.COUPON) {
+            switch (operation.getAction()) {
+                case RESERVE -> couponClient.reserve(new CouponReservationCommand(
+                        order.getCouponCode(), order.getUserId(), order.getId(),
+                        order.getSubtotal(), order.getCurrency()));
+                case COMMIT -> couponClient.commit(couponTransition(order));
+                case RELEASE -> couponClient.release(couponTransition(order));
+            }
+            return;
+        }
+        StockReservationCommand command = new StockReservationCommand(operation.getQuantity(), order.getId());
+        switch (operation.getAction()) {
+            case RESERVE -> inventoryClient.reserve(operation.getResourceId(), command);
+            case COMMIT -> inventoryClient.commit(operation.getResourceId(), command);
+            case RELEASE -> inventoryClient.release(operation.getResourceId(), command);
+        }
+    }
+
+    private Order completeSaga(String orderId) {
+        return updateOrderWithRetry(orderId, order -> {
+            SagaState saga = order.getSagaState();
+            if (saga.getStage() == SagaState.Stage.COMPLETED) {
+                return;
+            }
+            switch (saga.getWorkflow()) {
+                case CHECKOUT -> saveOutboxEvent(order, "CREATED");
+                case PAYMENT_COMPLETION -> {
+                    order.setPaymentId(saga.getPaymentId());
+                    order.setPaymentStatus(PaymentStatus.COMPLETED);
+                    order.setStatus(OrderStatus.CONFIRMED);
+                    order.setPaidAt(LocalDateTime.now());
+                    saveOutboxEvent(order, "PAYMENT_COMPLETED");
+                }
+                case PAYMENT_FAILURE -> {
+                    order.setPaymentId(saga.getPaymentId());
+                    order.setPaymentStatus(PaymentStatus.FAILED);
+                    order.setStatus(OrderStatus.CANCELLED);
+                    order.setCancelledAt(LocalDateTime.now());
+                    saveOutboxEvent(order, "PAYMENT_FAILED");
+                }
+            }
+            order.setUpdatedAt(LocalDateTime.now());
+            saga.setStage(SagaState.Stage.COMPLETED);
+            saga.setNextAttemptAt(null);
+            saga.setLastError(null);
+        });
+    }
+
+    private Order updateOrderWithRetry(String orderId, Consumer<Order> change) {
+        OptimisticLockingFailureException lastFailure = null;
+        for (int attempt = 0; attempt < MAX_OPTIMISTIC_ATTEMPTS; attempt++) {
+            Order current = orderRepository.findById(orderId).orElseThrow(
+                    () -> new ResourceNotFoundException("Order", orderId));
+            change.accept(current);
+            try {
+                return orderRepository.save(current);
+            } catch (OptimisticLockingFailureException exception) {
+                lastFailure = exception;
+            }
+        }
+        throw lastFailure;
+    }
+
+    private SagaState checkoutSaga(Order order) {
+        return SagaState.builder()
+                .workflow(SagaState.Workflow.CHECKOUT)
+                .stage(SagaState.Stage.RESERVING)
+                .nextAttemptAt(LocalDateTime.now().plusSeconds(30))
+                .operations(operations(order, SagaState.Action.RESERVE))
+                .build();
+    }
+
+    private SagaState paymentSaga(Order order, String paymentId, SagaState.Workflow workflow) {
+        SagaState.Action action = workflow == SagaState.Workflow.PAYMENT_COMPLETION
+                ? SagaState.Action.COMMIT : SagaState.Action.RELEASE;
+        return SagaState.builder()
+                .workflow(workflow)
+                .paymentId(paymentId)
+                .stage(SagaState.Stage.RESERVING)
+                .nextAttemptAt(LocalDateTime.now().plusSeconds(30))
+                .operations(operations(order, action))
+                .build();
+    }
+
+    private List<SagaState.Operation> operations(Order order, SagaState.Action action) {
+        List<SagaState.Operation> operations = new ArrayList<>();
+        if (hasCoupon(order)) {
+            operations.add(sagaOperation(SagaState.ResourceType.COUPON, action, order.getCouponCode(), 0));
+        }
+        Map<String, Integer> legacyOccurrences = new HashMap<>();
+        for (OrderItem item : order.getItems()) {
+            if (item.getLineId() == null || item.getLineId().isBlank()) {
+                String fingerprint = item.getProductId() + ":" + item.getSku() + ":"
+                        + item.getQuantity() + ":" + item.getUnitPrice();
+                int occurrence = legacyOccurrences.merge(fingerprint, 1, Integer::sum);
+                item.setLineId(UUID.nameUUIDFromBytes(
+                        (fingerprint + ":" + occurrence).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString());
+            }
+            operations.add(sagaOperation(
+                    SagaState.ResourceType.INVENTORY, action, item.getProductId(), item.getQuantity(), item.getLineId()));
+        }
+        return operations;
+    }
+
+    private SagaState.Operation sagaOperation(
+            SagaState.ResourceType resourceType, SagaState.Action action, String resourceId, int quantity) {
+        return sagaOperation(resourceType, action, resourceId, quantity, resourceId);
+    }
+
+    private SagaState.Operation sagaOperation(
+            SagaState.ResourceType resourceType, SagaState.Action action,
+            String resourceId, int quantity, String identity) {
+        return SagaState.Operation.builder()
+                .id(action + ":" + resourceType + ":" + resourceId + ":" + identity)
+                .resourceType(resourceType)
+                .action(action)
+                .resourceId(resourceId)
+                .quantity(quantity)
+                .status(SagaState.OperationStatus.PENDING)
+                .build();
+    }
+
+    private void ensureUniqueOperationIds(String orderId) {
+        Order current = orderRepository.findById(orderId).orElse(null);
+        if (current == null || current.getSagaState() == null || current.getSagaState().getOperations() == null) {
+            return;
+        }
+        Set<String> ids = new HashSet<>();
+        boolean duplicate = current.getSagaState().getOperations().stream()
+                .anyMatch(operation -> !ids.add(operation.getId()));
+        if (!duplicate) {
+            return;
+        }
+        updateOrderWithRetry(orderId, order -> {
+            Map<String, Integer> occurrences = new HashMap<>();
+            for (SagaState.Operation operation : order.getSagaState().getOperations()) {
+                int occurrence = occurrences.merge(operation.getId(), 1, Integer::sum);
+                operation.setId(operation.getId() + ":legacy:" + occurrence);
+            }
+        });
+    }
+
+    private SagaState.Operation operation(SagaState saga, String operationId) {
+        return saga.getOperations().stream()
+                .filter(operation -> operationId.equals(operation.getId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Missing saga operation " + operationId));
+    }
+
+    private Duration retryDelay(int attempts) {
+        return Duration.ofSeconds(Math.min(60, Math.max(1, attempts) * 5L));
+    }
+
+    private String snapshotPayload(Order order, String eventType) {
+        List<OrderEvent.Item> items = order.getItems() == null ? List.of() : order.getItems().stream()
+                .map(item -> OrderEvent.Item.builder()
+                        .productId(item.getProductId())
+                        .sku(item.getSku())
+                        .quantity(item.getQuantity())
+                        .unitPrice(item.getUnitPrice())
+                        .build())
+                .toList();
+        OrderEvent event = OrderEvent.orderEventBuilder()
+                .type(eventType(eventType, order.getStatus()))
+                .orderId(order.getId())
+                .orderNumber(order.getOrderNumber())
+                .userId(order.getUserId())
+                .userEmail(order.getUserEmail())
+                .totalAmount(order.getTotalAmount())
+                .currency(order.getCurrency())
+                .items(items)
+                .build();
+        try {
+            return objectMapper.writeValueAsString(event);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Unable to snapshot order event", exception);
+        }
+    }
+
+    private OrderEvent.Type eventType(String eventType, OrderStatus status) {
+        return switch (eventType) {
+            case "CANCELLED" -> OrderEvent.Type.CANCELLED;
+            case "PAYMENT_COMPLETED" -> OrderEvent.Type.PAYMENT_COMPLETED;
+            case "PAYMENT_FAILED" -> OrderEvent.Type.PAYMENT_FAILED;
+            case "STATUS_CHANGED" -> switch (status) {
+                case CONFIRMED -> OrderEvent.Type.CONFIRMED;
+                case PROCESSING -> OrderEvent.Type.PROCESSING;
+                case SHIPPED -> OrderEvent.Type.SHIPPED;
+                case DELIVERED -> OrderEvent.Type.DELIVERED;
+                case CANCELLED -> OrderEvent.Type.CANCELLED;
+                case REFUNDED -> OrderEvent.Type.REFUNDED;
+                default -> OrderEvent.Type.CREATED;
+            };
+            default -> OrderEvent.Type.CREATED;
+        };
     }
 
     public void cancelOrderInternal(String orderId) {
@@ -314,20 +546,14 @@ public class OrderServiceImpl implements OrderService {
                     log.info("Ignoring duplicate payment completion for order {}", orderId);
                     return;
                 }
-                onPaymentCompletedInternal(orderId, paymentId);
+                startPaymentSaga(orderId, paymentId, SagaState.Workflow.PAYMENT_COMPLETION);
             }
             case FAILED -> {
-                // Compensation: release reserved stock (Feign HTTP I/O - OUTSIDE TRANSACTION)
-                for (OrderItem item : order.getItems()) {
-                    try {
-                        inventoryClient.release(item.getProductId(),
-                                new StockReservationCommand(item.getQuantity(), orderId));
-                    } catch (Exception e) {
-                        log.error("Stock release on payment-failure failed: {}", e.getMessage());
-                    }
+                if (order.getPaymentStatus() == PaymentStatus.FAILED) {
+                    log.info("Ignoring duplicate payment failure for order {}", orderId);
+                    return;
                 }
-                releaseCoupon(order);
-                onPaymentFailedInternal(orderId, paymentId);
+                startPaymentSaga(orderId, paymentId, SagaState.Workflow.PAYMENT_FAILURE);
             }
             case REFUNDED, PARTIALLY_REFUNDED -> {
                 onPaymentRefundedInternal(orderId, paymentId, paymentStatus);
@@ -338,59 +564,41 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-    public void onPaymentCompletedInternal(String orderId, String paymentId) {
-        Order order = orderRepository.findById(orderId).orElse(null);
-        if (order != null) {
-            if (hasCoupon(order)) {
-                couponClient.commit(couponTransition(order));
+    private void startPaymentSaga(String orderId, String paymentId, SagaState.Workflow workflow) {
+        updateOrderWithRetry(orderId, order -> {
+            SagaState current = order.getSagaState();
+            if (current != null && current.getWorkflow() == workflow
+                    && java.util.Objects.equals(current.getPaymentId(), paymentId)
+                    && current.getStage() != SagaState.Stage.COMPLETED) {
+                return;
             }
-            for (OrderItem item : order.getItems()) {
-                inventoryClient.commit(item.getProductId(),
-                        new StockReservationCommand(item.getQuantity(), orderId));
-            }
-
-            order.setPaymentId(paymentId);
-            order.setPaymentStatus(PaymentStatus.COMPLETED);
-            order.setStatus(OrderStatus.CONFIRMED);
-            order.setPaidAt(LocalDateTime.now());
-            order.setUpdatedAt(LocalDateTime.now());
-            
-            saveOutboxEvent(order, "PAYMENT_COMPLETED");
-            orderRepository.save(order);
-        }
-    }
-
-    public void onPaymentFailedInternal(String orderId, String paymentId) {
-        Order order = orderRepository.findById(orderId).orElse(null);
-        if (order != null) {
-            order.setPaymentId(paymentId);
-            order.setPaymentStatus(PaymentStatus.FAILED);
-            order.setStatus(OrderStatus.CANCELLED);
-            order.setCancelledAt(LocalDateTime.now());
-            order.setUpdatedAt(LocalDateTime.now());
-            saveOutboxEvent(order, "PAYMENT_FAILED");
-            orderRepository.save(order);
+            order.setSagaState(paymentSaga(order, paymentId, workflow));
+        });
+        try {
+            executeSaga(orderId, false);
+        } catch (RuntimeException exception) {
+            log.warn("Payment saga deferred for order {}: {}", orderId, exception.getMessage());
         }
     }
 
     public void onPaymentRefundedInternal(String orderId, String paymentId, PaymentStatus paymentStatus) {
-        Order order = orderRepository.findById(orderId).orElse(null);
-        if (order != null) {
+        if (orderRepository.findById(orderId).isPresent()) {
+            updateOrderWithRetry(orderId, order -> {
             order.setPaymentId(paymentId);
             order.setPaymentStatus(paymentStatus);
             order.setUpdatedAt(LocalDateTime.now());
             saveOutboxEvent(order, "STATUS_CHANGED");
-            orderRepository.save(order);
+            });
         }
     }
 
     public void updatePaymentStatusInternal(String orderId, String paymentId, PaymentStatus paymentStatus) {
-        Order order = orderRepository.findById(orderId).orElse(null);
-        if (order != null) {
+        if (orderRepository.findById(orderId).isPresent()) {
+            updateOrderWithRetry(orderId, order -> {
             order.setPaymentId(paymentId);
             order.setPaymentStatus(paymentStatus);
             order.setUpdatedAt(LocalDateTime.now());
-            orderRepository.save(order);
+            });
         }
     }
 

@@ -1,5 +1,6 @@
 package com.project.order.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.order.client.CouponClient;
 import com.project.order.client.InventoryClient;
 import com.project.order.client.ProductClient;
@@ -26,7 +27,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.util.List;
 import java.util.Optional;
@@ -50,14 +50,13 @@ class OrderServiceImplTest {
     @Mock private ProductClient productClient;
     @Mock private InventoryClient inventoryClient;
     @Mock private CouponClient couponClient;
-    @Mock private StringRedisTemplate redis;
 
     private OrderServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new OrderServiceImpl(orderRepository, productClient, inventoryClient, couponClient, redis,
-                new OrderMapperImpl(), new OrderRequestValidator());
+        service = new OrderServiceImpl(orderRepository, productClient, inventoryClient, couponClient,
+                new OrderMapperImpl(), new OrderRequestValidator(), new ObjectMapper().findAndRegisterModules());
     }
 
     @Test
@@ -192,21 +191,22 @@ class OrderServiceImplTest {
     }
 
     @Test
-    void inventoryFailureReleasesCouponReservation() {
+    void inventoryFailureRetainsCompletedCouponReservationForRetry() {
         UUID userId = UUID.randomUUID();
         AtomicReference<Order> persisted = stubCheckoutDependencies(userId);
         when(inventoryClient.reserve("product-1",
                 new com.project.order.client.dto.StockReservationCommand(2, "order-1")))
                 .thenThrow(new IllegalStateException("inventory unavailable"));
-        when(orderRepository.findById("order-1"))
-                .thenAnswer(invocation -> Optional.ofNullable(persisted.get()));
-
         assertThatThrownBy(() -> service.createOrder(
                 orderRequest(), userId, "customer@example.com", null))
                 .isInstanceOf(OrderValidationException.class)
                 .hasMessage("Unable to reserve checkout resources");
 
-        verify(couponClient).release(new CouponTransitionCommand("SAVE10", userId, "order-1"));
+        verify(couponClient, never()).release(any());
+        assertThat(persisted.get().getSagaState().getStage())
+                .isEqualTo(com.project.order.model.SagaState.Stage.RETRYABLE);
+        assertThat(persisted.get().getSagaState().getOperations().get(0).getStatus())
+                .isEqualTo(com.project.order.model.SagaState.OperationStatus.COMPLETED);
     }
 
     private AtomicReference<Order> stubCheckoutDependencies(UUID userId) {
@@ -228,6 +228,14 @@ class OrderServiceImplTest {
             savedOrder.set(order);
             return order;
         });
+        when(orderRepository.insert(any(Order.class))).thenAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            order.setId("order-1");
+            savedOrder.set(order);
+            return order;
+        });
+        when(orderRepository.findById("order-1"))
+                .thenAnswer(invocation -> Optional.ofNullable(savedOrder.get()));
         return savedOrder;
     }
 
