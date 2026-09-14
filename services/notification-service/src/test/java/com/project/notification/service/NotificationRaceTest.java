@@ -94,8 +94,6 @@ class NotificationRaceTest {
                 return notification;
             }
         });
-        when(repository.save(any(Notification.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
         when(deliveryRepository.findByNotificationId("notification-2"))
                 .thenAnswer(invocation -> Optional.ofNullable(storedDelivery.get()));
         when(deliveryRepository.save(any(NotificationDelivery.class))).thenAnswer(invocation -> {

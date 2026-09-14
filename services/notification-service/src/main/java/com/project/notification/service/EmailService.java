@@ -19,6 +19,10 @@ public class EmailService {
     private String fromAddress;
 
     public void sendEmail(String to, String subject, String body) {
+        sendEmail(to, subject, body, null);
+    }
+
+    public void sendEmail(String to, String subject, String body, String messageId) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
@@ -26,6 +30,9 @@ public class EmailService {
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(body, true);
+            if (messageId != null) {
+                message.setHeader("Message-ID", "<notification-" + messageId + "@ecommerce.local>");
+            }
             mailSender.send(message);
             log.info("Email sent to {} subject='{}'", to, subject);
         } catch (Exception e) {

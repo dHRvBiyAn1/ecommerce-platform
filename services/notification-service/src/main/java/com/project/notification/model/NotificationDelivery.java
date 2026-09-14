@@ -30,7 +30,9 @@ public class NotificationDelivery {
     private int attempts;
     private LocalDateTime nextAttemptAt;
     private LocalDateTime leaseUntil;
+    private String leaseToken;
     private LocalDateTime deliveredAt;
+    private LocalDateTime reconciledAt;
 
     @CreatedDate
     private LocalDateTime createdAt;

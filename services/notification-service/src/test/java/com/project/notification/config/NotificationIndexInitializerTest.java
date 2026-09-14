@@ -27,7 +27,7 @@ class NotificationIndexInitializerTest {
     @Mock private IndexOperations deliveryIndexes;
 
     @Test
-    void createsEffectiveUniqueIndexesForSourceEventsAndDeliveries() {
+    void createsIndexesForDeliveryClaimAndReconciliationQueries() {
         when(mongoTemplate.indexOps(Notification.class)).thenReturn(notificationIndexes);
         when(mongoTemplate.indexOps(NotificationDelivery.class)).thenReturn(deliveryIndexes);
 
@@ -36,16 +36,25 @@ class NotificationIndexInitializerTest {
         ArgumentCaptor<Index> notificationIndex = ArgumentCaptor.forClass(Index.class);
         ArgumentCaptor<Index> deliveryIndex = ArgumentCaptor.forClass(Index.class);
         verify(notificationIndexes, times(1)).ensureIndex(notificationIndex.capture());
-        verify(deliveryIndexes, times(1)).ensureIndex(deliveryIndex.capture());
+        verify(deliveryIndexes, times(3)).ensureIndex(deliveryIndex.capture());
 
         assertThat(notificationIndex.getValue().getIndexKeys())
                 .containsEntry("sourceEventId", 1);
         assertThat(notificationIndex.getValue().getIndexOptions())
                 .containsEntry("unique", true)
                 .containsEntry("sparse", true);
-        assertThat(deliveryIndex.getValue().getIndexKeys())
+        assertThat(deliveryIndex.getAllValues().get(0).getIndexKeys())
                 .containsEntry("notificationId", 1);
-        assertThat(deliveryIndex.getValue().getIndexOptions())
+        assertThat(deliveryIndex.getAllValues().get(0).getIndexOptions())
                 .containsEntry("unique", true);
+        assertThat(deliveryIndex.getAllValues().get(1).getIndexKeys())
+                .containsEntry("deliveredAt", 1)
+                .containsEntry("attempts", 1)
+                .containsEntry("nextAttemptAt", 1)
+                .containsEntry("leaseUntil", 1)
+                .containsEntry("createdAt", 1);
+        assertThat(deliveryIndex.getAllValues().get(2).getIndexKeys())
+                .containsEntry("deliveredAt", 1)
+                .containsEntry("reconciledAt", 1);
     }
 }

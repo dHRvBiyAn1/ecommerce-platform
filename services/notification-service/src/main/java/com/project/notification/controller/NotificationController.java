@@ -6,6 +6,7 @@ import com.project.common.security.CurrentUser;
 import com.project.notification.api.dto.response.NotificationResponse;
 import com.project.notification.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,10 @@ public class NotificationController {
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "List the current user's notifications")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Access denied")
+    })
     public ResponseEntity<ApiResponse<PageResponse<NotificationResponse>>> list(
             @PageableDefault(size = 20) Pageable pageable) {
         Page<NotificationResponse> page = service.listForUser(CurrentUser.requireId(), pageable);
@@ -41,6 +46,10 @@ public class NotificationController {
     @GetMapping("/unread/count")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Count unread notifications for the current user")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Access denied")
+    })
     public ResponseEntity<ApiResponse<Long>> unreadCount() {
         return ResponseEntity.ok(ApiResponse.success(service.unreadCount(CurrentUser.requireId())));
     }
@@ -48,6 +57,10 @@ public class NotificationController {
     @PostMapping("/{id}/read")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Mark an owned notification as read")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Access denied")
+    })
     public ResponseEntity<ApiResponse<NotificationResponse>> markRead(@PathVariable String id) {
         return ResponseEntity.ok(ApiResponse.success(
                 service.markRead(id, CurrentUser.requireId(), CurrentUser.isAdmin())));

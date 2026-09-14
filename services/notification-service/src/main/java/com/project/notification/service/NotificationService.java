@@ -61,23 +61,7 @@ public class NotificationService {
             return notificationMapper.toResponse(n);
         }
         ensureDelivery(n);
-        try {
-            if ("EMAIL".equals(channel) && recipient != null) {
-                emailService.sendEmail(recipient, subject, body);
-                n.setStatus(Notification.Status.SENT);
-                n.setSentAt(LocalDateTime.now());
-            } else {
-                // Future: SMS / push / in-app gateways
-                n.setStatus(Notification.Status.SENT);
-                n.setSentAt(LocalDateTime.now());
-            }
-        } catch (Exception e) {
-            n.setStatus(Notification.Status.FAILED);
-            n.setFailureReason(e.getMessage());
-            log.warn("Notification send failed for userId={}, recipient={}: {}",
-                    userId, recipient, e.getMessage());
-        }
-        return notificationMapper.toResponse(repository.save(n));
+        return notificationMapper.toResponse(n);
     }
 
     private void ensureDelivery(Notification notification) {
