@@ -40,8 +40,7 @@ public class StripeGateway implements PaymentGateway {
     public void init() {
         Stripe.apiKey = secretKey;
         Stripe.setMaxNetworkRetries(2);
-        log.info("Stripe gateway initialized (key prefix={})",
-                secretKey.length() > 7 ? secretKey.substring(0, 7) : "?");
+        log.info("Stripe gateway initialized");
     }
 
     @Override
@@ -84,7 +83,7 @@ public class StripeGateway implements PaymentGateway {
     }
 
     @Override
-    public void refund(Payment payment, BigDecimal amount, String reason) {
+    public void refund(Payment payment, BigDecimal amount, String reason, String idempotencyKey) {
         long minorUnits = toMinorUnits(amount, payment.getCurrency());
         try {
             RefundCreateParams params = RefundCreateParams.builder()
@@ -93,7 +92,7 @@ public class StripeGateway implements PaymentGateway {
                     .setReason(mapReason(reason))
                     .build();
             RequestOptions opts = RequestOptions.builder()
-                    .setIdempotencyKey("refund:" + payment.getPaymentReference() + ":" + amount.toPlainString())
+                    .setIdempotencyKey("refund:" + payment.getPaymentReference() + ":" + idempotencyKey)
                     .build();
             Refund.create(params, opts);
         } catch (StripeException e) {

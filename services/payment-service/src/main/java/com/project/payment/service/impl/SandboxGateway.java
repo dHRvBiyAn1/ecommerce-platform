@@ -35,7 +35,7 @@ public class SandboxGateway implements PaymentGateway {
     }
 
     @Override
-    public void refund(Payment payment, BigDecimal amount, String reason) {
+    public void refund(Payment payment, BigDecimal amount, String reason, String idempotencyKey) {
         log.info("[sandbox] refund {} amount {} reason {}", payment.getPaymentReference(), amount, reason);
     }
 }

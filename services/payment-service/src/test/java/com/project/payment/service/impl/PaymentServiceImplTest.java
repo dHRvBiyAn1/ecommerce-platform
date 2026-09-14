@@ -9,17 +9,19 @@ import com.project.payment.client.dto.OrderSummary;
 import com.project.common.dto.ApiResponse;
 import com.project.payment.application.validator.PaymentOrderValidator;
 import com.project.payment.application.validator.PaymentTransitionValidator;
-import com.project.payment.kafka.PaymentEventPublisher;
 import com.project.payment.model.Payment;
+import com.project.payment.model.PaymentOperation;
 import com.project.payment.model.PaymentStatus;
 import com.project.payment.repository.PaymentRepository;
+import com.project.payment.repository.PaymentOperationRepository;
+import com.project.payment.repository.PaymentOutboxRepository;
+import com.project.payment.repository.WebhookReceiptRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -28,28 +30,42 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentServiceImplTest {
 
     @Mock private PaymentRepository paymentRepository;
-    @Mock private PaymentEventPublisher eventPublisher;
-    @Mock private StringRedisTemplate redis;
-    @Mock private ValueOperations<String, String> valueOperations;
     @Mock private PaymentGateway gateway;
     @Mock private OrderClient orderClient;
+    @Mock private PaymentOperationRepository operationRepository;
+    @Mock private PaymentOutboxRepository outboxRepository;
+    @Mock private WebhookReceiptRepository receiptRepository;
 
     private PaymentServiceImpl service;
 
     @BeforeEach
     void setUp() {
+        lenient().when(operationRepository.insert(any(PaymentOperation.class))).thenAnswer(invocation -> {
+            PaymentOperation operation = invocation.getArgument(0);
+            operation.setId(UUID.randomUUID().toString());
+            return operation;
+        });
+        lenient().when(receiptRepository.insert(any(com.project.payment.model.WebhookReceipt.class))).thenAnswer(invocation -> {
+            com.project.payment.model.WebhookReceipt receipt = invocation.getArgument(0);
+            receipt.setId("receipt-1");
+            return receipt;
+        });
+        lenient().when(receiptRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         service = new PaymentServiceImpl(
-                paymentRepository, eventPublisher, redis, gateway, new PaymentMapper(), orderClient,
-                new PaymentOrderValidator(), new PaymentTransitionValidator());
+                paymentRepository, operationRepository, receiptRepository, outboxRepository, gateway,
+                new PaymentMapper(), orderClient, new PaymentOrderValidator(),
+                new PaymentTransitionValidator(), new ObjectMapper().findAndRegisterModules());
     }
 
     @Test
@@ -61,7 +77,7 @@ class PaymentServiceImplTest {
                 "payment-1", "customer request", new BigDecimal("80.00"), null))
                 .isInstanceOf(PaymentException.class)
                 .hasMessageContaining("remaining refundable amount");
-        verify(gateway, never()).refund(any(), any(), any());
+        verify(gateway, never()).refund(any(), any(), any(), any());
     }
 
     @Test
@@ -73,28 +89,9 @@ class PaymentServiceImplTest {
         var response = service.refundPayment(
                 "payment-1", "customer request", new BigDecimal("70.00"), null);
 
-        verify(gateway).refund(payment, new BigDecimal("70.00"), "customer request");
+        verify(gateway).refund(eq(payment), eq(new BigDecimal("70.00")), eq("customer request"), any());
         assertThat(payment.getRefundedAmount()).isEqualByComparingTo("100.00");
         assertThat(response.status()).isEqualTo(PaymentStatus.REFUNDED);
-    }
-
-    @Test
-    void failedRefundReleasesIdempotencyKeySoTheRequestCanBeRetried() {
-        Payment payment = completedPayment("100.00", "0.00");
-        when(redis.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.setIfAbsent(
-                "payment:refund:payment-1:refund-key", "PENDING", java.time.Duration.ofMinutes(10)))
-                .thenReturn(true);
-        when(paymentRepository.findById("payment-1")).thenReturn(Optional.of(payment));
-        org.mockito.Mockito.doThrow(new IllegalStateException("gateway unavailable"))
-                .when(gateway).refund(payment, new BigDecimal("25.00"), "customer request");
-
-        assertThatThrownBy(() -> service.refundPayment(
-                "payment-1", "customer request", new BigDecimal("25.00"), "refund-key"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("gateway unavailable");
-
-        verify(redis).delete("payment:refund:payment-1:refund-key");
     }
 
     @Test
@@ -110,13 +107,14 @@ class PaymentServiceImplTest {
         doThrow(new PaymentException("illegal transition"))
                 .when(transitions).validate(PaymentStatus.COMPLETED, PaymentStatus.REFUNDED);
         service = new PaymentServiceImpl(
-                paymentRepository, eventPublisher, redis, gateway, new PaymentMapper(), orderClient,
-                new PaymentOrderValidator(), transitions);
+                paymentRepository, operationRepository, receiptRepository, outboxRepository, gateway,
+                new PaymentMapper(), orderClient, new PaymentOrderValidator(), transitions,
+                new ObjectMapper().findAndRegisterModules());
 
         assertThatThrownBy(() -> service.refundPayment("payment-1", "customer request", null, null))
                 .isInstanceOf(PaymentException.class);
 
-        verify(gateway, never()).refund(any(), any(), any());
+        verify(gateway, never()).refund(any(), any(), any(), any());
     }
 
     @Test
@@ -157,9 +155,11 @@ class PaymentServiceImplTest {
         Payment payment = Payment.builder()
                 .id("payment-1")
                 .paymentReference("PAY-1")
+                .transactionId("intent-1")
                 .status(PaymentStatus.PENDING)
                 .build();
         when(paymentRepository.findByPaymentReference("PAY-1")).thenReturn(Optional.of(payment));
+        when(paymentRepository.findById("payment-1")).thenReturn(Optional.of(payment));
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.handlePaymentWebhook("PAY-1", new PaymentWebhookRequest(
@@ -170,39 +170,21 @@ class PaymentServiceImplTest {
     }
 
     @Test
-    void idempotentCreateReplayReturnsRecoverablePendingWithoutASecret() {
-        UUID userId = UUID.randomUUID();
-        Payment payment = Payment.builder()
-                .id("payment-1")
-                .status(PaymentStatus.PENDING)
-                .userId(userId)
-                .build();
-        when(redis.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get("payment:create:" + userId + ":create-key")).thenReturn("payment-1");
-        when(orderClient.getOrder("order-1")).thenReturn(ApiResponse.success(new OrderSummary(
-                "order-1", "ORD-1", userId, "PENDING", new BigDecimal("10.00"), "USD")));
-        when(paymentRepository.findById("payment-1")).thenReturn(Optional.of(payment));
-
-        var response = service.createPayment(
-                new PaymentRequest("order-1", null, "CARD", null, null, null),
-                userId, "customer@example.com", "create-key");
-
-        assertThat(response.payment().status()).isEqualTo(PaymentStatus.PENDING);
-        assertThat(response.clientSecret()).isNull();
-        verify(gateway, never()).createIntent(any());
-    }
-
-    @Test
     void createPaymentUsesAuthoritativeOrderAmountAndCurrency() {
         UUID userId = UUID.randomUUID();
         when(orderClient.getOrder("order-1")).thenReturn(ApiResponse.success(new OrderSummary(
                 "order-1", "ORD-100", userId, "PENDING", new BigDecimal("125.50"), "USD")));
         when(paymentRepository.findByOrderId("order-1")).thenReturn(Optional.empty());
-        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> {
+        when(paymentRepository.insert(any(Payment.class))).thenAnswer(invocation -> {
             Payment payment = invocation.getArgument(0);
             payment.setId("payment-1");
             return payment;
         });
+        when(paymentRepository.findById("payment-1")).thenAnswer(invocation -> Optional.of(
+                Payment.builder().id("payment-1").orderId("order-1").orderNumber("ORD-100")
+                        .userId(userId).status(PaymentStatus.PENDING).paymentMethod("CARD")
+                        .amount(new BigDecimal("125.50")).currency("USD").build()));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(gateway.createIntent(any(Payment.class)))
                 .thenReturn(new PaymentGateway.IntentResult("intent-1", "client-secret"));
         PaymentRequest request = new PaymentRequest(
@@ -215,24 +197,6 @@ class PaymentServiceImplTest {
         assertThat(response.payment().currency()).isEqualTo("USD");
         assertThat(response.payment().status()).isEqualTo(PaymentStatus.PENDING);
         assertThat(response.clientSecret()).isEqualTo("client-secret");
-    }
-
-    @Test
-    void failedPaymentCreationReleasesIdempotencyKey() {
-        UUID userId = UUID.randomUUID();
-        when(redis.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get("payment:create:" + userId + ":create-key")).thenReturn(null);
-        when(valueOperations.setIfAbsent(
-                "payment:create:" + userId + ":create-key", "PENDING", java.time.Duration.ofMinutes(10)))
-                .thenReturn(true);
-        when(orderClient.getOrder("order-1")).thenThrow(new IllegalStateException("order service unavailable"));
-        PaymentRequest request = new PaymentRequest("order-1", null, "CARD", null, null, null);
-
-        assertThatThrownBy(() -> service.createPayment(
-                request, userId, "customer@example.com", "create-key"))
-                .isInstanceOf(IllegalStateException.class);
-
-        verify(redis).delete("payment:create:" + userId + ":create-key");
     }
 
     private Payment completedPayment(String amount, String refundedAmount) {

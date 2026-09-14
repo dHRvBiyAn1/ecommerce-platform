@@ -31,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.net.Webhook;
@@ -144,7 +145,8 @@ public class PaymentController {
         } catch (Exception e) {
             throw new PaymentException("Invalid webhook payload");
         }
-        paymentService.handlePaymentWebhook(payload.paymentReference(), payload);
+        String eventId = UUID.nameUUIDFromBytes(rawBody.getBytes(StandardCharsets.UTF_8)).toString();
+        paymentService.handleVerifiedWebhook("internal", eventId, payload.status(), payload.paymentReference(), payload);
         return ResponseEntity.ok().build();
     }
 
@@ -168,25 +170,27 @@ public class PaymentController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
 
-        if ("payment_intent.succeeded".equals(event.getType()) || "payment_intent.payment_failed".equals(event.getType())) {
-            PaymentIntent intent = (PaymentIntent) event.getDataObjectDeserializer().getObject().orElse(null);
-            if (intent != null) {
-                String paymentReference = intent.getMetadata().get("paymentReference");
-                String status = "payment_intent.succeeded".equals(event.getType()) ? "COMPLETED" : "FAILED";
-                String failureReason = "FAILED".equals(status)
-                        ? intent.getLastPaymentError() != null
-                            ? intent.getLastPaymentError().getMessage()
-                            : "Payment failed"
-                        : null;
-                PaymentWebhookRequest payload = new PaymentWebhookRequest(
-                        paymentReference, intent.getId(), status, failureReason);
-
-                if (payload.paymentReference() != null) {
-                    paymentService.handlePaymentWebhook(payload.paymentReference(), payload);
-                }
-            }
+        if (event.getId() == null || event.getId().isBlank()
+                || !("payment_intent.succeeded".equals(event.getType())
+                || "payment_intent.payment_failed".equals(event.getType()))) {
+            return ResponseEntity.badRequest().build();
         }
-        
+        Object data = event.getDataObjectDeserializer().getObject().orElse(null);
+        if (!(data instanceof PaymentIntent intent)) {
+            return ResponseEntity.badRequest().build();
+        }
+        String paymentReference = intent.getMetadata().get("paymentReference");
+        if (paymentReference == null || paymentReference.isBlank() || intent.getId() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        String status = "payment_intent.succeeded".equals(event.getType()) ? "COMPLETED" : "FAILED";
+        String failureReason = "FAILED".equals(status)
+                ? intent.getLastPaymentError() != null ? intent.getLastPaymentError().getMessage() : "Payment failed"
+                : null;
+        PaymentWebhookRequest payload = new PaymentWebhookRequest(
+                paymentReference, intent.getId(), status, failureReason);
+        paymentService.handleStripeWebhook(event.getId(), event.getType(), paymentReference, payload);
+
         return ResponseEntity.ok().build();
     }
 

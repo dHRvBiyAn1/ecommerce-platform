@@ -18,6 +18,10 @@ import com.project.payment.service.impl.PaymentServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.project.payment.repository.PaymentOperationRepository;
+import com.project.payment.repository.PaymentOutboxRepository;
+import com.project.payment.repository.WebhookReceiptRepository;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -74,14 +78,10 @@ class PaymentInitiationContractTest {
         when(orderClient.getOrder("order-1")).thenReturn(ApiResponse.success(new OrderSummary(
                 "order-1", "ORD-1", ownerId, "PENDING", new BigDecimal("10.00"), "USD")));
         PaymentServiceImpl service = new PaymentServiceImpl(
-                repository,
-                Mockito.mock(PaymentEventPublisher.class),
-                Mockito.mock(StringRedisTemplate.class),
-                gateway,
-                new PaymentMapper(),
-                orderClient,
-                new PaymentOrderValidator(),
-                new PaymentTransitionValidator());
+                repository, Mockito.mock(PaymentOperationRepository.class),
+                Mockito.mock(WebhookReceiptRepository.class), Mockito.mock(PaymentOutboxRepository.class),
+                gateway, new PaymentMapper(), orderClient, new PaymentOrderValidator(),
+                new PaymentTransitionValidator(), new ObjectMapper().findAndRegisterModules());
 
         Throwable forbidden = catchThrowable(() -> service.createPayment(
                 new PaymentRequest("order-1", null, "CARD", null, null, null),

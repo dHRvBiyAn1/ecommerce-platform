@@ -26,6 +26,6 @@ public interface PaymentGateway {
     /** Capture / confirm. Returns true on success. */
     boolean confirm(Payment payment);
 
-    /** Issue a refund. */
-    void refund(Payment payment, BigDecimal amount, String reason);
+    /** Issue a refund using the durable operation key at providers that support idempotency. */
+    void refund(Payment payment, BigDecimal amount, String reason, String idempotencyKey);
 }
