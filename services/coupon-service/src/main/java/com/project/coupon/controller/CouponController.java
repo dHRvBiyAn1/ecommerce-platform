@@ -2,6 +2,7 @@ package com.project.coupon.controller;
 
 import com.project.common.security.CurrentUser;
 import com.project.common.exception.ForbiddenOperationException;
+import com.project.common.dto.ErrorResponse;
 import com.project.coupon.dto.CouponRequest;
 import com.project.coupon.dto.CouponReservationRequest;
 import com.project.coupon.dto.CouponReservationResponse;
@@ -13,6 +14,10 @@ import com.project.coupon.dto.ValidateCouponResponse;
 import com.project.coupon.service.CouponService;
 import com.project.coupon.validation.CouponRequestValidator;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -39,12 +44,22 @@ import static com.project.common.constant.Permissions.COUPONS_READ;
 import static com.project.common.constant.Permissions.COUPONS_WRITE;
 import static com.project.common.constant.ServiceScopes.AUTHORITY_COUPONS_READ;
 import static com.project.common.constant.ServiceScopes.AUTHORITY_COUPONS_WRITE;
+import static com.project.coupon.config.CouponOpenApiConfiguration.FORBIDDEN_ERROR;
+import static com.project.coupon.config.CouponOpenApiConfiguration.UNAUTHORIZED_ERROR;
 
 @RestController
 @RequestMapping("/api/v1/coupons")
 @RequiredArgsConstructor
 @Tag(name = "Coupons", description = "Coupon administration, validation, and checkout lifecycle")
 @SecurityRequirement(name = "bearerAuth")
+@ApiResponses({
+        @ApiResponse(responseCode = "401", ref = UNAUTHORIZED_ERROR,
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", ref = FORBIDDEN_ERROR,
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Validation failed",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+})
 public class CouponController {
 
     private final CouponService couponService;
@@ -53,7 +68,7 @@ public class CouponController {
     // -------------------------- Admin CRUD --------------------------
 
     @PostMapping
-    @PreAuthorize("hasAuthority('" + COUPONS_WRITE + "')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('" + COUPONS_WRITE + "')")
     @Operation(summary = "Create a coupon")
     public ResponseEntity<CouponResponse> create(@Valid @RequestBody CouponRequest req) {
         requestValidator.validateDefinition(req);
@@ -61,7 +76,7 @@ public class CouponController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('" + COUPONS_WRITE + "')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('" + COUPONS_WRITE + "')")
     @Operation(summary = "Update a coupon")
     public ResponseEntity<CouponResponse> update(@PathVariable UUID id, @Valid @RequestBody CouponRequest req) {
         requestValidator.validateDefinition(req);
@@ -69,7 +84,7 @@ public class CouponController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('" + COUPONS_WRITE + "')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('" + COUPONS_WRITE + "')")
     @Operation(summary = "Delete a coupon")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         couponService.delete(id);

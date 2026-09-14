@@ -48,6 +48,17 @@ class CouponServiceAuthTest {
         return Stream.of("validate", "reserve", "commit", "release", "redeem").flatMap(endpoint -> {
             String scope = endpoint.equals("validate") ? "SCOPE_coupons.read" : "SCOPE_coupons.write";
             String wrong = endpoint.equals("validate") ? "SCOPE_coupons.write" : "SCOPE_coupons.read";
+            if (!endpoint.equals("validate")) {
+                return Stream.of(
+                        new Object[]{endpoint, "service", "order-service", scope, true},
+                        new Object[]{endpoint, "service", "order-service", wrong, false},
+                        new Object[]{endpoint, "service", OWNER.toString(), "ROLE_ADMIN coupons:read coupons:write " + wrong, false},
+                        new Object[]{endpoint, "service", OWNER.toString(), "", false},
+                        new Object[]{endpoint, "user", OWNER.toString(), "ROLE_CUSTOMER", true},
+                        new Object[]{endpoint, "user", OTHER, "ROLE_ADMIN", true},
+                        new Object[]{endpoint, "user", OTHER, "ROLE_CUSTOMER", false},
+                        new Object[]{endpoint, "anonymous", OTHER, "", false});
+            }
             return Stream.of(
                     new Object[]{endpoint, "service", "order-service", scope, true},
                     new Object[]{endpoint, "service", "order-service", wrong, false},
