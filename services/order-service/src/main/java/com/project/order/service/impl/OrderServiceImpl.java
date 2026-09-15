@@ -56,6 +56,7 @@ import java.util.function.Consumer;
 public class OrderServiceImpl implements OrderService {
 
     private static final int MAX_OPTIMISTIC_ATTEMPTS = 3;
+    private static final Duration OPERATION_LEASE = Duration.ofSeconds(30);
 
     private final OrderRepository orderRepository;
     private final ProductClient productClient;
@@ -219,31 +220,33 @@ public class OrderServiceImpl implements OrderService {
                 return completeSaga(orderId);
             }
 
-            Order claimed = updateOrderWithRetry(orderId, order -> {
-                SagaState.Operation operation = operation(order.getSagaState(), next.getId());
-                operation.setStatus(SagaState.OperationStatus.IN_PROGRESS);
-                order.getSagaState().setStage(SagaState.Stage.RESERVING);
-                order.getSagaState().setNextAttemptAt(LocalDateTime.now().plusSeconds(30));
-                order.getSagaState().setLastError(null);
-            });
-            SagaState.Operation claimedOperation = operation(claimed.getSagaState(), next.getId());
+            OperationClaim claim = claimOperation(orderId, next.getId());
+            if (claim == null) {
+                return orderRepository.findById(orderId).orElse(current);
+            }
             try {
-                executeOperation(claimed, claimedOperation);
+                executeOperation(claim.order(), claim.operation());
             } catch (RuntimeException exception) {
-                updateOrderWithRetry(orderId, order -> {
+                boolean owned = updateOwnedOperation(orderId, next.getId(), claim.token(), order -> {
                     SagaState failed = order.getSagaState();
                     failed.setStage(SagaState.Stage.RETRYABLE);
                     failed.setAttempts(failed.getAttempts() + 1);
                     failed.setLastError(exception.getMessage());
                     failed.setNextAttemptAt(LocalDateTime.now().plus(retryDelay(failed.getAttempts())));
+                    SagaState.Operation operation = operation(failed, next.getId());
+                    operation.setLeaseToken(null);
+                    operation.setLeaseUntil(null);
                 });
-                if (propagateFailure) {
+                if (propagateFailure && owned) {
                     throw exception;
                 }
-                return orderRepository.findById(orderId).orElse(claimed);
+                return orderRepository.findById(orderId).orElse(claim.order());
             }
-            updateOrderWithRetry(orderId, order -> {
-                operation(order.getSagaState(), next.getId()).setStatus(SagaState.OperationStatus.COMPLETED);
+            updateOwnedOperation(orderId, next.getId(), claim.token(), order -> {
+                SagaState.Operation operation = operation(order.getSagaState(), next.getId());
+                operation.setStatus(SagaState.OperationStatus.COMPLETED);
+                operation.setLeaseToken(null);
+                operation.setLeaseUntil(null);
                 order.getSagaState().setStage(SagaState.Stage.RESERVING);
                 order.getSagaState().setNextAttemptAt(LocalDateTime.now().plusSeconds(30));
             });
@@ -268,6 +271,56 @@ public class OrderServiceImpl implements OrderService {
             case RELEASE -> inventoryClient.release(operation.getResourceId(), command);
         }
     }
+
+    private OperationClaim claimOperation(String orderId, String operationId) {
+        OptimisticLockingFailureException lastFailure = null;
+        for (int attempt = 0; attempt < MAX_OPTIMISTIC_ATTEMPTS; attempt++) {
+            Order current = orderRepository.findById(orderId).orElseThrow(
+                    () -> new ResourceNotFoundException("Order", orderId));
+            SagaState.Operation operation = operation(current.getSagaState(), operationId);
+            LocalDateTime now = LocalDateTime.now();
+            if (operation.getStatus() == SagaState.OperationStatus.COMPLETED
+                    || (operation.getStatus() == SagaState.OperationStatus.IN_PROGRESS
+                    && operation.getLeaseUntil() != null && operation.getLeaseUntil().isAfter(now))) {
+                return null;
+            }
+            String token = UUID.randomUUID().toString();
+            operation.setStatus(SagaState.OperationStatus.IN_PROGRESS);
+            operation.setLeaseToken(token);
+            operation.setLeaseUntil(now.plus(OPERATION_LEASE));
+            current.getSagaState().setStage(SagaState.Stage.RESERVING);
+            current.getSagaState().setNextAttemptAt(now.plus(OPERATION_LEASE));
+            current.getSagaState().setLastError(null);
+            try {
+                Order claimed = orderRepository.save(current);
+                return new OperationClaim(claimed, operation(claimed.getSagaState(), operationId), token);
+            } catch (OptimisticLockingFailureException exception) {
+                lastFailure = exception;
+            }
+        }
+        throw lastFailure;
+    }
+
+    private boolean updateOwnedOperation(String orderId, String operationId, String token, Consumer<Order> change) {
+        while (true) {
+            Order current = orderRepository.findById(orderId).orElseThrow(
+                    () -> new ResourceNotFoundException("Order", orderId));
+            SagaState.Operation operation = operation(current.getSagaState(), operationId);
+            if (!token.equals(operation.getLeaseToken()) || operation.getLeaseUntil() == null
+                    || !operation.getLeaseUntil().isAfter(LocalDateTime.now())) {
+                return false;
+            }
+            change.accept(current);
+            try {
+                orderRepository.save(current);
+                return true;
+            } catch (OptimisticLockingFailureException exception) {
+                // Keep the owner alive through transient conflicts; the lease remains the deadline.
+            }
+        }
+    }
+
+    private record OperationClaim(Order order, SagaState.Operation operation, String token) {}
 
     private Order completeSaga(String orderId) {
         return updateOrderWithRetry(orderId, order -> {

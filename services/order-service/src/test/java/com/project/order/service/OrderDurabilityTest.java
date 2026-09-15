@@ -36,6 +36,9 @@ import java.util.HashMap;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,6 +46,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class OrderDurabilityTest {
@@ -142,6 +146,108 @@ class OrderDurabilityTest {
         assertThat(reservationAttempts).hasValue(2);
         assertThat(persistence.stored().getSagaState().getStage()).isEqualTo(SagaState.Stage.COMPLETED);
         assertThat(persistence.stored().getOutboxEvents()).hasSize(1);
+    }
+
+    @Test
+    void concurrentRecoveryUsesOneActiveOperationLease() throws Exception {
+        RepositoryHarness persistence = new RepositoryHarness();
+        persistence.persist(recoverableOrder());
+        persistence.makeSagaDue();
+        persistence.returnClaimedSagaForConcurrentWorker();
+        InventoryClient inventory = mock(InventoryClient.class);
+        CountDownLatch invocationStarted = new CountDownLatch(1);
+        CountDownLatch releaseInvocation = new CountDownLatch(1);
+        AtomicInteger invocations = new AtomicInteger();
+        doAnswer(invocation -> {
+            invocations.incrementAndGet();
+            invocationStarted.countDown();
+            releaseInvocation.await(5, TimeUnit.SECONDS);
+            return null;
+        }).when(inventory).reserve(any(), any());
+
+        var workers = Executors.newFixedThreadPool(2);
+        try {
+            var first = workers.submit(() -> service(persistence.repository(), availableProduct(), inventory).recoverOrders());
+            assertThat(invocationStarted.await(5, TimeUnit.SECONDS)).isTrue();
+            service(persistence.repository(), availableProduct(), inventory).recoverOrders();
+            assertThat(invocations).hasValue(1);
+            releaseInvocation.countDown();
+            first.get(5, TimeUnit.SECONDS);
+        } finally {
+            releaseInvocation.countDown();
+            workers.shutdownNow();
+        }
+
+        assertThat(persistence.stored().getSagaState().getOperations()).singleElement().satisfies(operation ->
+                assertThat(operation.getStatus()).isEqualTo(SagaState.OperationStatus.COMPLETED));
+    }
+
+    @Test
+    void expiredLeaseAllowsRecoveryAndStaleOwnerCannotCompleteOperation() throws Exception {
+        RepositoryHarness persistence = new RepositoryHarness();
+        persistence.persist(recoverableOrder());
+        persistence.makeSagaDue();
+        persistence.returnClaimedSagaForConcurrentWorker();
+        InventoryClient inventory = mock(InventoryClient.class);
+        CountDownLatch firstInvocation = new CountDownLatch(1);
+        CountDownLatch releaseInvocations = new CountDownLatch(1);
+        AtomicInteger invocations = new AtomicInteger();
+        doAnswer(invocation -> {
+            invocations.incrementAndGet();
+            firstInvocation.countDown();
+            releaseInvocations.await(5, TimeUnit.SECONDS);
+            return null;
+        }).when(inventory).reserve(any(), any());
+
+        var workers = Executors.newFixedThreadPool(2);
+        try {
+            var staleOwner = workers.submit(() -> service(persistence.repository(), availableProduct(), inventory).recoverOrders());
+            assertThat(firstInvocation.await(5, TimeUnit.SECONDS)).isTrue();
+            persistence.expireSagaLease();
+            var newOwner = workers.submit(() -> service(persistence.repository(), availableProduct(), inventory).recoverOrders());
+            awaitInvocations(invocations, 2);
+            assertThat(persistence.stored().getSagaState().getOperations()).singleElement().satisfies(operation ->
+                    assertThat(operation.getStatus()).isEqualTo(SagaState.OperationStatus.IN_PROGRESS));
+            releaseInvocations.countDown();
+            staleOwner.get(5, TimeUnit.SECONDS);
+            newOwner.get(5, TimeUnit.SECONDS);
+        } finally {
+            releaseInvocations.countDown();
+            workers.shutdownNow();
+        }
+
+        assertThat(invocations).hasValue(2);
+        assertThat(persistence.stored().getSagaState().getOperations()).singleElement().satisfies(operation ->
+                assertThat(operation.getStatus()).isEqualTo(SagaState.OperationStatus.COMPLETED));
+    }
+
+    @Test
+    void completionConflictsConvergeWithoutRepeatingExternalOperation() {
+        RepositoryHarness persistence = new RepositoryHarness();
+        persistence.persist(recoverableOrder());
+        persistence.makeSagaDue();
+        InventoryClient inventory = mock(InventoryClient.class);
+        doAnswer(invocation -> {
+            persistence.setCompletionConflicts(3);
+            return null;
+        }).when(inventory).reserve(any(), any());
+
+        service(persistence.repository(), availableProduct(), inventory).recoverOrders();
+
+        assertThat(persistence.stored().getSagaState().getOperations()).singleElement().satisfies(operation -> {
+            assertThat(operation.getStatus()).isEqualTo(SagaState.OperationStatus.COMPLETED);
+            assertThat(operation.getLeaseToken()).isNull();
+            assertThat(operation.getLeaseUntil()).isNull();
+        });
+        verify(inventory).reserve(any(), any());
+    }
+
+    private void awaitInvocations(AtomicInteger invocations, int expected) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (invocations.get() < expected && System.nanoTime() < deadline) {
+            Thread.sleep(10);
+        }
+        assertThat(invocations).hasValue(expected);
     }
 
     @Test
@@ -547,6 +653,25 @@ class OrderDurabilityTest {
         return order;
     }
 
+    private Order recoverableOrder() {
+        Order order = pendingOrder();
+        order.setOutboxEvents(new ArrayList<>());
+        order.setSagaState(SagaState.builder()
+                .workflow(SagaState.Workflow.CHECKOUT)
+                .stage(SagaState.Stage.RETRYABLE)
+                .nextAttemptAt(LocalDateTime.now())
+                .operations(new ArrayList<>(List.of(SagaState.Operation.builder()
+                        .id("reserve:product-1")
+                        .resourceType(SagaState.ResourceType.INVENTORY)
+                        .action(SagaState.Action.RESERVE)
+                        .resourceId("product-1")
+                        .quantity(1)
+                        .status(SagaState.OperationStatus.PENDING)
+                        .build())))
+                .build());
+        return order;
+    }
+
     private Order durablePendingOrder() {
         Order order = pendingOrder();
         order.setOutboxEvents(new ArrayList<>());
@@ -592,6 +717,8 @@ class OrderDurabilityTest {
         private Order stored;
         private boolean hideNextLookup;
         private boolean failNextSave;
+        private boolean returnClaimedSaga;
+        private int completionConflicts;
         private int insertedOrders;
 
         private RepositoryHarness() {
@@ -634,6 +761,13 @@ class OrderDurabilityTest {
                         stored.setVersion(stored.getVersion() + 1);
                         throw new OptimisticLockingFailureException("simulated stale version");
                     }
+                    if (completionConflicts > 0 && candidate.getSagaState() != null
+                            && candidate.getSagaState().getOperations().stream()
+                            .anyMatch(operation -> operation.getStatus() == SagaState.OperationStatus.COMPLETED)) {
+                        completionConflicts--;
+                        stored.setVersion(stored.getVersion() + 1);
+                        throw new OptimisticLockingFailureException("simulated completion conflict");
+                    }
                     if (!java.util.Objects.equals(candidate.getVersion(), stored.getVersion())) {
                         throw new OptimisticLockingFailureException("stale version");
                     }
@@ -646,10 +780,10 @@ class OrderDurabilityTest {
             when(repository.findOrdersWithRecoverableSaga(any())).thenAnswer(invocation -> {
                 synchronized (this) {
                     LocalDateTime now = invocation.getArgument(0);
-                    if (stored == null || stored.getSagaState() == null
+                    if (!returnClaimedSaga && (stored == null || stored.getSagaState() == null
                             || stored.getSagaState().getStage() == SagaState.Stage.COMPLETED
                             || stored.getSagaState().getNextAttemptAt() == null
-                            || stored.getSagaState().getNextAttemptAt().isAfter(now)) {
+                            || stored.getSagaState().getNextAttemptAt().isAfter(now))) {
                         return List.of();
                     }
                     return List.of(copy(stored));
@@ -698,6 +832,19 @@ class OrderDurabilityTest {
 
         private synchronized void makeSagaDue() {
             stored.getSagaState().setNextAttemptAt(LocalDateTime.now().minusSeconds(1));
+            if (stored.getSagaState().getOperations() != null) {
+                stored.getSagaState().getOperations().forEach(operation ->
+                        operation.setLeaseUntil(LocalDateTime.now().minusSeconds(1)));
+            }
+            stored.setVersion(stored.getVersion() + 1);
+        }
+
+        private synchronized void returnClaimedSagaForConcurrentWorker() {
+            returnClaimedSaga = true;
+        }
+
+        private synchronized void expireSagaLease() {
+            stored.getSagaState().getOperations().get(0).setLeaseUntil(LocalDateTime.now().minusSeconds(1));
             stored.setVersion(stored.getVersion() + 1);
         }
 
@@ -713,6 +860,10 @@ class OrderDurabilityTest {
 
         private synchronized void failNextSaveWithOptimisticConflict() {
             failNextSave = true;
+        }
+
+        private synchronized void setCompletionConflicts(int conflicts) {
+            completionConflicts = conflicts;
         }
 
         private Order copy(Order order) {

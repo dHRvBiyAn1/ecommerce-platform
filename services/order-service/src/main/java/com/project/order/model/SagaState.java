@@ -83,5 +83,7 @@ public class SagaState {
         private String resourceId;
         private int quantity;
         private OperationStatus status;
+        private String leaseToken;
+        private LocalDateTime leaseUntil;
     }
 }
