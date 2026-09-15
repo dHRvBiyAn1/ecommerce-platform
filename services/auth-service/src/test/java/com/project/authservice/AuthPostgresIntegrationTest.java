@@ -212,7 +212,7 @@ class AuthPostgresIntegrationTest {
                        AND wait_event_type = 'Lock'
                        AND state = 'active'
                        AND query ILIKE '%refresh_tokens%'
-                       AND query ILIKE '%for update%'
+                       AND query ILIKE '%for%no%key%update%'
                      ORDER BY pid
                      """)) {
             statement.setString(1, DB_APPLICATION_NAME);
@@ -236,8 +236,8 @@ class AuthPostgresIntegrationTest {
                      "SELECT count(*) FROM refresh_tokens WHERE family_id = ?");
              PreparedStatement replacements = connection.prepareStatement(
                      "SELECT count(*) FROM refresh_tokens WHERE family_id = ? AND id <> ?");
-             PreparedStatement activeReplacements = connection.prepareStatement(
-                     "SELECT count(*) FROM refresh_tokens WHERE family_id = ? AND id <> ? AND revoked = false")) {
+             PreparedStatement revokedFamilyTokens = connection.prepareStatement(
+                     "SELECT count(*) FROM refresh_tokens WHERE family_id = ? AND revoked = true")) {
             original.setObject(1, originalTokenId);
             try (var rows = original.executeQuery()) {
                 assertThat(rows.next()).isTrue();
@@ -247,11 +247,10 @@ class AuthPostgresIntegrationTest {
             family.setObject(1, familyId);
             replacements.setObject(1, familyId);
             replacements.setObject(2, originalTokenId);
-            activeReplacements.setObject(1, familyId);
-            activeReplacements.setObject(2, originalTokenId);
+            revokedFamilyTokens.setObject(1, familyId);
             assertThat(count(family)).isEqualTo(2);
             assertThat(count(replacements)).isEqualTo(1);
-            assertThat(count(activeReplacements)).isEqualTo(1);
+            assertThat(count(revokedFamilyTokens)).isEqualTo(2);
         }
     }
 
