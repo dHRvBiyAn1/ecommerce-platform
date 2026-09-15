@@ -27,6 +27,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.Locale;
 
 /**
  * Cart business logic. Each operation is idempotent at the request level —
@@ -134,10 +135,11 @@ public class CartService {
         }
 
         BigDecimal subtotal = subtotal(cart);
+        String normalizedCode = req.code() == null ? null : req.code().trim().toUpperCase(Locale.ROOT);
         CouponValidationResponse v;
         try {
             v = couponClient.validate(CouponValidationRequest.builder()
-                    .code(req.code())
+                    .code(normalizedCode)
                     .userId(userId)
                     .subtotal(subtotal)
                     .currency(cart.getCurrency() != null ? cart.getCurrency() : "INR")
@@ -156,7 +158,9 @@ public class CartService {
         if (!v.isValid()) {
             throw new ValidationException(v.getReason() != null ? v.getReason() : "Coupon is not valid");
         }
-        if (!req.code().equals(v.getCode()) || v.getDiscountAmount() == null
+        String responseCode = v.getCode() == null ? null : v.getCode().trim().toUpperCase(Locale.ROOT);
+        if (normalizedCode == null || responseCode == null || !normalizedCode.equals(responseCode)
+                || v.getDiscountAmount() == null
                 || v.getDiscountAmount().signum() <= 0 || v.getDiscountAmount().compareTo(subtotal) > 0) {
             throw new ValidationException("Coupon validation response is invalid");
         }

@@ -136,6 +136,39 @@ class CouponClientIntegrationTest {
     }
 
     @Test
+    void normalizedCouponCodeAppliesDiscount() {
+        Cart cart = cart();
+        CartService service = serviceReturning(cart.getUserId(), cart, CouponValidationResponse.builder()
+                .valid(true).code("SAVE10").discountAmount(new BigDecimal("5.00")).build());
+
+        service.applyCoupon(cart.getUserId(), new ApplyCouponRequest("  save10 "));
+
+        assertThat(cart.getAppliedCouponCode()).isEqualTo("SAVE10");
+        assertThat(cart.getAppliedDiscountAmount()).isEqualByComparingTo("5.00");
+    }
+
+    @Test
+    void outboundCouponRequestUsesNormalizedCode() {
+        Cart cart = cart();
+        CouponClient client = request -> {
+            if (!"SAVE10".equals(request.getCode())) {
+                throw new IllegalArgumentException("coupon endpoint rejects unnormalized code");
+            }
+            return CouponValidationResponse.builder().valid(true).code("SAVE10")
+                    .discountAmount(new BigDecimal("5.00")).build();
+        };
+        CartRepository repository = mock(CartRepository.class);
+        when(repository.findByUserId(cart.getUserId())).thenReturn(Optional.of(cart));
+        when(repository.save(cart)).thenReturn(cart);
+        CartService service = new CartService(repository, client, mock(ProductClient.class), Mappers.getMapper(CartMapper.class),
+                new CartCouponPersistenceService(repository));
+
+        service.applyCoupon(cart.getUserId(), new ApplyCouponRequest("  save10 "));
+
+        assertThat(cart.getAppliedCouponCode()).isEqualTo("SAVE10");
+    }
+
+    @Test
     void nonpositiveOrMissingCouponDiscountDoesNotApplyDiscount() {
         for (BigDecimal discount : java.util.List.of(BigDecimal.ZERO, new BigDecimal("-1.00"))) {
             Cart cart = cart();
