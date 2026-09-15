@@ -1,5 +1,7 @@
 package com.project.notification.service;
 
+import com.mongodb.ConnectionString;
+import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.project.notification.application.mapper.NotificationMapper;
@@ -9,6 +11,7 @@ import com.project.notification.model.Notification;
 import com.project.notification.model.NotificationDelivery;
 import com.project.notification.repository.NotificationDeliveryRepository;
 import com.project.notification.repository.NotificationRepository;
+import org.bson.UuidRepresentation;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,7 +56,10 @@ class NotificationMongoIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        client = MongoClients.create(MONGO.getReplicaSetUrl());
+        client = MongoClients.create(MongoClientSettings.builder()
+                .applyConnectionString(new ConnectionString(MONGO.getReplicaSetUrl()))
+                .uuidRepresentation(UuidRepresentation.STANDARD)
+                .build());
         mongoTemplate = new MongoTemplate(client, "notification-delivery-" + UUID.randomUUID());
         new NotificationIndexInitializer(mongoTemplate).initialize();
         MongoRepositoryFactory factory = new MongoRepositoryFactory(mongoTemplate);
@@ -180,6 +186,8 @@ class NotificationMongoIntegrationTest {
                 .isEqualTo(Notification.Status.PENDING);
         assertThat(worker.claimDueDeliveries(NOW.plusSeconds(59), Duration.ofSeconds(30))).isEmpty();
 
+        worker = new NotificationDeliveryWorker(mongoTemplate, notifications, emailService,
+                Duration.ofSeconds(10), Clock.fixed(NOW.plusSeconds(60), ZoneOffset.UTC));
         NotificationDelivery secondClaim = worker.claimDueDeliveries(
                 NOW.plusSeconds(60), Duration.ofSeconds(30)).get(0);
         worker.deliverClaimed(secondClaim, NOW.plusSeconds(60));
