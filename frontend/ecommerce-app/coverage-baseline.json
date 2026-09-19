@@ -753,12 +753,12 @@
     },
     "src/pages/storefront/checkout.tsx": {
       "lines": {
-        "covered": 260,
-        "total": 264
+        "covered": 244,
+        "total": 248
       },
       "branches": {
-        "covered": 35,
-        "total": 54
+        "covered": 41,
+        "total": 60
       }
     },
     "src/pages/storefront/home.tsx": {
