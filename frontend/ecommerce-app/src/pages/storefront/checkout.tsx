@@ -21,10 +21,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { ProductArt } from "@/components/product-art";
-import { useCart } from "@/stores/cart";
+import { createPendingAttempt, useCart } from "@/stores/cart";
 import { useAuthStore } from "@/stores/auth";
 import { createOrder } from "@/api/orders";
 import { createPayment } from "@/api/payments";
+import { usePaymentConfirmation, useStripeCardElement } from "@/hooks/use-payment-confirmation";
 import { formatMoney } from "@/lib/utils";
 
 const Schema = z.object({
@@ -47,7 +48,7 @@ const TAX_RATE = 0.18;
 
 export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
-  const { lines, subtotal, clear, couponCode, discountAmount } = useCart();
+  const { lines, subtotal, clear, couponCode, discountAmount, pendingAttempt, setPendingAttempt } = useCart();
   const user = useAuthStore((s) => s.user);
 
   const sub = subtotal();
@@ -55,11 +56,13 @@ export const CheckoutPage: React.FC = () => {
   const shipping = sub >= FREE_SHIPPING ? 0 : SHIPPING_COST;
   const total = Math.max(0, sub + tax + shipping - (discountAmount || 0));
 
-  const idempotencyKey = React.useMemo(() => crypto.randomUUID(), []);
+  const card = useStripeCardElement();
+  const confirmation = usePaymentConfirmation(card.cardElement);
 
   const {
     register,
     handleSubmit,
+    watch,
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
@@ -76,10 +79,17 @@ export const CheckoutPage: React.FC = () => {
       notes: "",
     },
   });
+  const paymentMethod = watch("paymentMethod");
 
   const place = useMutation({
     mutationFn: async (values: FormValues) => {
       if (lines.length === 0) throw new Error("Your bag is empty");
+      if (pendingAttempt?.orderId && pendingAttempt.paymentId && !pendingAttempt.clientSecret) {
+        navigate(`/order-success/${pendingAttempt.orderId}`, { replace: true });
+        throw new Error("Payment recovery in progress");
+      }
+      const attempt = pendingAttempt ?? createPendingAttempt();
+      setPendingAttempt(attempt);
       const order = await createOrder(
         {
           items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
@@ -105,30 +115,34 @@ export const CheckoutPage: React.FC = () => {
           paymentMethod: values.paymentMethod,
           notes: values.notes,
         },
-        idempotencyKey,
+        attempt.idempotencyKey,
       );
-      // Kick off payment intent (sandbox or stripe). Backend will emit the saga
-      // events; OrderSuccess polls for status convergence.
-      try {
-        await createPayment(
-          {
-            orderId: order.id,
-            orderNumber: order.orderNumber,
-            paymentMethod: values.paymentMethod,
-            amount: order.totalAmount,
-            currency: order.currency,
-            description: `Order ${order.orderNumber}`,
-          },
-          idempotencyKey,
-        );
-      } catch (e: any) {
-        // Don't block the success page; the order is created either way.
-        console.warn("Payment init failed", e?.message);
+      const initiated = await createPayment(
+        {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          paymentMethod: values.paymentMethod,
+          amount: order.totalAmount,
+          currency: order.currency,
+          description: `Order ${order.orderNumber}`,
+        },
+        attempt.idempotencyKey,
+      );
+      const clientSecret = initiated.clientSecret ?? attempt.clientSecret;
+      setPendingAttempt({
+        ...attempt,
+        orderId: order.id,
+        paymentId: initiated.payment.id,
+        ...(clientSecret ? { clientSecret } : {}),
+      });
+      if (values.paymentMethod === "card") {
+        if (!clientSecret) throw new Error("Payment confirmation is unavailable after reload");
+        await confirmation.mutateAsync({ clientSecret });
       }
-      return order;
+      return { order, paymentMethod: values.paymentMethod };
     },
-    onSuccess: (order) => {
-      clear();
+    onSuccess: async ({ order, paymentMethod }) => {
+      await ({ card: () => undefined, upi: clear, cod: clear })[paymentMethod]();
       toast.success("Order placed");
       navigate(`/order-success/${order.id}`, { replace: true });
     },
@@ -136,6 +150,12 @@ export const CheckoutPage: React.FC = () => {
       toast.error(err?.message ?? "Failed to place order");
     },
   });
+
+  React.useEffect(() => {
+    if (!place.isPending && pendingAttempt?.orderId && pendingAttempt.paymentId && !pendingAttempt.clientSecret) {
+      navigate(`/order-success/${pendingAttempt.orderId}`, { replace: true });
+    }
+  }, [navigate, pendingAttempt, place.isPending]);
 
   return (
     <div className="container py-12">
@@ -158,36 +178,36 @@ export const CheckoutPage: React.FC = () => {
           <Section title="Shipping address" eyebrow="01">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Full name" error={errors.fullName?.message} className="sm:col-span-2">
-                <Input {...register("fullName")} />
+                 <Input id="fullName" {...register("fullName")} />
               </Field>
               <Field label="Phone" error={errors.phone?.message}>
-                <Input {...register("phone")} />
+                 <Input id="phone" {...register("phone")} />
               </Field>
               <Field label="Country" error={errors.country?.message}>
-                <Input {...register("country")} />
+                 <Input id="country" {...register("country")} />
               </Field>
               <Field label="Street" error={errors.street?.message} className="sm:col-span-2">
-                <Input {...register("street")} />
+                 <Input id="street" {...register("street")} />
               </Field>
               <Field label="City" error={errors.city?.message}>
-                <Input {...register("city")} />
+                 <Input id="city" {...register("city")} />
               </Field>
               <Field label="State" error={errors.state?.message}>
-                <Input {...register("state")} />
+                 <Input id="state" {...register("state")} />
               </Field>
               <Field label="ZIP / Postal code" error={errors.zipCode?.message}>
-                <Input {...register("zipCode")} />
+                 <Input id="zipCode" {...register("zipCode")} />
               </Field>
             </div>
           </Section>
 
           <Section title="Payment" eyebrow="02">
-            <Field label="Method">
+            <Field label="Method" htmlFor="paymentMethod">
               <Select
                 defaultValue="card"
                 onValueChange={(v) => setValue("paymentMethod", v as FormValues["paymentMethod"])}
               >
-                <SelectTrigger>
+                <SelectTrigger id="paymentMethod">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -200,10 +220,25 @@ export const CheckoutPage: React.FC = () => {
             <p className="mt-3 text-xs text-muted-foreground">
               Payment is processed by our secure gateway. We never see your card number.
             </p>
+            <Field label="Card details">
+              <div
+                id="card-element"
+                ref={card.containerRef}
+                aria-describedby="card-error"
+                aria-label="Card details"
+                aria-busy={!card.ready}
+                className="min-h-10 rounded-md border border-input px-3 py-3"
+              />
+              {!card.ready && !card.error && (
+                <p className="text-xs text-muted-foreground" role="status">Loading secure card field…</p>
+              )}
+              {card.error && <p id="card-error" className="text-xs text-destructive" role="alert">{card.error}</p>}
+            </Field>
           </Section>
 
           <Section title="Notes (optional)" eyebrow="03">
-            <Textarea {...register("notes")} placeholder="Anything for the seller?" />
+              <Label htmlFor="notes" className="sr-only">Notes</Label>
+              <Textarea id="notes" {...register("notes")} placeholder="Anything for the seller?" />
           </Section>
         </motion.div>
 
@@ -234,7 +269,13 @@ export const CheckoutPage: React.FC = () => {
             )}
             <Separator />
             <Row label="Total" value={formatMoney(total)} bold />
-            <Button type="submit" variant="accent" size="lg" className="w-full" disabled={isSubmitting || place.isPending}>
+            <Button
+              type="submit"
+              variant="accent"
+              size="lg"
+              className="w-full"
+              disabled={isSubmitting || place.isPending || (paymentMethod === "card" && !card.ready)}
+            >
               {place.isPending ? <Spinner /> : "Place order"}
             </Button>
             <p className="text-center text-xs text-muted-foreground">
@@ -262,12 +303,15 @@ const Section: React.FC<{ title: string; eyebrow: string; children: React.ReactN
 
 const Field: React.FC<{
   label: string;
+  htmlFor?: string;
   error?: string;
   className?: string;
   children: React.ReactNode;
-}> = ({ label, error, className, children }) => (
+}> = ({ label, htmlFor, error, className, children }) => (
   <div className={`space-y-1.5 ${className ?? ""}`}>
-    <Label>{label}</Label>
+    <Label htmlFor={htmlFor ?? (React.isValidElement<{ id?: string }>(children) ? children.props.id : undefined)}>
+      {label}
+    </Label>
     {children}
     {error && <p className="text-xs text-destructive">{error}</p>}
   </div>

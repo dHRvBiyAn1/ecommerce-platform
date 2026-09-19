@@ -1,5 +1,5 @@
 import client from "@/api/client";
-import type { ApiResponse, Payment } from "@/api/types";
+import type { ApiResponse, Payment, PaymentInitiationResponse } from "@/api/types";
 
 export interface PaymentRequest {
   orderId: string;
@@ -13,8 +13,8 @@ export interface PaymentRequest {
 export async function createPayment(
   req: PaymentRequest,
   idempotencyKey?: string,
-): Promise<Payment> {
-  const { data } = await client.post<ApiResponse<Payment>>("/v1/payments", req, {
+): Promise<PaymentInitiationResponse> {
+  const { data } = await client.post<ApiResponse<PaymentInitiationResponse>>("/v1/payments", req, {
     headers: idempotencyKey ? { "X-Idempotency-Key": idempotencyKey } : {},
   });
   return data.data;
@@ -22,6 +22,11 @@ export async function createPayment(
 
 export async function processPayment(id: string): Promise<Payment> {
   const { data } = await client.post<ApiResponse<Payment>>(`/v1/payments/${id}/process`);
+  return data.data;
+}
+
+export async function getPayment(id: string): Promise<Payment> {
+  const { data } = await client.get<ApiResponse<Payment>>(`/v1/payments/${id}`);
   return data.data;
 }
 

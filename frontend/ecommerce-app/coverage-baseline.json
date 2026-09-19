@@ -103,12 +103,12 @@
     },
     "src/api/payments.ts": {
       "lines": {
-        "covered": 0,
-        "total": 22
+        "covered": 26,
+        "total": 26
       },
       "branches": {
-        "covered": 0,
-        "total": 1
+        "covered": 5,
+        "total": 6
       }
     },
     "src/api/products.ts": {
@@ -753,12 +753,12 @@
     },
     "src/pages/storefront/checkout.tsx": {
       "lines": {
-        "covered": 0,
-        "total": 223
+        "covered": 260,
+        "total": 264
       },
       "branches": {
-        "covered": 0,
-        "total": 1
+        "covered": 35,
+        "total": 54
       }
     },
     "src/pages/storefront/home.tsx": {
@@ -818,7 +818,7 @@
         "src/pages/storefront/checkout.tsx"
       ],
       "threshold": {
-        "lines": 0,
+        "lines": 0.8,
         "branches": 0
       }
     },
@@ -827,7 +827,7 @@
         "src/api/payments.ts"
       ],
       "threshold": {
-        "lines": 0,
+        "lines": 0.8,
         "branches": 0
       }
     },

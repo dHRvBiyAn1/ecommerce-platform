@@ -9,10 +9,14 @@ import { ProductArt } from "@/components/product-art";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { getOrder } from "@/api/orders";
+import { getPayment } from "@/api/payments";
+import { useCart } from "@/stores/cart";
 import { formatMoney } from "@/lib/utils";
 
 export const OrderSuccessPage: React.FC = () => {
   const { id = "" } = useParams();
+  const clear = useCart((s) => s.clear);
+  const pendingAttempt = useCart((s) => s.pendingAttempt);
 
   // Poll briefly so users see the saga result if Stripe / sandbox webhook fires fast.
   const { data: order, isLoading } = useQuery({
@@ -26,6 +30,16 @@ export const OrderSuccessPage: React.FC = () => {
     },
     enabled: Boolean(id),
   });
+  const { data: payment } = useQuery({
+    queryKey: ["payment", order?.paymentId],
+    queryFn: () => getPayment(order!.paymentId!),
+    refetchInterval: (q) => q.state.data?.status === "PENDING" ? 2000 : false,
+    enabled: Boolean(order?.paymentId),
+  });
+
+  React.useEffect(() => {
+    if (payment?.status === "COMPLETED" && pendingAttempt?.orderId === id) void clear();
+  }, [clear, id, payment?.status, pendingAttempt?.orderId]);
 
   if (isLoading || !order) {
     return (
@@ -34,6 +48,8 @@ export const OrderSuccessPage: React.FC = () => {
       </div>
     );
   }
+
+  const paymentStatus = payment?.status ?? order.paymentStatus;
 
   return (
     <div className="container py-16">
@@ -59,8 +75,8 @@ export const OrderSuccessPage: React.FC = () => {
             <Badge variant={order.status === "CONFIRMED" ? "success" : "info"}>
               {order.status}
             </Badge>
-            <Badge variant={order.paymentStatus === "COMPLETED" ? "success" : "warning"}>
-              Payment · {order.paymentStatus}
+            <Badge variant={paymentStatus === "COMPLETED" ? "success" : "warning"}>
+              Payment · {paymentStatus}
             </Badge>
           </div>
 
