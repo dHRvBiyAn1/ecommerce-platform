@@ -10,13 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
@@ -36,7 +29,7 @@ const Schema = z.object({
   state: z.string().min(2),
   zipCode: z.string().min(3),
   country: z.string().min(2),
-  paymentMethod: z.enum(["card", "upi", "cod"]),
+  paymentMethod: z.literal("card"),
   notes: z.string().optional(),
 });
 
@@ -48,7 +41,7 @@ const TAX_RATE = 0.18;
 
 export const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
-  const { lines, subtotal, clear, couponCode, discountAmount, pendingAttempt, setPendingAttempt } = useCart();
+  const { lines, subtotal, couponCode, discountAmount, pendingAttempt, setPendingAttempt } = useCart();
   const user = useAuthStore((s) => s.user);
 
   const sub = subtotal();
@@ -62,8 +55,6 @@ export const CheckoutPage: React.FC = () => {
   const {
     register,
     handleSubmit,
-    watch,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(Schema),
@@ -79,8 +70,6 @@ export const CheckoutPage: React.FC = () => {
       notes: "",
     },
   });
-  const paymentMethod = watch("paymentMethod");
-
   const place = useMutation({
     mutationFn: async (values: FormValues) => {
       if (lines.length === 0) throw new Error("Your bag is empty");
@@ -112,7 +101,7 @@ export const CheckoutPage: React.FC = () => {
             zipCode: values.zipCode,
             country: values.country,
           },
-          paymentMethod: values.paymentMethod,
+          paymentMethod: "card",
           notes: values.notes,
         },
         attempt.idempotencyKey,
@@ -121,7 +110,7 @@ export const CheckoutPage: React.FC = () => {
         {
           orderId: order.id,
           orderNumber: order.orderNumber,
-          paymentMethod: values.paymentMethod,
+          paymentMethod: "card",
           amount: order.totalAmount,
           currency: order.currency,
           description: `Order ${order.orderNumber}`,
@@ -135,14 +124,11 @@ export const CheckoutPage: React.FC = () => {
         paymentId: initiated.payment.id,
         ...(clientSecret ? { clientSecret } : {}),
       });
-      if (values.paymentMethod === "card") {
-        if (!clientSecret) throw new Error("Payment confirmation is unavailable after reload");
-        await confirmation.mutateAsync({ clientSecret });
-      }
-      return { order, paymentMethod: values.paymentMethod };
+      if (!clientSecret) throw new Error("Payment confirmation is unavailable after reload");
+      await confirmation.mutateAsync({ clientSecret });
+      return order;
     },
-    onSuccess: async ({ order, paymentMethod }) => {
-      await ({ card: () => undefined, upi: clear, cod: clear })[paymentMethod]();
+    onSuccess: (order) => {
       toast.success("Order placed");
       navigate(`/order-success/${order.id}`, { replace: true });
     },
@@ -203,19 +189,7 @@ export const CheckoutPage: React.FC = () => {
 
           <Section title="Payment" eyebrow="02">
             <Field label="Method" htmlFor="paymentMethod">
-              <Select
-                defaultValue="card"
-                onValueChange={(v) => setValue("paymentMethod", v as FormValues["paymentMethod"])}
-              >
-                <SelectTrigger id="paymentMethod">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="card">Card (Stripe)</SelectItem>
-                  <SelectItem value="upi">UPI</SelectItem>
-                  <SelectItem value="cod">Cash on delivery</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input id="paymentMethod" value="Card (Stripe)" readOnly />
             </Field>
             <p className="mt-3 text-xs text-muted-foreground">
               Payment is processed by our secure gateway. We never see your card number.
@@ -274,7 +248,7 @@ export const CheckoutPage: React.FC = () => {
               variant="accent"
               size="lg"
               className="w-full"
-              disabled={isSubmitting || place.isPending || (paymentMethod === "card" && !card.ready)}
+              disabled={isSubmitting || place.isPending || !card.ready}
             >
               {place.isPending ? <Spinner /> : "Place order"}
             </Button>

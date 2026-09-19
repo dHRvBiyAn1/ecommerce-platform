@@ -163,37 +163,34 @@ describe("CheckoutPage", () => {
     screen.getByText("confirmed");
   });
 
-  it("waits for non-card cart clearing before navigating", async () => {
-    let resolveClear!: () => void;
-    const clear = vi.fn(() => new Promise<void>((resolve) => {
-      resolveClear = resolve;
-    }));
-    useCart.setState({ clear });
+  it("offers only card payment and rejects unsupported payment submissions", async () => {
+    const orderCalls: string[] = [];
     server.use(
-      http.post("*/api/v1/orders", () => HttpResponse.json({ status: 201, message: "created", data: order })),
-      http.post("*/api/v1/payments", () => HttpResponse.json({
-        status: 201,
-        message: "created",
-        data: { payment: { ...order, id: "payment-1" }, clientSecret: null },
-      })),
+      http.post("*/api/v1/orders", () => {
+        orderCalls.push("order");
+        return HttpResponse.json({ status: 201, message: "created", data: order });
+      }),
+      http.post("*/api/v1/payments", () => {
+        orderCalls.push("payment");
+        return HttpResponse.json({
+          status: 201,
+          message: "created",
+          data: { payment: { ...order, id: "payment-1" }, clientSecret: null },
+        });
+      }),
     );
 
-    renderWithProviders(
-      <Routes>
-        <Route path="/checkout" element={<CheckoutPage />} />
-        <Route path="/order-success/order-1" element={<div>confirmed</div>} />
-      </Routes>,
-      { initialEntries: ["/checkout"] },
-    );
+    renderWithProviders(<CheckoutPage />);
 
     const user = await fillCheckout();
-    act(() => formControls.setValue?.("paymentMethod", "upi"));
+    expect(screen.getByLabelText("Card details")).toBeInTheDocument();
+    expect(screen.queryByText("UPI")).not.toBeInTheDocument();
+    expect(screen.queryByText("Cash on delivery")).not.toBeInTheDocument();
 
+    act(() => formControls.setValue?.("paymentMethod", "upi"));
     await user.click(screen.getByRole("button", { name: "Place order" }));
-    await waitFor(() => expect(clear).toHaveBeenCalledOnce());
-    expect(screen.queryByText("confirmed")).not.toBeInTheDocument();
-    resolveClear();
-    await waitFor(() => expect(screen.getByText("confirmed")).toBeInTheDocument());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(orderCalls).toEqual([]);
   });
 
   it("destroys the mounted card element when checkout unmounts", async () => {
