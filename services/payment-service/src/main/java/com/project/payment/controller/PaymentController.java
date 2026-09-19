@@ -37,6 +37,9 @@ import com.stripe.exception.SignatureVerificationException;
 import com.stripe.net.Webhook;
 import com.stripe.model.Event;
 import com.stripe.model.PaymentIntent;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
 @Slf4j
 @RestController
@@ -58,7 +61,15 @@ public class PaymentController {
     // ---- Customer-initiated payment flows ----
 
     @PostMapping
-    @PreAuthorize("hasAuthority('" + Permissions.PAYMENTS_PROCESS + "') or hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @Operation(summary = "Initiate a customer payment", security = @SecurityRequirement(name = "bearerAuth"),
+            description = "Validates current customer owns order. Returns clientSecret only for first successful "
+                    + "initiation; idempotency replays return payment state without clientSecret.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Payment initiated"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Order is not owned by current customer"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Idempotency key conflicts with another order")
+    })
     public ResponseEntity<ApiResponse<PaymentInitiationResponse>> createPayment(
             @Valid @RequestBody PaymentRequest request,
             @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
@@ -119,6 +130,13 @@ public class PaymentController {
      * {@code X-Webhook-Signature: t=<unix>,v1=<hex-hmac>}.
      */
     @PostMapping(value = "/webhook")
+    @Operation(summary = "Receive verified internal payment webhook",
+            description = "Public endpoint. HMAC verification is required; duplicate verified events resume one durable transition and outbox publication.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Verified event accepted"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Signature missing or invalid"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "Webhook secret is unavailable")
+    })
     public ResponseEntity<Void> handleWebhook(
             HttpServletRequest request,
             @RequestBody String rawBody) throws IOException {
@@ -151,8 +169,15 @@ public class PaymentController {
     }
 
     @PostMapping(value = "/webhook/stripe")
+    @Operation(summary = "Receive verified Stripe payment webhook",
+            description = "Public endpoint. Stripe signature verification is required; duplicate verified events resume one durable transition and outbox publication.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Verified event accepted"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Signature or payload is invalid"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "Webhook secret is unavailable")
+    })
     public ResponseEntity<Void> handleStripeWebhook(
-            @RequestHeader("Stripe-Signature") String sigHeader,
+            @RequestHeader(value = "Stripe-Signature", required = false) String sigHeader,
             @RequestBody String rawBody) {
         if (stripeWebhookSecret == null || stripeWebhookSecret.isBlank()) {
             log.error("Stripe webhook received but stripe.webhook-secret is not configured");
