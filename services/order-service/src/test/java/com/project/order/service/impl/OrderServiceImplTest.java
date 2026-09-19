@@ -11,6 +11,7 @@ import com.project.order.client.dto.ProductSummary;
 import com.project.order.dto.OrderItemRequest;
 import com.project.order.dto.OrderRequest;
 import com.project.order.dto.OrderResponse;
+import com.project.order.dto.OrderStatusUpdateRequest;
 import com.project.order.dto.ShippingAddressRequest;
 import com.project.order.exception.OrderValidationException;
 import com.project.order.application.mapper.OrderMapper;
@@ -84,6 +85,21 @@ class OrderServiceImplTest {
 
         verify(inventoryClient, never()).commit(any(), any());
         verify(couponClient, never()).redeem(any());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void statusUpdateRejectsSkippingTheFulfillmentSequenceBeforeMutation() {
+        Order order = pendingOrder();
+        order.setStatus(OrderStatus.CONFIRMED);
+        when(orderRepository.findById("order-1")).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> service.updateOrderStatus("order-1",
+                new OrderStatusUpdateRequest(OrderStatus.DELIVERED, "skip shipping")))
+                .isInstanceOf(OrderValidationException.class)
+                .hasMessageContaining("CONFIRMED to DELIVERED");
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
         verify(orderRepository, never()).save(any());
     }
 

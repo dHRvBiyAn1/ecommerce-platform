@@ -3,6 +3,7 @@ package com.project.order.controller;
 import com.project.common.constant.Permissions;
 import com.project.common.constant.ServiceScopes;
 import com.project.common.dto.ApiResponse;
+import com.project.common.dto.ErrorResponse;
 import com.project.common.security.CurrentUser;
 import com.project.order.dto.OrderRequest;
 import com.project.order.dto.OrderResponse;
@@ -10,6 +11,15 @@ import com.project.order.dto.OrderStatusUpdateRequest;
 import com.project.order.model.OrderStatus;
 import com.project.order.service.OrderService;
 import com.project.order.validation.OrderAccessValidator;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +43,17 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/orders")
 @RequiredArgsConstructor
+@Tag(name = "Orders", description = "Customer order lifecycle and administrative status management")
+@SecurityScheme(name = "bearerAuth", type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT")
+@SecurityRequirement(name = "bearerAuth")
+@ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Validation failed",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Operation forbidden",
+                content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+})
 public class OrderController {
 
     private final OrderService orderService;
@@ -40,8 +61,11 @@ public class OrderController {
 
     @PostMapping
     @PreAuthorize("hasAuthority('" + Permissions.ORDERS_CREATE + "')")
+    @Operation(summary = "Create or replay an order")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Order created or replayed")
     public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
             @Valid @RequestBody OrderRequest request,
+            @Parameter(description = "Optional replay key scoped to the authenticated customer; reuse returns the durable order")
             @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
         UUID userId = CurrentUser.requireId();
         String email = CurrentUser.email().orElse(null);
@@ -63,6 +87,9 @@ public class OrderController {
 
     @GetMapping("/{orderId}")
     @PreAuthorize("T(com.project.common.security.CurrentUser).isService() ? hasAuthority('" + ServiceScopes.AUTHORITY_ORDERS_READ + "') : hasAuthority('" + Permissions.ORDERS_READ + "')")
+    @Operation(summary = "Get an owned order")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Order not found",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     public ResponseEntity<ApiResponse<OrderResponse>> getOrder(@PathVariable String orderId) {
         OrderResponse order = orderService.getOrder(orderId);
         orderAccessValidator.validateRead(order.userId());
@@ -80,6 +107,7 @@ public class OrderController {
     /** Order status updates (shipped/delivered) are admin-only. */
     @PutMapping("/{orderId}/status")
     @PreAuthorize("hasAuthority('" + Permissions.ORDERS_UPDATE + "') and hasRole('ADMIN')")
+    @Operation(summary = "Transition an order status as an administrator")
     public ResponseEntity<ApiResponse<OrderResponse>> updateOrderStatus(
             @PathVariable String orderId,
             @Valid @RequestBody OrderStatusUpdateRequest request) {

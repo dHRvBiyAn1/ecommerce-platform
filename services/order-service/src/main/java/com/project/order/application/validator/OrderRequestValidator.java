@@ -5,6 +5,7 @@ import com.project.order.dto.OrderItemRequest;
 import com.project.order.dto.OrderRequest;
 import com.project.order.dto.ShippingAddressRequest;
 import com.project.order.exception.OrderValidationException;
+import com.project.order.model.OrderStatus;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;
@@ -31,6 +32,18 @@ public class OrderRequestValidator {
         validateBillingAddress(request.billingAddress());
         if (request.paymentMethod() == null || request.paymentMethod().isBlank()) {
             throw new OrderValidationException("Payment method is required");
+        }
+    }
+
+    public void validateStatusTransition(OrderStatus current, OrderStatus next) {
+        boolean allowed = switch (current) {
+            case CONFIRMED -> next == OrderStatus.PROCESSING;
+            case PROCESSING -> next == OrderStatus.SHIPPED;
+            case SHIPPED -> next == OrderStatus.DELIVERED;
+            default -> false;
+        };
+        if (!allowed) {
+            throw new OrderValidationException("Cannot transition order from " + current + " to " + next);
         }
     }
 

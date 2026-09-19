@@ -544,6 +544,7 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
         OrderStatus newStatus = request.getStatus();
+        orderRequestValidator.validateStatusTransition(order.getStatus(), newStatus);
         order.setStatus(newStatus);
         order.setUpdatedAt(LocalDateTime.now());
         if (request.getNotes() != null) order.setNotes(request.getNotes());
