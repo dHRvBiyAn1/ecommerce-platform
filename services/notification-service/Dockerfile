@@ -3,14 +3,13 @@ FROM eclipse-temurin:17-jdk-jammy AS build
 WORKDIR /workspace
 COPY --chmod=0755 mvnw pom.xml ./
 COPY .mvn/ .mvn/
-RUN --mount=type=cache,target=/root/.m2,sharing=locked \
-    ./mvnw -B -ntp -DskipTests -N install
 COPY services/common/pom.xml services/common/pom.xml
 COPY services/common/src/ services/common/src/
 COPY services/notification-service/pom.xml services/notification-service/pom.xml
 COPY services/notification-service/src/ services/notification-service/src/
 RUN --mount=type=cache,target=/root/.m2,sharing=locked \
-    ./mvnw -B -ntp -DskipTests -f services/common/pom.xml install \
+    ./mvnw -B -ntp -DskipTests -N install \
+ && ./mvnw -B -ntp -DskipTests -f services/common/pom.xml install \
  && ./mvnw -B -ntp -DskipTests -f services/notification-service/pom.xml clean package
 
 FROM build AS layers
