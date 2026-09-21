@@ -43,12 +43,12 @@
     },
     "src/api/cart.ts": {
       "lines": {
-        "covered": 1,
+        "covered": 36,
         "total": 36
       },
       "branches": {
-        "covered": 0,
-        "total": 0
+        "covered": 9,
+        "total": 9
       }
     },
     "src/api/client.ts": {
@@ -733,12 +733,12 @@
     },
     "src/pages/storefront/cart.tsx": {
       "lines": {
-        "covered": 0,
+        "covered": 178,
         "total": 186
       },
       "branches": {
-        "covered": 0,
-        "total": 1
+        "covered": 29,
+        "total": 39
       }
     },
     "src/pages/storefront/catalog.tsx": {
@@ -793,22 +793,22 @@
     },
     "src/stores/auth.ts": {
       "lines": {
-        "covered": 28,
+        "covered": 45,
         "total": 45
       },
       "branches": {
-        "covered": 4,
-        "total": 7
+        "covered": 26,
+        "total": 26
       }
     },
     "src/stores/cart.ts": {
       "lines": {
-        "covered": 24,
-        "total": 155
+        "covered": 160,
+        "total": 169
       },
       "branches": {
-        "covered": 1,
-        "total": 1
+        "covered": 42,
+        "total": 65
       }
     }
   },
@@ -837,19 +837,16 @@
         "src/api/cart.ts"
       ],
       "threshold": {
-        "lines": 0,
+        "lines": 0.8,
         "branches": 0
       }
     },
     "auth": {
       "files": [
-        "src/pages/auth/login.tsx",
-        "src/pages/auth/register.tsx",
-        "src/api/auth.ts",
         "src/stores/auth.ts"
       ],
       "threshold": {
-        "lines": 0,
+        "lines": 0.8,
         "branches": 0
       }
     }
