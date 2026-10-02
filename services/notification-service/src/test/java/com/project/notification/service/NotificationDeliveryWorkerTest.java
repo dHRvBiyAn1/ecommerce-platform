@@ -132,6 +132,31 @@ class NotificationDeliveryWorkerTest {
     }
 
     @Test
+    void scheduledPollReconcilesAndLeavesWhenNoDeliveryIsDue() {
+        when(mongoTemplate.find(any(Query.class), eq(NotificationDelivery.class))).thenReturn(List.of());
+        when(mongoTemplate.findAndModify(any(), any(), any(), eq(NotificationDelivery.class))).thenReturn(null);
+
+        worker.processDueDeliveries();
+
+        verify(mongoTemplate).find(any(Query.class), eq(NotificationDelivery.class));
+        verify(mongoTemplate).findAndModify(any(), any(), any(), eq(NotificationDelivery.class));
+        verify(emailService, never()).sendEmail(any(), any(), any(), any());
+    }
+
+    @Test
+    void scheduledPollDeliversClaimedWorkWhenOwnershipHasExpired() {
+        NotificationDelivery claim = claim(1);
+        when(mongoTemplate.find(any(Query.class), eq(NotificationDelivery.class))).thenReturn(List.of());
+        when(mongoTemplate.findAndModify(any(), any(), any(), eq(NotificationDelivery.class))).thenReturn(claim);
+        when(mongoTemplate.findOne(any(Query.class), eq(NotificationDelivery.class))).thenReturn(null);
+
+        worker.processDueDeliveries();
+
+        verify(mongoTemplate).findOne(any(Query.class), eq(NotificationDelivery.class));
+        verify(emailService, never()).sendEmail(any(), any(), any(), any());
+    }
+
+    @Test
     void heartbeatRenewsLeaseWhileSynchronousEmailIsActive() throws Exception {
         NotificationDelivery claim = claim(1);
         Notification notification = Notification.builder()

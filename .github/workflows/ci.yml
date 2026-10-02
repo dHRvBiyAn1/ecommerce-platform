@@ -109,10 +109,18 @@ jobs:
         run: bash scripts/check-jacoco-baseline.test.sh
 
       - name: Verify the whole reactor
-        run: ./mvnw -B -ntp -fae verify
+        run: ./mvnw -B -ntp -fae clean verify
 
       - name: Check backend coverage baseline
         run: bash scripts/check-jacoco-baseline.sh coverage-baseline/backend-modules.json
+
+      - name: Upload backend JaCoCo reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jacoco-xml
+          retention-days: 7
+          path: services/*/target/site/jacoco/jacoco.xml
 
       - name: Publish JUnit reports
         if: always()

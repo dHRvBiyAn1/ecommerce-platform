@@ -83,6 +83,24 @@ class NotificationServiceTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
+    @Test
+    void recordingAnExistingSourceEventReturnsItsNotificationWithoutInsertingAgain() {
+        UUID ownerId = UUID.randomUUID();
+        Notification existing = notification(ownerId);
+        existing.setSourceEventId("order-event-1");
+        when(repository.findBySourceEventId("order-event-1")).thenReturn(Optional.of(existing));
+        when(deliveryRepository.findByNotificationId("notification-1")).thenReturn(Optional.of(
+                com.project.notification.model.NotificationDelivery.builder()
+                        .id("delivery-1").notificationId("notification-1").build()));
+
+        var response = service.record(ownerId, "owner@example.com", "EMAIL", "ORDER", "Subject", "Body",
+                "order-event-1");
+
+        assertThat(response.id()).isEqualTo("notification-1");
+        verify(repository, never()).insert(any(Notification.class));
+        verify(deliveryRepository, never()).save(any());
+    }
+
     private Notification notification(UUID ownerId) {
         return Notification.builder()
                 .id("notification-1")

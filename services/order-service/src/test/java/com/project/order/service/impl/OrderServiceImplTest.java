@@ -313,6 +313,35 @@ class OrderServiceImplTest {
     }
 
     @Test
+    void processingStatusPersistsAndPublishesProcessingPayload() throws Exception {
+        Order order = pendingOrder();
+        order.setStatus(OrderStatus.CONFIRMED);
+        when(orderRepository.findById("order-1")).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.updateOrderStatus("order-1", new OrderStatusUpdateRequest(OrderStatus.PROCESSING, null));
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PROCESSING);
+        assertThat(order.getOutboxEvents()).singleElement().satisfies(event -> {
+            assertThat(event.getEventType()).isEqualTo("STATUS_CHANGED");
+            assertThat(new ObjectMapper().readTree(event.getPayload()).get("type").asText())
+                    .isEqualTo("PROCESSING");
+        });
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    void orderLookupsMapRepositoryResultsIntoResponses() {
+        Order order = pendingOrder();
+        order.setOrderNumber("ORD-1");
+        when(orderRepository.findById("order-1")).thenReturn(Optional.of(order));
+        when(orderRepository.findByOrderNumber("ORD-1")).thenReturn(Optional.of(order));
+
+        assertThat(service.getOrder("order-1").id()).isEqualTo("order-1");
+        assertThat(service.getOrderByNumber("ORD-1").orderNumber()).isEqualTo("ORD-1");
+    }
+
+    @Test
     void deliveryStatusAddsDeliveryTimestampWithoutReplacingNotes() {
         Order order = pendingOrder();
         order.setStatus(OrderStatus.SHIPPED);

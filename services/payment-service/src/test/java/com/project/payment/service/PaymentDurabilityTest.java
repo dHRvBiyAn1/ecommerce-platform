@@ -666,11 +666,14 @@ class PaymentDurabilityTest {
     }
 
     @Test
-    void legacyOutboxOrderingUsesCreationTimeAndStableIdAsTieBreaker() {
+    void legacyOutboxOrderingUsesCreationTimeThenStableId() {
         Persistence persistence = new Persistence();
         LocalDateTime sameTime = LocalDateTime.now().minusMinutes(1);
-        persistence.outbox.add(legacyEvent("z-later", sameTime));
-        persistence.outbox.add(legacyEvent("a-earlier", sameTime));
+        LocalDateTime earlier = sameTime.minusMinutes(1);
+        persistence.outbox.add(legacyEvent("late-time", sameTime, "payment-time"));
+        persistence.outbox.add(legacyEvent("early-time", earlier, "payment-time"));
+        persistence.outbox.add(legacyEvent("z-later", sameTime, "payment-id"));
+        persistence.outbox.add(legacyEvent("a-earlier", sameTime, "payment-id"));
         List<String> published = new ArrayList<>();
         KafkaTemplate<String, Object> kafka = mock(KafkaTemplate.class);
         when(kafka.send(any(), any(), any())).thenAnswer(invocation -> {
@@ -681,7 +684,9 @@ class PaymentDurabilityTest {
         new PaymentOutboxRelay(persistence.outboxRepository,
                 new PaymentEventPublisher(kafka, new ObjectMapper().findAndRegisterModules())).relayEvents();
 
-        assertThat(published).containsExactly("a-earlier");
+        assertThat(published).containsExactly("early-time", "a-earlier");
+        assertThat(persistence.outbox("late-time").getPublishedAt()).isNull();
+        assertThat(persistence.outbox("early-time").getPublishedAt()).isNotNull();
         assertThat(persistence.outbox("z-later").getPublishedAt()).isNull();
         assertThat(persistence.outbox("a-earlier").getPublishedAt()).isNotNull();
     }
@@ -721,7 +726,11 @@ class PaymentDurabilityTest {
     }
 
     private PaymentOutboxEvent legacyEvent(String id, LocalDateTime createdAt) {
-        return PaymentOutboxEvent.builder().id(id).version(0L).paymentId("payment-1").eventType("COMPLETED")
+        return legacyEvent(id, createdAt, "payment-1");
+    }
+
+    private PaymentOutboxEvent legacyEvent(String id, LocalDateTime createdAt, String paymentId) {
+        return PaymentOutboxEvent.builder().id(id).version(0L).paymentId(paymentId).eventType("COMPLETED")
                 .payload("{\"paymentId\":\"" + id + "\"}").attempts(0)
                 .nextAttemptAt(LocalDateTime.now().minusSeconds(1)).createdAt(createdAt).build();
     }

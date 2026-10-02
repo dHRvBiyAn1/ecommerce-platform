@@ -205,6 +205,19 @@ class ProductServiceImplTest {
     }
 
     @Test
+    void sellerCreateEntryPointCreatesAPendingProduct() {
+        ProductRepository products = savingRepository();
+        ProductServiceImpl service = serviceWithRealMapper(products, mock(ProductEventPublisher.class), activeCategories());
+
+        ProductResponse response = service.createProduct(request("SKU-COMPAT", UUID.randomUUID(), null));
+
+        assertEquals("SKU-COMPAT", response.sku());
+        ArgumentCaptor<Product> saved = ArgumentCaptor.forClass(Product.class);
+        verify(products).save(saved.capture());
+        assertEquals(ProductApprovalStatus.PENDING, saved.getValue().getApprovalStatus());
+    }
+
+    @Test
     void adminCreateAutoApprovesProductAndRejectsDuplicateSkuBeforePersistence() {
         ProductRepository products = savingRepository();
         ProductEventPublisher events = mock(ProductEventPublisher.class);
@@ -274,6 +287,20 @@ class ProductServiceImplTest {
         assertEquals(Map.of("color", "red"), product.getAttributes());
         verify(events).publishUpdated(product);
         verify(events, never()).publishPriceChanged(product);
+    }
+
+    @Test
+    void sellerUpdateOfPendingProductKeepsItPending() {
+        ProductRepository products = savingRepository();
+        ProductServiceImpl service = serviceWithRealMapper(products, mock(ProductEventPublisher.class), activeCategories());
+        UUID sellerId = UUID.randomUUID();
+        Product product = product("product-1", sellerId);
+        product.setApprovalStatus(ProductApprovalStatus.PENDING);
+        when(products.findById("product-1")).thenReturn(Optional.of(product));
+
+        service.updateProduct("product-1", request("SKU-1", sellerId, null), false);
+
+        assertEquals(ProductApprovalStatus.PENDING, product.getApprovalStatus());
     }
 
     @Test
