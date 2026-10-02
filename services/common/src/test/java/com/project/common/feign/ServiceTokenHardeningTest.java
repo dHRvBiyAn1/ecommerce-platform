@@ -7,12 +7,12 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -96,24 +96,46 @@ class ServiceTokenHardeningTest {
     @Test
     void concurrentCallersShareOneExchange() throws Exception {
         AtomicInteger calls = new AtomicInteger();
-        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch requestStarted = new CountDownLatch(1);
+        CountDownLatch releaseRequest = new CountDownLatch(1);
+        CountDownLatch waiterStarted = new CountDownLatch(1);
+        AtomicReference<Thread> waiterThread = new AtomicReference<>();
         ServiceTokenProvider provider = new ServiceTokenProvider(properties -> {
             calls.incrementAndGet();
+            requestStarted.countDown();
+            try {
+                if (!releaseRequest.await(2, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("request release timed out");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(e);
+            }
             return new ServiceTokenResponse("shared", "Bearer", 300, "coupons.read");
         }, properties(), Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
-        var executor = Executors.newFixedThreadPool(8);
+        var executor = Executors.newFixedThreadPool(2);
         try {
-            var results = new ArrayList<Future<String>>();
-            for (int i = 0; i < 8; i++) {
-                results.add(executor.submit(() -> {
-                    if (!start.await(2, TimeUnit.SECONDS)) throw new IllegalStateException("start timed out");
-                    return provider.getAccessToken();
-                }));
+            Future<String> first = executor.submit(provider::getAccessToken);
+            assertThat(requestStarted.await(2, TimeUnit.SECONDS)).isTrue();
+            Future<String> second = executor.submit(() -> {
+                waiterThread.set(Thread.currentThread());
+                waiterStarted.countDown();
+                return provider.getAccessToken();
+            });
+            assertThat(waiterStarted.await(2, TimeUnit.SECONDS)).isTrue();
+
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (waiterThread.get().getState() != Thread.State.BLOCKED && System.nanoTime() < deadline) {
+                Thread.onSpinWait();
             }
-            start.countDown();
-            for (Future<String> result : results) assertThat(result.get(2, TimeUnit.SECONDS)).isEqualTo("shared");
+            assertThat(waiterThread.get().getState()).isEqualTo(Thread.State.BLOCKED);
+
+            releaseRequest.countDown();
+            assertThat(first.get(2, TimeUnit.SECONDS)).isEqualTo("shared");
+            assertThat(second.get(2, TimeUnit.SECONDS)).isEqualTo("shared");
             assertThat(calls.get()).isEqualTo(1);
         } finally {
+            releaseRequest.countDown();
             executor.shutdownNow();
         }
     }
