@@ -59,6 +59,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
@@ -543,9 +544,62 @@ class PaymentDurabilityTest {
         String unsupported = stripeEvent("evt-type", "charge.succeeded", "PAY-1", "pi-1");
         assertThat(controller.handleStripeWebhook(signature(unsupported), unsupported).getStatusCode())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
+        String missingEventId = stripeEvent("", "payment_intent.succeeded", "PAY-1", "pi-1");
+        assertThat(controller.handleStripeWebhook(signature(missingEventId), missingEventId).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
         String missingReference = stripeEvent("evt-ref", "payment_intent.succeeded", null, "pi-1");
         assertThat(controller.handleStripeWebhook(signature(missingReference), missingReference).getStatusCode())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void stripeWebhookDispatchesSignedSuccessAndFailureEvents() throws Exception {
+        com.project.payment.service.PaymentService paymentService = mock(com.project.payment.service.PaymentService.class);
+        PaymentController controller = new PaymentController(
+                paymentService, mock(com.project.payment.application.validator.PaymentAccessValidator.class));
+        ReflectionTestUtils.setField(controller, "stripeWebhookSecret", "whsec_test");
+        String succeeded = stripeEvent("evt-ok", "payment_intent.succeeded", "PAY-1", "pi-1");
+        String failed = stripeEvent("evt-failed", "payment_intent.payment_failed", "PAY-2", "pi-2");
+
+        assertThat(controller.handleStripeWebhook(signature(succeeded), succeeded).getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+        assertThat(controller.handleStripeWebhook(signature(failed), failed).getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+
+        org.mockito.Mockito.verify(paymentService).handleStripeWebhook(eq("evt-ok"),
+                eq("payment_intent.succeeded"), eq("PAY-1"), any(PaymentWebhookRequest.class));
+        org.mockito.Mockito.verify(paymentService).handleStripeWebhook(eq("evt-failed"),
+                eq("payment_intent.payment_failed"), eq("PAY-2"),
+                org.mockito.ArgumentMatchers.argThat(webhook -> "Payment failed".equals(webhook.failureReason())));
+    }
+
+    @Test
+    void internalWebhookRequiresAValidSignatureAndDispatchesOnlyParsedPayloads() throws Exception {
+        com.project.payment.service.PaymentService paymentService = mock(com.project.payment.service.PaymentService.class);
+        PaymentController controller = new PaymentController(
+                paymentService, mock(com.project.payment.application.validator.PaymentAccessValidator.class));
+        org.springframework.mock.web.MockHttpServletRequest request = new org.springframework.mock.web.MockHttpServletRequest();
+        String payload = "{\"paymentReference\":\"PAY-1\",\"transactionId\":\"pi-1\",\"status\":\"COMPLETED\"}";
+
+        assertThat(controller.handleWebhook(request, payload).getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        ReflectionTestUtils.setField(controller, "webhookSecret", "whsec_test");
+        assertThat(controller.handleWebhook(request, payload).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        request.addHeader("X-Webhook-Signature", "invalid");
+        assertThat(controller.handleWebhook(request, payload).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.addHeader("X-Webhook-Signature", signature(payload));
+        assertThat(controller.handleWebhook(request, payload).getStatusCode()).isEqualTo(HttpStatus.OK);
+        org.mockito.Mockito.verify(paymentService).handleVerifiedWebhook(
+                eq("internal"), any(), eq("COMPLETED"), eq("PAY-1"), any(PaymentWebhookRequest.class));
+
+        String malformed = "not-json";
+        org.springframework.mock.web.MockHttpServletRequest malformedRequest =
+                new org.springframework.mock.web.MockHttpServletRequest();
+        malformedRequest.addHeader("X-Webhook-Signature", signature(malformed));
+        assertThatThrownBy(() -> controller.handleWebhook(malformedRequest, malformed))
+                .isInstanceOf(PaymentException.class)
+                .hasMessage("Invalid webhook payload");
     }
 
     @Test
@@ -611,6 +665,27 @@ class PaymentDurabilityTest {
         assertThat(delivered.getPayload()).isEqualTo(payload);
     }
 
+    @Test
+    void legacyOutboxOrderingUsesCreationTimeAndStableIdAsTieBreaker() {
+        Persistence persistence = new Persistence();
+        LocalDateTime sameTime = LocalDateTime.now().minusMinutes(1);
+        persistence.outbox.add(legacyEvent("z-later", sameTime));
+        persistence.outbox.add(legacyEvent("a-earlier", sameTime));
+        List<String> published = new ArrayList<>();
+        KafkaTemplate<String, Object> kafka = mock(KafkaTemplate.class);
+        when(kafka.send(any(), any(), any())).thenAnswer(invocation -> {
+            published.add(((PaymentEvent) invocation.getArgument(2)).getPaymentId());
+            return CompletableFuture.completedFuture(null);
+        });
+
+        new PaymentOutboxRelay(persistence.outboxRepository,
+                new PaymentEventPublisher(kafka, new ObjectMapper().findAndRegisterModules())).relayEvents();
+
+        assertThat(published).containsExactly("a-earlier");
+        assertThat(persistence.outbox("z-later").getPublishedAt()).isNull();
+        assertThat(persistence.outbox("a-earlier").getPublishedAt()).isNotNull();
+    }
+
     private PaymentServiceImpl service(Persistence persistence, PaymentGateway gateway, OrderClient orderClient) {
         return new PaymentServiceImpl(
                 persistence.paymentRepository, persistence.operationRepository, persistence.receiptRepository,
@@ -643,6 +718,12 @@ class PaymentDurabilityTest {
         payment.setStatus(PaymentStatus.COMPLETED);
         payment.setTransactionId("pi-1");
         return payment;
+    }
+
+    private PaymentOutboxEvent legacyEvent(String id, LocalDateTime createdAt) {
+        return PaymentOutboxEvent.builder().id(id).version(0L).paymentId("payment-1").eventType("COMPLETED")
+                .payload("{\"paymentId\":\"" + id + "\"}").attempts(0)
+                .nextAttemptAt(LocalDateTime.now().minusSeconds(1)).createdAt(createdAt).build();
     }
 
     private String signature(String payload) throws Exception {

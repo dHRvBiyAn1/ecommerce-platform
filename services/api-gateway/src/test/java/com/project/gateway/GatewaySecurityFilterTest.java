@@ -80,6 +80,27 @@ class GatewaySecurityFilterTest {
     }
 
     @Test
+    void nullTrustedProxyListAndMalformedCidrFailClosed() throws Exception {
+        MockHttpServletRequest untrusted = request("10.0.0.12");
+        untrusted.addHeader("X-Forwarded-For", "198.51.100.10");
+        new ForwardedIpTrustFilter(null).doFilter(untrusted, new MockHttpServletResponse(),
+                (req, res) -> assertThat(req.getAttribute(ForwardedIpTrustFilter.CLIENT_IP_ATTRIBUTE))
+                        .isEqualTo("10.0.0.12"));
+
+        assertClientIp("10.0.0.12", "10.0.0.12", "not-a-cidr", "198.51.100.10");
+    }
+
+    @Test
+    void trustedProxyWithoutAForwardedAddressUsesItsPeerAddress() throws Exception {
+        MockHttpServletRequest request = request("10.0.0.12");
+
+        new ForwardedIpTrustFilter(List.of("10.0.0.0/8")).doFilter(
+                request, new MockHttpServletResponse(), (req, res) ->
+                        assertThat(req.getAttribute(ForwardedIpTrustFilter.CLIENT_IP_ATTRIBUTE))
+                                .isEqualTo("10.0.0.12"));
+    }
+
+    @Test
     void rejectsNonCanonicalIpv4ForwardedAddresses() throws Exception {
         assertClientIp("10.0.0.12", "10.0.0.12", "10.0.0.0/8", "010.000.000.001");
     }
@@ -114,6 +135,21 @@ class GatewaySecurityFilterTest {
                     assertThat(((jakarta.servlet.http.HttpServletRequest) identityRequest).getHeader("X-User-Id")).isNull();
                     assertThat(((jakarta.servlet.http.HttpServletRequest) identityRequest).getHeader("X-Forwarded-For")).isNull();
                 }));
+    }
+
+    @Test
+    void preservesAllowedAndNullHeadersWhileBlockingIdentityHeaders() throws Exception {
+        MockHttpServletRequest request = request("198.51.100.10");
+        request.addHeader("X-User-Id", "admin");
+        request.addHeader("X-Request-Id", "request-123");
+
+        new ClientHeaderStrippingFilter().doFilter(request, new MockHttpServletResponse(), (filtered, response) -> {
+            jakarta.servlet.http.HttpServletRequest downstream =
+                    (jakarta.servlet.http.HttpServletRequest) filtered;
+            assertThat(downstream.getHeader("X-User-Id")).isNull();
+            assertThat(downstream.getHeader("X-Request-Id")).isEqualTo("request-123");
+            assertThat(downstream.getHeader(null)).isNull();
+        });
     }
 
     @Test

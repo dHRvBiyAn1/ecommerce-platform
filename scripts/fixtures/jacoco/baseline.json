@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "modules": {
+    "services/fixture": {
+      "line": { "covered": 88, "missed": 22 },
+      "branch": { "covered": 88, "missed": 22 }
+    }
+  },
+  "criticalClasses": {
+    "com.project.product_service.service.impl.ProductServiceImpl": { "line": 80, "branch": 80 },
+    "com.project.product_service.kafka.ProductSearchConsumer": { "line": 80, "branch": 80 },
+    "com.project.order.service.impl.OrderServiceImpl": { "line": 80, "branch": 80 },
+    "com.project.order.service.impl.OutboxEventRelay": { "line": 80, "branch": 80 },
+    "com.project.payment.service.impl.PaymentServiceImpl": { "line": 80, "branch": 80 },
+    "com.project.payment.service.impl.PaymentOutboxRelay": { "line": 80, "branch": 80 },
+    "com.project.payment.controller.PaymentController": { "line": 80, "branch": 80 },
+    "com.project.gateway.filter.ForwardedIpTrustFilter": { "line": 80, "branch": 80 },
+    "com.project.gateway.config.ClientHeaderStrippingFilter": { "line": 80, "branch": 80 },
+    "com.project.authservice.service.AuthService": { "line": 80, "branch": 80 },
+    "com.project.authservice.service.ClientCredentialsService": { "line": 80, "branch": 80 }
+  }
+}

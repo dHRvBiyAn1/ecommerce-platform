@@ -41,6 +41,11 @@ jobs:
               - 'docker/**'
               - '.mvn/**'
               - 'mvnw'
+              - '.github/workflows/ci.yml'
+              - 'scripts/check-jacoco-baseline.sh'
+              - 'scripts/check-jacoco-baseline.test.sh'
+              - 'scripts/fixtures/jacoco/**'
+              - 'coverage-baseline/backend-modules.json'
             auth-service: &shared_backend_paths
               - 'services/auth-service/**'
               - 'services/common/**'
@@ -97,11 +102,17 @@ jobs:
           java -version
           ./mvnw -v
 
-      - name: Compile + package the whole reactor
-        run: ./mvnw -B -ntp -DskipTests -T 1C install
+      - name: Verify Docker availability for Testcontainers
+        run: docker version
 
-      - name: Run tests for the whole reactor
-        run: ./mvnw -B -ntp -fae -T 1C verify
+      - name: Test backend coverage checker
+        run: bash scripts/check-jacoco-baseline.test.sh
+
+      - name: Verify the whole reactor
+        run: ./mvnw -B -ntp -fae verify
+
+      - name: Check backend coverage baseline
+        run: bash scripts/check-jacoco-baseline.sh coverage-baseline/backend-modules.json
 
       - name: Publish JUnit reports
         if: always()
@@ -177,9 +188,11 @@ jobs:
           cache-dependency-path: frontend/ecommerce-app/package-lock.json
       - name: Install
         run: npm ci --no-audit --no-fund
-      - name: Type-check
-        run: npx tsc -b --noEmit
-      - name: Build
+      - name: Install Chrome for Playwright
+        run: npx playwright install --with-deps chrome
+      - name: React quality
+        run: npm run react:quality
+      - name: Build frontend distribution
         run: npm run build
       - name: Upload dist
         uses: actions/upload-artifact@v4

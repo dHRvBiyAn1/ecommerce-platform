@@ -147,6 +147,39 @@ class ClientCredentialsServiceTest {
         verifyNoInteractions(jwtService);
     }
 
+    @Test
+    void malformedOrUnknownClientCredentialsAreRejectedWithoutIssuingTokens() {
+        for (ClientCredentialsRequest request : new ClientCredentialsRequest[] {
+                null,
+                new ClientCredentialsRequest(" ", "correct-secret", "inventory.write"),
+                new ClientCredentialsRequest("order-service", null, "inventory.write"),
+                new ClientCredentialsRequest("unknown", "correct-secret", "inventory.write")
+        }) {
+            assertThatThrownBy(() -> service.issue(request))
+                    .isInstanceOf(AuthException.class)
+                    .hasMessage("Invalid client credentials");
+        }
+
+        verifyNoInteractions(jwtService);
+    }
+
+    @Test
+    void omittedScopeIssuesSortedAllowlistAndNullTtlIsRejected() {
+        when(jwtService.generateServiceToken(
+                "order-service", Set.of("coupons.read", "inventory.write"), Duration.ofMinutes(5)))
+                .thenReturn("signed-service-token");
+
+        ServiceTokenResponse response = service.issue(new ClientCredentialsRequest(
+                "order-service", "correct-secret", null));
+
+        assertThat(response.scope()).isEqualTo("coupons.read inventory.write");
+        service = new ClientCredentialsService(propertiesWithTtl(null), jwtService);
+        assertThatThrownBy(() -> service.issue(new ClientCredentialsRequest(
+                "order-service", "correct-secret", "inventory.write")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Service token TTL must be between 1 second and 15 minutes");
+    }
+
     private static ServiceClientProperties propertiesWithTtl(Duration ttl) {
         return new ServiceClientProperties(
                 ttl,

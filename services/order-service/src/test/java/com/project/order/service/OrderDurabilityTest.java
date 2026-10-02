@@ -527,6 +527,110 @@ class OrderDurabilityTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void synchronousPublishFailureReturnsEventToTheRetryQueue() {
+        RepositoryHarness persistence = new RepositoryHarness();
+        persistence.persist(pendingOrder());
+        KafkaTemplate<String, Object> kafkaTemplate = mock(KafkaTemplate.class);
+        when(kafkaTemplate.send(any(), any(), any())).thenThrow(new IllegalStateException("Kafka unavailable"));
+
+        new OutboxEventRelay(persistence.repository(), new OrderEventPublisher(kafkaTemplate, objectMapper()))
+                .relayEvents();
+
+        OutboxEvent event = persistence.stored().getOutboxEvents().get(0);
+        assertThat(event.getStatus()).isEqualTo("PENDING");
+        assertThat(event.getAttempts()).isEqualTo(1);
+        assertThat(event.getLeaseToken()).isNull();
+        assertThat(event.getLeaseUntil()).isNull();
+        assertThat(event.getNextAttemptAt()).isAfter(LocalDateTime.now().minusSeconds(1));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void notDueEventIsNotClaimedOrPublished() {
+        RepositoryHarness persistence = new RepositoryHarness();
+        Order order = pendingOrder();
+        order.getOutboxEvents().get(0).setNextAttemptAt(LocalDateTime.now().plusMinutes(1));
+        persistence.persist(order);
+        KafkaTemplate<String, Object> kafkaTemplate = mock(KafkaTemplate.class);
+
+        new OutboxEventRelay(persistence.repository(), new OrderEventPublisher(kafkaTemplate, objectMapper()))
+                .relayEvents();
+
+        OutboxEvent event = persistence.stored().getOutboxEvents().get(0);
+        assertThat(event.getAttempts()).isZero();
+        assertThat(event.getLeaseToken()).isNull();
+        verify(kafkaTemplate, org.mockito.Mockito.never()).send(any(), any(), any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void duplicateLegacyDeliveryIdsArePersistedAsDistinctRelayIdentities() {
+        RepositoryHarness persistence = new RepositoryHarness();
+        Order order = orderWithTwoOrderedEvents();
+        order.getOutboxEvents().forEach(event -> event.setDeliveryId("legacy-delivery"));
+        persistence.persist(order);
+        KafkaTemplate<String, Object> kafkaTemplate = mock(KafkaTemplate.class);
+
+        new OutboxEventRelay(persistence.repository(), new OrderEventPublisher(kafkaTemplate, objectMapper()))
+                .relayEvents();
+
+        assertThat(persistence.stored().getOutboxEvents())
+                .extracting(OutboxEvent::getDeliveryId)
+                .doesNotHaveDuplicates()
+                .doesNotContainNull();
+        verify(kafkaTemplate, org.mockito.Mockito.never()).send(any(), any(), any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void terminalOutboxEventIsNotRelayedAgain() {
+        RepositoryHarness persistence = new RepositoryHarness();
+        Order order = pendingOrder();
+        order.getOutboxEvents().get(0).setStatus("MANUAL");
+        persistence.persist(order);
+        KafkaTemplate<String, Object> kafkaTemplate = mock(KafkaTemplate.class);
+
+        new OutboxEventRelay(persistence.repository(), new OrderEventPublisher(kafkaTemplate, objectMapper()))
+                .relayEvents();
+
+        assertThat(persistence.stored().getOutboxEvents().get(0).getStatus()).isEqualTo("MANUAL");
+        assertThat(persistence.stored().getOutboxEvents().get(0).getAttempts()).isZero();
+        verify(kafkaTemplate, org.mockito.Mockito.never()).send(any(), any(), any());
+    }
+
+    @Test
+    void relaySkipsAnOrderRemovedAfterThePendingQuery() {
+        OrderRepository repository = mock(OrderRepository.class);
+        Order candidate = new Order();
+        candidate.setId("removed-order");
+        when(repository.findOrdersWithPendingEvents("PENDING")).thenReturn(List.of(candidate));
+        when(repository.findById("removed-order")).thenReturn(Optional.empty());
+        KafkaTemplate<String, Object> kafkaTemplate = mock(KafkaTemplate.class);
+
+        new OutboxEventRelay(repository, new OrderEventPublisher(kafkaTemplate, objectMapper())).relayEvents();
+
+        org.mockito.Mockito.verify(kafkaTemplate, org.mockito.Mockito.never()).send(any(), any(), any());
+    }
+
+    @Test
+    void relaySkipsAnOrderWhoseEventsWereRemovedAfterThePendingQuery() {
+        OrderRepository repository = mock(OrderRepository.class);
+        Order candidate = new Order();
+        candidate.setId("empty-order");
+        when(repository.findOrdersWithPendingEvents("PENDING")).thenReturn(List.of(candidate));
+        Order reloaded = new Order();
+        reloaded.setId("empty-order");
+        reloaded.setOutboxEvents(null);
+        when(repository.findById("empty-order")).thenReturn(Optional.of(reloaded));
+        KafkaTemplate<String, Object> kafkaTemplate = mock(KafkaTemplate.class);
+
+        new OutboxEventRelay(repository, new OrderEventPublisher(kafkaTemplate, objectMapper())).relayEvents();
+
+        org.mockito.Mockito.verify(kafkaTemplate, org.mockito.Mockito.never()).send(any(), any(), any());
+    }
+
+    @Test
     void paymentCommitProgressResumesAfterProcessRestart() {
         RepositoryHarness persistence = new RepositoryHarness();
         persistence.persist(durablePendingOrder());

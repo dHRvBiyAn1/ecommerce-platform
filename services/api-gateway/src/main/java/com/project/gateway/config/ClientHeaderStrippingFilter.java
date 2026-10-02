@@ -33,12 +33,12 @@ public class ClientHeaderStrippingFilter extends OncePerRequestFilter {
                 chain.doFilter(new HttpServletRequestWrapper(http) {
                     @Override
                     public String getHeader(String name) {
-                        if (name != null && BLOCKED_HEADER_NAMES.contains(name.toLowerCase(Locale.ROOT))) return null;
+                        if (isBlockedHeader(name)) return null;
                         return super.getHeader(name);
                     }
                     @Override
                     public Enumeration<String> getHeaders(String name) {
-                        if (name != null && BLOCKED_HEADER_NAMES.contains(name.toLowerCase(Locale.ROOT))) {
+                        if (isBlockedHeader(name)) {
                             return Collections.emptyEnumeration();
                         }
                         return super.getHeaders(name);
@@ -47,10 +47,14 @@ public class ClientHeaderStrippingFilter extends OncePerRequestFilter {
                     public Enumeration<String> getHeaderNames() {
                         return Collections.enumeration(
                                 Collections.list(super.getHeaderNames()).stream()
-                                        .filter(n -> !BLOCKED_HEADER_NAMES.contains(n.toLowerCase(Locale.ROOT)))
+                                        .filter(n -> !isBlockedHeader(n))
                                         .toList());
                     }
                 }, response);
+    }
+
+    private static boolean isBlockedHeader(String name) {
+        return name != null && BLOCKED_HEADER_NAMES.contains(name.toLowerCase(Locale.ROOT));
     }
 
 }

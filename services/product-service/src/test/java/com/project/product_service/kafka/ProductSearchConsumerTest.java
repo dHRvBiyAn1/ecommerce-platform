@@ -52,6 +52,36 @@ class ProductSearchConsumerTest {
         assertEquals(3, document.getValue().getStockQuantity());
     }
 
+    @Test
+    void deletedAndMissingProductsDoNotLeaveSearchDocuments() {
+        ProductRepository products = mock(ProductRepository.class);
+        ProductSearchRepository search = mock(ProductSearchRepository.class);
+        when(products.findById("product-1")).thenReturn(Optional.empty());
+        ProductSearchConsumer consumer = new ProductSearchConsumer(search, products);
+
+        consumer.indexProductEvent(event(ProductEvent.Type.CREATED));
+        consumer.indexProductEvent(event(ProductEvent.Type.DELETED));
+
+        verify(search).deleteById("product-1");
+    }
+
+    @Test
+    void inactiveAndUnknownEventsDoNotIndexProducts() {
+        ProductRepository products = mock(ProductRepository.class);
+        ProductSearchRepository search = mock(ProductSearchRepository.class);
+        Product inactive = new Product();
+        inactive.setId("product-1");
+        inactive.setActive(false);
+        inactive.setApprovalStatus(ProductApprovalStatus.APPROVED);
+        when(products.findById("product-1")).thenReturn(Optional.of(inactive));
+        ProductSearchConsumer consumer = new ProductSearchConsumer(search, products);
+
+        consumer.indexProductEvent(event(ProductEvent.Type.ACTIVATED));
+        consumer.indexProductEvent(event(ProductEvent.Type.VARIANT_ADDED));
+
+        verify(search).deleteById("product-1");
+    }
+
     private static ProductEvent event(ProductEvent.Type type) {
         return ProductEvent.productEventBuilder().type(type).productId("product-1").build();
     }
