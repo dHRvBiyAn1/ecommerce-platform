@@ -291,16 +291,6 @@
         "total": 1
       }
     },
-    "src/components/bits/loading-dots.tsx": {
-      "lines": {
-        "covered": 0,
-        "total": 21
-      },
-      "branches": {
-        "covered": 0,
-        "total": 1
-      }
-    },
     "src/components/bits/spotlight.tsx": {
       "lines": {
         "covered": 0,

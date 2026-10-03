@@ -62,10 +62,10 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- Needed by IdempotencyService but only on the consumer when it injects StringRedisTemplate. -->
+        <!-- PageResponse exposes Spring Data's Page API to consuming services. -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <groupId>org.springframework.data</groupId>
+            <artifactId>spring-data-commons</artifactId>
             <scope>provided</scope>
         </dependency>
 
