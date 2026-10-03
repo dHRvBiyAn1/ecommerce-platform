@@ -1,12 +1,15 @@
 # Java / Maven
 target/
+!**/src/main/**/target/
+!**/src/test/**/target/
 *.class
 *.jar
 *.war
 *.log
 *-logs.txt
 newman-report.json
-
+HELP.md
+.mvn/wrapper/maven-wrapper.jar
 
 # IDE
 .idea/
@@ -15,15 +18,29 @@ newman-report.json
 .settings/
 .project
 .classpath
+.apt_generated/
+.factorypath
+.springBeans
+.sts4-cache/
 .opencode/
 .superpowers/
 .agents/
+.claude/
 .worktrees/
 graphify-out/
 .tools/
 .graphify_*.json
 *.swp
 *.swo
+*.iws
+*.ipr
+**/nbproject/private/
+**/nbbuild/
+**/nbdist/
+**/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
 
 # OS
 .DS_Store
@@ -32,6 +49,7 @@ Thumbs.db
 # Node / Angular
 node_modules/
 dist/
+.vite/
 
 # Local env / secrets — NEVER COMMIT
 .env
@@ -46,6 +64,9 @@ agents.md
 # Test outputs
 coverage/
 *.lcov
+test-results/
+playwright-report/
+skills-lock.json
 
 # CycloneDX SBOMs
 **/target/bom.*
