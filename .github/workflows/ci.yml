@@ -44,6 +44,7 @@ jobs:
               - '.github/workflows/ci.yml'
               - 'scripts/check-jacoco-baseline.sh'
               - 'scripts/check-jacoco-baseline.test.sh'
+              - 'scripts/test-active-service-routes.sh'
               - 'scripts/fixtures/jacoco/**'
               - 'coverage-baseline/backend-modules.json'
             auth-service: &shared_backend_paths
@@ -107,6 +108,9 @@ jobs:
 
       - name: Test backend coverage checker
         run: bash scripts/check-jacoco-baseline.test.sh
+
+      - name: Verify active service routes
+        run: bash scripts/test-active-service-routes.sh
 
       - name: Verify the whole reactor
         run: ./mvnw -B -ntp -fae clean verify
