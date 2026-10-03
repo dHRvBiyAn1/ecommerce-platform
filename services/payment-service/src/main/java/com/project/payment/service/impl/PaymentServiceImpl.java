@@ -299,7 +299,7 @@ public class PaymentServiceImpl implements PaymentService {
             }
             addTransition(payment, outboxId, outboxId, type);
         });
-        Payment.StateTransition transition = stateTransition(saved, outboxId);
+        Payment.StateTransition transition = requiredStateTransition(saved, outboxId);
         if (receipt.getTransitionSequence() == null) {
             receipt.setOutboxId(transition.outboxId());
             if (receipt.getPayload() == null) receipt.setPayload(transition.payload());
@@ -452,7 +452,7 @@ public class PaymentServiceImpl implements PaymentService {
             mutation.accept(payment);
             addTransition(payment, operation.getId(), stableId("operation", operation.getId(), type.name()), type);
         });
-        Payment.StateTransition transition = stateTransition(saved, operation.getId());
+        Payment.StateTransition transition = requiredStateTransition(saved, operation.getId());
         operation.setEventType(transition.eventType());
         operation.setOutboxId(transition.outboxId());
         operation.setPayload(transition.payload());
@@ -467,6 +467,12 @@ public class PaymentServiceImpl implements PaymentService {
         if (payment.getStateTransitions() == null) return null;
         return payment.getStateTransitions().stream()
                 .filter(transition -> operationId.equals(transition.operationId())).findFirst().orElse(null);
+    }
+
+    private Payment.StateTransition requiredStateTransition(Payment payment, String operationId) {
+        Payment.StateTransition transition = stateTransition(payment, operationId);
+        if (transition == null) throw new IllegalStateException("Persisted payment state transition is missing");
+        return transition;
     }
 
     private void addTransition(Payment payment, String sourceId, String outboxId, PaymentEvent.Type type) {
@@ -513,7 +519,7 @@ public class PaymentServiceImpl implements PaymentService {
                     addTransition(current, operation.getId(), stableId("operation", operation.getId(), type.name()), type);
                 }
             });
-            Payment.StateTransition transition = stateTransition(saved, operation.getId());
+            Payment.StateTransition transition = requiredStateTransition(saved, operation.getId());
             operation.setEventType(transition.eventType());
             operation.setOutboxId(transition.outboxId());
             operation.setPayload(transition.payload());

@@ -313,6 +313,63 @@ class PaymentDurabilityTest {
     }
 
     @Test
+    void missingWebhookSaveResultJournalFailsBeforeAcknowledgementAndCanReplay() {
+        Persistence persistence = new Persistence();
+        UUID userId = UUID.randomUUID();
+        Payment payment = pendingPayment(userId);
+        payment.setTransactionId("pi-1");
+        persistence.persist(payment);
+        when(persistence.paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> {
+            Payment saved = persistence.savePayment(invocation.getArgument(0));
+            saved.setStateTransitions(null);
+            return saved;
+        });
+        PaymentServiceImpl service = service(persistence, gateway(), order(userId));
+        PaymentWebhookRequest webhook = new PaymentWebhookRequest("PAY-1", "pi-1", "COMPLETED", null);
+
+        assertThatThrownBy(() -> service.handleStripeWebhook(
+                "evt-missing-result", "payment_intent.succeeded", "PAY-1", webhook))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Persisted payment state transition is missing");
+        assertThat(persistence.outbox).isEmpty();
+        assertThat(persistence.receipts).singleElement().satisfies(receipt ->
+                assertThat(receipt.getStatus()).isNotEqualTo("COMPLETED"));
+
+        when(persistence.paymentRepository.save(any(Payment.class)))
+                .thenAnswer(invocation -> persistence.savePayment(invocation.getArgument(0)));
+        service.handleStripeWebhook("evt-missing-result", "payment_intent.succeeded", "PAY-1", webhook);
+        assertThat(persistence.outbox).hasSize(1);
+        assertThat(persistence.receipts).singleElement().satisfies(receipt ->
+                assertThat(receipt.getStatus()).isEqualTo("COMPLETED"));
+    }
+
+    @Test
+    void missingOperationSaveResultJournalFailsBeforeOutboxAndCanReplay() {
+        Persistence persistence = new Persistence();
+        UUID userId = UUID.randomUUID();
+        persistence.persist(pendingPayment(userId));
+        when(persistence.paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> {
+            Payment saved = persistence.savePayment(invocation.getArgument(0));
+            saved.setStateTransitions(null);
+            return saved;
+        });
+        PaymentServiceImpl service = service(persistence, gateway(), order(userId));
+
+        assertThatThrownBy(() -> service.cancelPaymentByOrderId("order-1"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Persisted payment state transition is missing");
+        assertThat(persistence.outbox).isEmpty();
+        assertThat(persistence.operations).singleElement().satisfies(operation ->
+                assertThat(operation.getStatus()).isNotEqualTo("COMPLETED"));
+
+        when(persistence.paymentRepository.save(any(Payment.class)))
+                .thenAnswer(invocation -> persistence.savePayment(invocation.getArgument(0)));
+        service.cancelPaymentByOrderId("order-1");
+        assertThat(persistence.outbox).hasSize(1);
+        assertThat(persistence.payment("payment-1").getStatus()).isEqualTo(PaymentStatus.CANCELLED);
+    }
+
+    @Test
     void webhookReplayCompletesOutboxAfterAnInterruptedCrossDocumentPhase() {
         Persistence persistence = new Persistence();
         UUID userId = UUID.randomUUID();
