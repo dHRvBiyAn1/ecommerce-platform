@@ -46,6 +46,34 @@ class PaymentControllerSecurityTest {
     @MockBean(name = "mongoMappingContext")
     private MongoMappingContext mongoMappingContext;
 
+    @Autowired
+    private org.springframework.security.web.FilterChainProxy securityFilters;
+
+    @Test
+    void cookiesAndSessionsCannotSupplyBearerIdentity() throws Exception {
+        var owner = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        var token = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("owner-token")
+                .header("alg", "none").subject(owner.toString()).claim("token_type", "user")
+                .claim("roles", java.util.List.of("ROLE_CUSTOMER"))
+                .claim("permissions", java.util.List.of(Permissions.PAYMENTS_READ)).build();
+        org.mockito.Mockito.when(jwtDecoder.decode("owner-token")).thenReturn(token);
+        org.mockito.Mockito.when(paymentService.getUserPayments(owner)).thenReturn(java.util.List.of());
+        var session = new org.springframework.mock.web.MockHttpSession();
+        session.setAttribute(org.springframework.security.web.context.HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                new org.springframework.security.core.context.SecurityContextImpl(
+                        new com.project.common.security.JwtAuthenticationConverter().convert(token)));
+
+        mockMvc.perform(get("/api/v1/payments")
+                        .cookie(new jakarta.servlet.http.Cookie("access_token", "owner-token")))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/payments").session(session)).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/payments").header("Authorization", "Bearer owner-token"))
+                .andExpect(status().isOk());
+        org.assertj.core.api.Assertions.assertThat(securityFilters.getFilterChains().stream()
+                .flatMap(chain -> chain.getFilters().stream()))
+                .noneMatch(filter -> filter instanceof org.springframework.security.web.authentication.www.BasicAuthenticationFilter);
+    }
+
     @Test
     void onlyPostWebhookEndpointsAllowAnonymousRequests() throws Exception {
         mockMvc.perform(post("/api/v1/payments/webhook").content("{}"))

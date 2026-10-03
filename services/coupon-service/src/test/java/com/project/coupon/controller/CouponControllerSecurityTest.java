@@ -62,6 +62,35 @@ class CouponControllerSecurityTest {
     @MockBean
     private JwtDecoder jwtDecoder;
 
+    @Autowired
+    private org.springframework.security.web.FilterChainProxy securityFilters;
+
+    @Test
+    void cookiesAndSessionsCannotSupplyBearerIdentity() throws Exception {
+        var token = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("owner-token")
+                .header("alg", "none").subject(CUSTOMER_ID.toString()).claim("token_type", "user")
+                .claim("roles", java.util.List.of("ROLE_CUSTOMER"))
+                .claim("permissions", java.util.List.of(Permissions.COUPONS_READ)).build();
+        when(jwtDecoder.decode("owner-token")).thenReturn(token);
+        when(couponService.validate(any())).thenReturn(ValidateCouponResponse.valid("SAVE10", BigDecimal.ONE, "save"));
+        var session = new org.springframework.mock.web.MockHttpSession();
+        session.setAttribute(org.springframework.security.web.context.HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                new org.springframework.security.core.context.SecurityContextImpl(
+                        new com.project.common.security.JwtAuthenticationConverter().convert(token)));
+
+        mockMvc.perform(post("/api/v1/coupons/validate").contentType(MediaType.APPLICATION_JSON)
+                        .content(validationJson()).cookie(new jakarta.servlet.http.Cookie("access_token", "owner-token")))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/coupons/validate").contentType(MediaType.APPLICATION_JSON)
+                        .content(validationJson()).session(session)).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/coupons/validate").contentType(MediaType.APPLICATION_JSON)
+                        .content(validationJson()).header("Authorization", "Bearer owner-token"))
+                .andExpect(status().isOk());
+        org.assertj.core.api.Assertions.assertThat(securityFilters.getFilterChains().stream()
+                .flatMap(chain -> chain.getFilters().stream()))
+                .noneMatch(filter -> filter instanceof org.springframework.security.web.authentication.www.BasicAuthenticationFilter);
+    }
+
     @Test
     void unauthenticatedCouponEndpointsRequireBearerAuth() throws Exception {
         mockMvc.perform(post("/api/v1/coupons/validate")

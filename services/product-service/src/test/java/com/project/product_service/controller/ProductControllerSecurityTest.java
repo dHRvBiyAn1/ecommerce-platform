@@ -73,6 +73,34 @@ class ProductControllerSecurityTest {
     @MockBean(name = "mongoMappingContext")
     private MongoMappingContext mongoMappingContext;
 
+    @Autowired
+    private org.springframework.security.web.FilterChainProxy securityFilters;
+
+    @Test
+    void cookiesAndSessionsCannotSupplyBearerIdentity() throws Exception {
+        var token = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("owner-token")
+                .header("alg", "none").subject(SELLER_ID.toString()).claim("token_type", "user")
+                .claim("roles", List.of("ROLE_SELLER"))
+                .claim("permissions", List.of(com.project.common.constant.Permissions.PRODUCTS_READ)).build();
+        when(jwtDecoder.decode("owner-token")).thenReturn(token);
+        when(productService.getProductsBySeller(org.mockito.ArgumentMatchers.eq(SELLER_ID), any()))
+                .thenReturn(Page.empty());
+        var session = new org.springframework.mock.web.MockHttpSession();
+        session.setAttribute(org.springframework.security.web.context.HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                new org.springframework.security.core.context.SecurityContextImpl(
+                        new com.project.common.security.JwtAuthenticationConverter().convert(token)));
+        String url = "/api/v1/products/seller/" + SELLER_ID;
+
+        mockMvc.perform(get(url).cookie(new jakarta.servlet.http.Cookie("access_token", "owner-token")))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get(url).session(session)).andExpect(status().isUnauthorized());
+        mockMvc.perform(get(url).header("Authorization", "Bearer owner-token"))
+                .andExpect(status().isOk());
+        org.assertj.core.api.Assertions.assertThat(securityFilters.getFilterChains().stream()
+                .flatMap(chain -> chain.getFilters().stream()))
+                .noneMatch(filter -> filter instanceof org.springframework.security.web.authentication.www.BasicAuthenticationFilter);
+    }
+
     @Test
     void anonymousCallCannotReadAnotherSellersPrivateCatalog() throws Exception {
         mockMvc.perform(get("/api/v1/products/seller/{sellerId}", SELLER_ID))

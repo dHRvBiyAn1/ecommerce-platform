@@ -57,6 +57,32 @@ class NotificationOpenApiSecurityTest {
     @MockBean(name = "mongoMappingContext")
     private MongoMappingContext mongoMappingContext;
 
+    @Autowired
+    private org.springframework.security.web.FilterChainProxy securityFilters;
+
+    @Test
+    void cookiesAndSessionsCannotSupplyBearerIdentity() throws Exception {
+        var token = jwt(OWNER_ID);
+        when(jwtDecoder.decode("owner-token")).thenReturn(token);
+        when(notificationService.listForUser(org.mockito.ArgumentMatchers.eq(OWNER_ID), any()))
+                .thenReturn(Page.empty());
+        var session = new org.springframework.mock.web.MockHttpSession();
+        session.setAttribute(org.springframework.security.web.context.HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                new org.springframework.security.core.context.SecurityContextImpl(
+                        new com.project.common.security.JwtAuthenticationConverter().convert(token)));
+
+        mockMvc.perform(get("/api/v1/notifications")
+                        .cookie(new jakarta.servlet.http.Cookie("access_token", "owner-token")))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/notifications").session(session))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/notifications").header("Authorization", "Bearer owner-token"))
+                .andExpect(status().isOk());
+        org.assertj.core.api.Assertions.assertThat(securityFilters.getFilterChains().stream()
+                .flatMap(chain -> chain.getFilters().stream()))
+                .noneMatch(filter -> filter instanceof org.springframework.security.web.authentication.www.BasicAuthenticationFilter);
+    }
+
     @Test
     void anonymousReadReturnsBearerChallengeAndSharedErrorBody() throws Exception {
         mockMvc.perform(get("/api/v1/notifications"))

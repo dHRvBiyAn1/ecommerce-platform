@@ -24,6 +24,8 @@ import org.springframework.http.MediaType;
 public class SecurityConfig {
 
     @Bean
+    // Bearer-only stateless API; cookie/session identities and HTTP Basic are rejected by security tests.
+    @SuppressWarnings("java:S4502")
     public SecurityFilterChain filterChain(HttpSecurity http, ObjectMapper objectMapper) throws Exception {
         AuthenticationEntryPoint entryPoint = (request, response, exception) -> {
             response.setStatus(401);
