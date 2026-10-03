@@ -1,8 +1,8 @@
 # Ecommerce Platform
 
 A Spring Boot microservices ecommerce platform with authentication, catalog,
-inventory, cart, orders, payments, notifications, and coupons. Additional gateway
-routes are reserved for domains that are not deployed in this Compose stack.
+inventory, cart, orders, payments, notifications, and coupons. The gateway
+forwards the eight implemented feature-service prefixes listed below.
 
 ## Quick start
 
@@ -80,6 +80,37 @@ The service Dockerfiles compile their own JARs in multi-stage builds, so a
 clean checkout can build images without host `target/` directories. `make
 build` remains the fast host-side reactor check; Compose builds images when
 they are missing.
+
+Maven wrappers and distribution settings live only at the repository root:
+use `./mvnw` on Unix/macOS or `mvnw.cmd` on Windows. To verify one service and its
+reactor dependencies from the root, use
+`./mvnw -pl services/product-service -am verify` (or the same arguments with
+`mvnw.cmd` on Windows). Service directories no longer contain wrapper copies.
+
+## Architecture and operating decisions
+
+- The backend is a Java 17 Maven reactor using Spring Boot 3.3.5 and Spring Cloud
+  2023.0.3. Config Server supplies service configuration; Eureka handles service
+  discovery.
+- PostgreSQL with Flyway owns authentication and coupon records. MongoDB stores
+  catalog, inventory, cart, order, payment, and notification documents; product
+  search uses Elasticsearch with MongoDB fallback. Redis supports token
+  revocation and caching; Kafka carries domain events. Order/payment idempotency
+  is persisted with their durable Mongo workflows.
+- Services own authorization and validate RS256 bearer tokens against auth-service
+  JWKS. The gateway forwards bearer tokens and strips caller-provided identity
+  headers; it is not the authorization boundary.
+- Order creation reads authoritative product prices, reserves inventory and
+  coupon capacity, then completes or compensates from payment events. The flow is
+  asynchronous across services rather than a cross-database transaction. Use a
+  stable idempotency key only to retry the same order, payment, or refund attempt.
+- Public registration assigns `ROLE_CUSTOMER`; seller access follows the seller
+  application or admin promotion flows. Bootstrap admin creation requires both
+  `ADMIN_EMAIL` and `ADMIN_PASSWORD`; no default admin credential is shipped.
+- User and machine-identity contracts are documented in
+  [Authentication](docs/authentication.md); payment/webhook contracts are below.
+  Frontend design tokens and usage notes are
+  in the [design system](docs/design-system.md).
 
 For frontend hot reload, run Vite on the host while the backend stack is up:
 
@@ -190,6 +221,7 @@ services perform actual JWT validation for protected APIs.
 
 ```bash
 make smoke-test
+bash scripts/test-active-service-routes.sh
 SMOKE_BASE_URL=https://your-gateway.example \
 SMOKE_BEARER_TOKEN="${SMOKE_BEARER_TOKEN:?set it from your local secret source}" \
   make smoke
@@ -275,27 +307,12 @@ test, or unit-test output cannot establish a live smoke PASS.
   events; DLT for poison pills; owner-scoped REST API for listing and marking
   notifications read; configurable SMTP delivery.
 
-## Roadmap
-
-Tracked in `.todo/` (or follow-up sessions). Big buckets remaining:
-
-1. **Tests**: broaden unit coverage, add Testcontainers integration tests for every service; Spring Cloud
-   Contract between order/payment/inventory; E2E happy path.
-2. **Service identity**: extend scoped client-credentials coverage to future callers.
-3. **Observability**: Prometheus/Grafana dashboards committed; OpenTelemetry
-   bridge; structured JSON logs to Loki.
-4. **CI/CD**: GHCR push; SBOM via
-   CycloneDX; Trivy + OWASP-DC; cosign keyless signing.
-5. **Production posture**: Helm charts, Linkerd service mesh, NetworkPolicies,
-   Vault dev / sops+age for secrets.
-6. **Future domains**: wishlist, review, tax, shipping, seller, CMS, analytics,
-   and recommendations as product requirements mature.
-
 ## Repo layout
 
 ```
 ecommerce-platform/
-├── pom.xml                      # parent BOM
+├── pom.xml                      # Java 17 Maven reactor
+├── mvnw / mvnw.cmd / .mvn/       # shared Unix/Windows Maven wrapper
 ├── Makefile                     # one-command bring-up
 ├── .env.example
 ├── scripts/
@@ -305,8 +322,9 @@ ecommerce-platform/
 ├── prometheus.yml
 ├── tempo.yaml
 └── services/
-    ├── common/                  # shared events + security + DTOs + Kafka utils
+    ├── common/                  # shared security, DTOs, events, and Kafka utilities
     ├── api-gateway/
+    ├── config-server/ and discovery-server/
     ├── auth-service/
     ├── product-service/
     ├── inventory-service/
@@ -314,14 +332,5 @@ ecommerce-platform/
     ├── payment-service/
     ├── notification-service/
     ├── cart-service/
-    ├── wishlist-service/        # planned
-    ├── review-service/          # planned
-    ├── coupon-service/
-    ├── tax-service/             # planned
-    ├── shipping-service/        # planned
-    ├── seller-service/          # planned
-    ├── cms-service/             # planned
-    ├── admin-bff/               # planned
-    ├── analytics-service/       # planned
-    └── recommendation-service/  # planned
+    └── coupon-service/
 ```
