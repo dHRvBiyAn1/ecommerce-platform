@@ -197,21 +197,55 @@ bash scripts/verify-release-evidence.test.sh
 bash scripts/verify-release-evidence.sh docs/release-hardening-evidence.md
 ```
 
-The evidence checker is expected to reject the current partial evidence until
-Task 28 records all task statuses and release gates. See
+The evidence checker verifies all task statuses and the declared verification
+scope. See
 [release-hardening evidence](docs/release-hardening-evidence.md) for the current
-CI run, available checks, reviewer evidence, Sonar status, and outstanding
+CI run, available checks, reviewer evidence, and outstanding
 reconciliation items. Task records are per-task entries in
 `docs/release-hardening-evidence/task-records.json`; CI claims are checked
 against the captured job and step conclusions in its `ci-run-*.json` artifact.
 A smoke PASS requires a configured live transcript artifact with both GET probes
 returning 2xx; the smoke unit test alone is never accepted as a release result.
-Sonar is accepted only when the captured Sonar job and SonarCloud step both
-succeeded. For a final run, capture `gh run view <run-id> --json
+This GitHub-only project's `REPOSITORY_ONLY` scope explicitly defers live smoke
+with a recorded owner decision. Repository verification does not claim the app
+has been validated in a deployed production environment; live smoke remains a
+required follow-up before deployment.
+SonarCloud has been removed from CI, Maven, and release-completion requirements.
+Historical CI captures retain their original job results. For a final run,
+capture `gh run view <run-id> --json
 databaseId,headSha,url,status,conclusion,jobs` and persist its run identity plus
 the release jobs and gating-step conclusions in a commit-safe evidence
 artifact. The checked-in CI record is a gate-focused projection of that output;
 the checker reads only local records and does not call GitHub.
+
+### Obtaining a smoke bearer token
+
+Smoke does not require a separate API key. On an already-running environment,
+register/sign in through the frontend, or use the Postman collection's
+**Auth → Login (customer)** request. The implemented login endpoint is
+`POST /api/auth/token`, with an `application/x-www-form-urlencoded` body:
+
+| Field | Value |
+| --- | --- |
+| `grant_type` | `password` |
+| `email` | Your registered account's email |
+| `password` | Your account password |
+
+The response's `data.accessToken` is the bearer value; use the token only, without
+the `Bearer ` prefix. Paste it into an interactive Bash or zsh prompt without
+placing it in shell history:
+
+```bash
+# Paste data.accessToken at the hidden-input prompt, then press Enter.
+read -r -s SMOKE_BEARER_TOKEN
+export SMOKE_BEARER_TOKEN
+SMOKE_BASE_URL=http://localhost:8080 bash scripts/smoke-release.sh
+unset SMOKE_BEARER_TOKEN
+```
+
+Use `http://localhost:8080` only when your gateway is already running locally;
+otherwise supply your existing deployment URL. Login is a separate manual step;
+the smoke script itself remains GET-only. If the token expires, sign in again.
 
 Task 28 smoke evidence belongs in `docs/release-hardening-evidence/smoke-run-*.json`
 and records `capturedAt`, `capturedFrom`, command/exit status, configured base

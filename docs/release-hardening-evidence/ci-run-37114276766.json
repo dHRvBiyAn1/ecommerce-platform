@@ -1,0 +1,37 @@
+{
+  "databaseId": 37114276766,
+  "headSha": "a4d2833e504b8d1d78dc3d7e7d05e4befb9af3e2",
+  "url": "https://github.com/dHRvBiyAn1/ecommerce-platform/actions/runs/37114276766",
+  "status": "completed",
+  "conclusion": "success",
+  "captureCommand": "gh run view 37114276766 --json databaseId,headSha,url,status,conclusion,jobs",
+  "jobsProjection": "Observed release job and gating-step conclusions; setup/cleanup steps omitted.",
+  "jobs": [
+    {"name":"detect-changes","databaseId":111177925815,"conclusion":"success","steps":[{"name":"Run dorny/paths-filter@v3","conclusion":"success"}]},
+    {"name":"backend","databaseId":111177954778,"conclusion":"success","steps":[
+      {"name":"Verify Docker availability for Testcontainers","conclusion":"success"},
+      {"name":"Test backend coverage checker","conclusion":"success"},
+      {"name":"Verify the whole reactor","conclusion":"success"},
+      {"name":"Check backend coverage baseline","conclusion":"success"}
+    ]},
+    {"name":"frontend","databaseId":111177954772,"conclusion":"success","steps":[
+      {"name":"React quality","conclusion":"success"},
+      {"name":"Build frontend distribution","conclusion":"success"}
+    ]},
+    {"name":"sonar","databaseId":111178578551,"conclusion":"failure","steps":[{"name":"SonarCloud","conclusion":"failure"}]},
+    {"name":"images (api-gateway)","databaseId":111178578569,"conclusion":"success","steps":[{"name":"Build image","conclusion":"success"}]},
+    {"name":"images (auth-service)","databaseId":111178578577,"conclusion":"success","steps":[{"name":"Build image","conclusion":"success"}]},
+    {"name":"images (product-service)","databaseId":111178578592,"conclusion":"success","steps":[{"name":"Build image","conclusion":"success"}]},
+    {"name":"images (inventory-service)","databaseId":111178578559,"conclusion":"success","steps":[{"name":"Build image","conclusion":"success"}]},
+    {"name":"images (order-service)","databaseId":111178578607,"conclusion":"success","steps":[{"name":"Build image","conclusion":"success"}]},
+    {"name":"images (payment-service)","databaseId":111178578626,"conclusion":"success","steps":[{"name":"Build image","conclusion":"success"}]},
+    {"name":"images (notification-service)","databaseId":111178578583,"conclusion":"success","steps":[{"name":"Build image","conclusion":"success"}]},
+    {"name":"images (cart-service)","databaseId":111178578613,"conclusion":"success","steps":[{"name":"Build image","conclusion":"success"}]},
+    {"name":"images (coupon-service)","databaseId":111178578568,"conclusion":"success","steps":[{"name":"Build image","conclusion":"success"}]},
+    {"name":"JUnit Test Report","databaseId":111178494783,"conclusion":"success","steps":[]}
+  ],
+  "sonarFailure": {
+    "observedAt": "2026-10-03T09:53:16Z",
+    "message": "Failed to query JRE metadata: GET https://api.sonarcloud.io/analysis/jres?os=linux&arch=x86_64 failed with HTTP 403 Forbidden. Please check the property sonar.token or the environment variable SONAR_TOKEN."
+  }
+}

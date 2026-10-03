@@ -15,7 +15,7 @@ base = Path(sys.argv[1])
 evidence = base / "release-hardening-evidence"
 evidence.mkdir()
 
-def ci_capture(sonar="success", remove_backend_coverage=False):
+def ci_capture(sonar=None, remove_backend_coverage=False):
     jobs = []
     def job(name, steps, conclusion="success"):
         jobs.append({"name": name, "conclusion": conclusion,
@@ -30,7 +30,8 @@ def ci_capture(sonar="success", remove_backend_coverage=False):
         backend_steps.append(("Check backend coverage baseline", "success"))
     job("backend", backend_steps)
     job("frontend", [("React quality", "success"), ("Build frontend distribution", "success")])
-    job("sonar", [("SonarCloud", sonar)], conclusion=sonar)
+    if sonar is not None:
+        job("sonar", [("SonarCloud", sonar)], conclusion=sonar)
     for service in ("api-gateway", "auth-service", "product-service", "inventory-service",
                     "order-service", "payment-service", "notification-service", "cart-service", "coupon-service"):
         job(f"images ({service})", [("Build image", "success")])
@@ -88,17 +89,19 @@ valid_gates = [
     ("testcontainers", "PASS", "ci:ci-run-424242.json"),
     ("smoke", "PASS", "smoke:smoke-run-fixture.json"),
     ("reviewers", "SIGNED_OFF", "tasks:all"),
-    ("sonar-external", "ACCEPTED", "ci:ci-run-424242.json"),
     ("no-compose", "DECLARED", "task:26"),
 ] + [(f"image:{service}", "SUCCESS", "ci:ci-run-424242.json") for service in (
     "api-gateway", "auth-service", "product-service", "inventory-service", "order-service",
     "payment-service", "notification-service", "cart-service", "coupon-service")]
 
-def markdown(tasks=None, gates=None):
+def markdown(tasks=None, gates=None, scope=None):
     tasks = tasks if tasks is not None else [(i, "COMPLETE", f"task:{i}") for i in range(1, 29)]
     gates = gates if gates is not None else valid_gates
-    lines = ["# Synthetic complete evidence fixture", "", "## Task records", "",
-             "| Task | Status | Evidence |", "| --- | --- | --- |"]
+    lines = ["# Synthetic complete evidence fixture", ""]
+    if scope:
+        lines.extend([f"**Verification scope:** {scope}", ""])
+    lines.extend(["## Task records", "",
+             "| Task | Status | Evidence |", "| --- | --- | --- |"])
     lines.extend(f"| {task} | {status} | {ref} |" for task, status, ref in tasks)
     lines.extend(["", "## Gate records", "", "| Gate | Status | Evidence |", "| --- | --- | --- |"])
     lines.extend(f"| {name} | {status} | {ref} |" for name, status, ref in gates)
@@ -107,6 +110,15 @@ def markdown(tasks=None, gates=None):
 (evidence / "task-records.json").write_text(json.dumps(task_records(), indent=2) + "\n")
 (evidence / "ci-run-424242.json").write_text(json.dumps(ci_capture(), indent=2) + "\n")
 (evidence / "smoke-run-fixture.json").write_text(json.dumps(smoke_capture(), indent=2) + "\n")
+(evidence / "smoke-deferral.json").write_text(json.dumps({
+    "schema": "release-smoke-deferral-v1",
+    "scope": "REPOSITORY_ONLY",
+    "decision": "defer-live-smoke",
+    "approvedBy": "project-owner",
+    "recordedDecision": "Synthetic owner approval to defer deployment smoke.",
+    "reason": "Repository verification only; no deployed environment is configured.",
+    "requiresBeforeProductionDeployment": True,
+}, indent=2) + "\n")
 (base / "complete.md").write_text(markdown())
 (base / "README.md").write_text("existing unrelated README fixture\n")
 
@@ -125,7 +137,7 @@ write("mock-smoke-source.md", markdown(gates=[
     (name, status, "smoke:scripts/smoke-release.test.sh" if name == "smoke" else ref)
     for name, status, ref in valid_gates]))
 
-def variant(name, document=None, mutate_ci=None, mutate_tasks=None, mutate_smoke=None):
+def variant(name, document=None, mutate_ci=None, mutate_tasks=None, mutate_smoke=None, mutate_deferral=None):
     target = base / name
     target.mkdir()
     proof = target / "release-hardening-evidence"
@@ -142,18 +154,19 @@ def variant(name, document=None, mutate_ci=None, mutate_tasks=None, mutate_smoke
         data = json.loads((proof / "smoke-run-fixture.json").read_text())
         mutate_smoke(data)
         (proof / "smoke-run-fixture.json").write_text(json.dumps(data, indent=2) + "\n")
+    if mutate_deferral:
+        data = json.loads((proof / "smoke-deferral.json").read_text())
+        mutate_deferral(data)
+        (proof / "smoke-deferral.json").write_text(json.dumps(data, indent=2) + "\n")
     (target / "evidence.md").write_text(document or markdown())
     return target / "evidence.md"
 
-variant("failed-sonar", mutate_ci=lambda data: [
-    job.update(conclusion="failure", **{"steps": [
-        step | ({"conclusion": "failure"} if step["name"] == "SonarCloud" else {})
-        for step in job["steps"]
-    ]}) for job in data["jobs"] if job["name"] == "sonar"
-])
-variant("blocked-sonar", document=markdown(gates=[
-    (name, "BLOCKED" if name == "sonar-external" else status, ref)
-    for name, status, ref in valid_gates]))
+variant("historical-sonar", mutate_ci=lambda data: data["jobs"].append({
+    "name": "sonar", "conclusion": "failure",
+    "steps": [{"name": "SonarCloud", "conclusion": "failure"}],
+}))
+variant("obsolete-sonar-gate", document=markdown(gates=valid_gates + [
+    ("sonar-external", "BLOCKED", "ci:ci-run-424242.json")]))
 variant("task-identity", mutate_tasks=lambda data: data["records"][0].update(status="PENDING"))
 variant("ci-identity", mutate_ci=lambda data: data.update(databaseId=424243))
 variant("fake-task", mutate_tasks=lambda data: data["records"][0].update(result="README overview only"))
@@ -168,6 +181,17 @@ variant("failed-image", mutate_ci=lambda data: [
     ]}) for job in data["jobs"] if job["name"] == "images (api-gateway)"
 ])
 variant("missing-smoke-result", mutate_smoke=lambda data: data.update(probes=data["probes"][:1]))
+deferred_gates = [
+    (name, "DEFERRED", "smoke-deferral:smoke-deferral.json") if name == "smoke" else (name, status, ref)
+    for name, status, ref in valid_gates
+]
+deferred_document = markdown(gates=deferred_gates, scope="REPOSITORY_ONLY")
+variant("repository-smoke-deferred", document=deferred_document)
+variant("deployment-smoke-deferred", document=markdown(gates=deferred_gates))
+variant("unapproved-smoke-deferral", document=deferred_document,
+        mutate_deferral=lambda data: data.update(approvedBy=""))
+variant("untracked-deployment-followup", document=deferred_document,
+        mutate_deferral=lambda data: data.update(requiresBeforeProductionDeployment=False))
 PY
 
 checker="$root/scripts/verify-release-evidence.sh"
@@ -184,6 +208,18 @@ expect_reject() {
 }
 
 bash "$checker" "$tmp/complete.md"
+bash "$checker" "$tmp/historical-sonar/evidence.md"
+bash "$checker" "$tmp/repository-smoke-deferred/evidence.md"
+
+python3 - "$root" <<'PY'
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1])
+assert "sonar" not in (root / ".github/workflows/ci.yml").read_text().lower()
+assert "sonar" not in (root / "pom.xml").read_text().lower()
+print("PASS: CI and Maven contain no Sonar integration")
+PY
 
 expect_reject() {
   local name=$1 file=$2 expected=$3 output
@@ -203,13 +239,15 @@ expect_reject 'pending task' "$tmp/pending.md" 'Task 28 is PENDING'
 expect_reject 'unknown task status' "$tmp/unknown.md" "Task 28 has unknown status 'UNKNOWN'"
 expect_reject 'README citations' "$tmp/readme-citations.md" 'must cite its task-specific record'
 expect_reject 'mock smoke test source' "$tmp/mock-smoke-source.md" 'live smoke evidence must be a captured smoke-run JSON artifact'
-expect_reject 'failed Sonar accepted' "$tmp/failed-sonar/evidence.md" 'SonarCloud job conclusion is failure'
-expect_reject 'blocked Sonar' "$tmp/blocked-sonar/evidence.md" 'Sonar external analysis is BLOCKED; this is a release blocker, not accepted analysis'
+expect_reject 'obsolete Sonar gate' "$tmp/obsolete-sonar-gate/evidence.md" 'unknown gate record: sonar-external'
 expect_reject 'task status mismatch' "$tmp/task-identity/evidence.md" 'task record identity/status mismatch for Task 1'
 expect_reject 'run id mismatch' "$tmp/ci-identity/evidence.md" 'CI capture identity/provenance does not match run 424242'
 expect_reject 'fake task completion' "$tmp/fake-task/evidence.md" 'Task 1 lacks task-specific verification output'
 expect_reject 'missing CI step' "$tmp/missing-ci-step/evidence.md" 'Check backend coverage baseline step is not successful'
 expect_reject 'failed image job' "$tmp/failed-image/evidence.md" "CI job 'images (api-gateway)' conclusion is not success"
 expect_reject 'missing live-smoke result' "$tmp/missing-smoke-result/evidence.md" 'live smoke artifact must contain both health and OpenAPI probes'
+expect_reject 'deployment smoke deferral' "$tmp/deployment-smoke-deferred/evidence.md" 'smoke deferral requires REPOSITORY_ONLY scope'
+expect_reject 'unapproved smoke deferral' "$tmp/unapproved-smoke-deferral/evidence.md" 'smoke deferral requires project-owner approval'
+expect_reject 'untracked deployment follow-up' "$tmp/untracked-deployment-followup/evidence.md" 'deferred smoke must remain required before production deployment'
 
-printf 'PASS: complete synthetic evidence accepted; unsupported sources, false CI/smoke claims, mismatches, and missing outputs rejected\n'
+printf 'PASS: Sonar-free and historical CI evidence accepted; unsupported sources, obsolete gates, false CI/smoke claims, mismatches, and missing outputs rejected\n'

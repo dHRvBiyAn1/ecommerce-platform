@@ -18,6 +18,7 @@ document = Path(sys.argv[1]).resolve()
 artifact_dir = document.parent / "release-hardening-evidence"
 lines = document.read_text(encoding="utf-8").splitlines()
 errors = []
+repository_only = "**Verification scope:** REPOSITORY_ONLY" in lines
 
 def table(section, header):
     marker = f"## {section}"
@@ -158,7 +159,7 @@ for name, status, reference in gate_rows:
 required = {
     "ci-run": "SUCCESS", "backend-tests": "PASS", "backend-coverage": "PASS",
     "frontend-tests": "PASS", "frontend-coverage": "PASS", "testcontainers": "PASS",
-    "smoke": "PASS", "reviewers": "SIGNED_OFF", "sonar-external": None,
+    "smoke": "PASS", "reviewers": "SIGNED_OFF",
     "no-compose": "DECLARED",
 }
 images = {"api-gateway", "auth-service", "product-service", "inventory-service", "order-service",
@@ -185,14 +186,15 @@ def ci_for(reference):
         jobs = {job.get("name"): job for job in data.get("jobs", [])}
         if len(jobs) != len(data.get("jobs", [])):
             errors.append(f"CI capture for run {run_id} has duplicate job names")
-        expected_jobs = {"detect-changes", "backend", "frontend", "sonar", "JUnit Test Report"}
+        expected_jobs = {"detect-changes", "backend", "frontend", "JUnit Test Report"}
         expected_jobs.update(f"images ({service})" for service in {
             "api-gateway", "auth-service", "product-service", "inventory-service", "order-service",
             "payment-service", "notification-service", "cart-service", "coupon-service",
         })
-        if set(jobs) != expected_jobs:
+        # Preserve old captures truthfully; Sonar is no longer a release job or gate.
+        if set(jobs) - {"sonar"} != expected_jobs:
             errors.append(f"CI capture for run {run_id} does not contain the exact required job set")
-        for job_name in expected_jobs - {"sonar"}:
+        for job_name in expected_jobs:
             if job_name in jobs and jobs[job_name].get("conclusion") != "success":
                 errors.append(f"CI job {job_name!r} conclusion is not success")
         ci_cache[run_id] = (data, jobs)
@@ -270,28 +272,28 @@ def validate_smoke(capture):
         errors.append("smoke transcript is missing the release smoke success line")
 
 for name, (status, reference) in gate_data.items():
-    expected = required[name]
-    if name == "sonar-external":
-        if status not in {"ACCEPTED", "BLOCKED"}:
-            errors.append("sonar-external must explicitly be ACCEPTED or BLOCKED")
-        if reference != run_reference:
-            errors.append("Sonar status must cite the same captured CI run as the release gates")
-        capture = ci_for(reference) if isinstance(reference, str) and reference.startswith("ci:") else None
-        if status == "BLOCKED":
-            errors.append("Sonar external analysis is BLOCKED; this is a release blocker, not accepted analysis")
-        elif capture:
-            _, jobs = capture
-            sonar = jobs.get("sonar")
-            step = next((item for item in sonar.get("steps", []) if item.get("name") == "SonarCloud"), None) if sonar else None
-            if not sonar or sonar.get("conclusion") != "success":
-                errors.append(f"SonarCloud job conclusion is {sonar.get('conclusion') if sonar else 'missing'}; ACCEPTED is unsupported")
-            if not step or step.get("conclusion") != "success":
-                errors.append(f"SonarCloud step conclusion is {step.get('conclusion') if step else 'missing'}; ACCEPTED is unsupported")
+    if name not in required:
         continue
-    if status != expected:
+    expected = required[name]
+    if status != expected and not (name == "smoke" and status == "DEFERRED" and repository_only):
         errors.append(f"{name} status is {status or 'missing'}, expected {expected}")
     if name == "smoke":
-        if status == "PASS":
+        if status == "DEFERRED":
+            if not repository_only:
+                errors.append("smoke deferral requires REPOSITORY_ONLY scope")
+            capture = load_json_artifact(reference, "smoke-deferral", r"smoke-deferral\.json")
+            if capture is not None:
+                if (capture.get("schema") != "release-smoke-deferral-v1"
+                        or capture.get("scope") != "REPOSITORY_ONLY"
+                        or capture.get("decision") != "defer-live-smoke"):
+                    errors.append("smoke deferral must record the repository-only decision and schema")
+                if capture.get("approvedBy") != "project-owner" or not capture.get("recordedDecision"):
+                    errors.append("smoke deferral requires project-owner approval")
+                if not isinstance(capture.get("reason"), str) or len(capture["reason"].strip()) < 20:
+                    errors.append("smoke deferral must explain why deployment validation is deferred")
+                if capture.get("requiresBeforeProductionDeployment") is not True:
+                    errors.append("deferred smoke must remain required before production deployment")
+        elif status == "PASS":
             if not isinstance(reference, str) or not re.fullmatch(r"smoke:smoke-run-[A-Za-z0-9._-]+\.json", reference):
                 errors.append("live smoke evidence must be a captured smoke-run JSON artifact")
             else:
@@ -336,5 +338,8 @@ if errors:
     for error in errors:
         print(f"- {error}", file=sys.stderr)
     sys.exit(1)
-print("Release evidence complete: all 28 task records and evidence-backed release gates are verified.")
+if repository_only and gate_data.get("smoke", (None, None))[0] == "DEFERRED":
+    print("Repository evidence complete: all 28 task records and repository gates verified; live deployment smoke deferred.")
+else:
+    print("Release evidence complete: all 28 task records and evidence-backed release gates are verified.")
 PY

@@ -1,0 +1,63 @@
+{
+  "schema": "release-final-verification-v1",
+  "verifiedCommit": "a4d2833e504b8d1d78dc3d7e7d05e4befb9af3e2",
+  "verifiedDate": "2026-10-03",
+  "performedBy": "GPT-6.1 Sol controller; no Wave 7 subagents, per user instruction",
+  "javaRuntime": "17.0.12",
+  "javaSelection": "JAVA_HOME=$(/usr/libexec/java_home -v17) PATH=\"$(/usr/libexec/java_home -v17)/bin:$PATH\"",
+  "results": [
+    {"command":"./mvnw -B -ntp -fae clean verify","exitStatus":0,"outputExcerpt":"BUILD SUCCESS; Total time: 02:51 min; all 13 reactor modules SUCCESS"},
+    {"command":"bash scripts/check-jacoco-baseline.sh coverage-baseline/backend-modules.json","exitStatus":0,"outputExcerpt":"JaCoCo baseline and critical-class checks passed"},
+    {"command":"npm --prefix frontend/ecommerce-app ci --no-audit --no-fund","exitStatus":0,"outputExcerpt":"added 669 packages in 14s"},
+    {"command":"npm --prefix frontend/ecommerce-app run typecheck","exitStatus":0,"outputExcerpt":"tsc -b --noEmit"},
+    {"command":"npm --prefix frontend/ecommerce-app run lint","exitStatus":0,"outputExcerpt":"eslint ."},
+    {"command":"npm --prefix frontend/ecommerce-app run test:coverage","exitStatus":0,"outputExcerpt":"Test Files 9 passed (9); Tests 30 passed (30)"},
+    {"command":"node frontend/ecommerce-app/scripts/check-coverage-baseline.mjs","exitStatus":0,"outputExcerpt":"Coverage baseline passed for 81 modules."},
+    {"command":"npm --prefix frontend/ecommerce-app run build","exitStatus":0,"outputExcerpt":"2245 modules transformed; built in 4.80s"},
+    {"command":"npm --prefix frontend/ecommerce-app exec playwright test","exitStatus":0,"outputExcerpt":"retries a declined card with the same checkout attempt; 1 passed (9.0s)"},
+    {"command":"bash scripts/test-common-parent-dockerfiles.sh","exitStatus":0,"outputExcerpt":"all 9 Dockerfiles install the root parent POM, services/common, and their service package in one RUN; CI builds all 9 common-consuming images"},
+    {"command":"bash scripts/check-jacoco-baseline.test.sh","exitStatus":0,"outputExcerpt":"check-jacoco-baseline fixtures passed"},
+    {"command":"bash scripts/smoke-release.test.sh","exitStatus":0,"outputExcerpt":"PASS: smoke configuration, bounded read-only probes, failures, and no Docker invocation"},
+    {"command":"bash scripts/verify-release-evidence.test.sh","exitStatus":0,"outputExcerpt":"PASS: complete synthetic evidence accepted; unsupported sources, false CI/smoke claims, mismatches, and missing outputs rejected"},
+    {"command":"bash scripts/test-frontend-stripe-build-arg.sh","exitStatus":0,"outputExcerpt":"PASS: frontend Stripe publishable key reaches the Vite production build"},
+    {"command":"node scripts/test-postman-idempotency.js","exitStatus":0,"outputExcerpt":"PASS: Postman idempotency keys are stable on retry, distinct per operation, and rotate after reset"},
+    {"command":"make help","exitStatus":0,"outputExcerpt":"smoke and smoke-test listed alongside explicit existing lifecycle targets"},
+    {"command":"git diff --check","exitStatus":0,"outputExcerpt":"No whitespace errors."}
+  ],
+  "backendReportTotals": {"reports":88,"tests":541,"failures":0,"errors":0,"skipped":3},
+  "criticalClassCounters": {
+    "com.project.product_service.service.impl.ProductServiceImpl": {"line":{"covered":97,"missed":0},"branch":{"covered":28,"missed":0}},
+    "com.project.product_service.kafka.ProductSearchConsumer": {"line":{"covered":31,"missed":0},"branch":{"covered":7,"missed":0}},
+    "com.project.order.service.impl.OrderServiceImpl": {"line":{"covered":408,"missed":26},"branch":{"covered":131,"missed":31}},
+    "com.project.order.service.impl.OutboxEventRelay": {"line":{"covered":104,"missed":14},"branch":{"covered":61,"missed":15}},
+    "com.project.payment.service.impl.PaymentServiceImpl": {"line":{"covered":342,"missed":33},"branch":{"covered":149,"missed":35}},
+    "com.project.payment.service.impl.PaymentOutboxRelay": {"line":{"covered":45,"missed":8},"branch":{"covered":37,"missed":9}},
+    "com.project.payment.controller.PaymentController": {"line":{"covered":56,"missed":5},"branch":{"covered":28,"missed":6}},
+    "com.project.gateway.filter.ForwardedIpTrustFilter": {"line":{"covered":45,"missed":2},"branch":{"covered":45,"missed":11}},
+    "com.project.gateway.config.ClientHeaderStrippingFilter": {"line":{"covered":5,"missed":0},"branch":{"covered":4,"missed":0}},
+    "com.project.authservice.service.AuthService": {"line":{"covered":119,"missed":3},"branch":{"covered":27,"missed":6}},
+    "com.project.authservice.service.ClientCredentialsService": {"line":{"covered":32,"missed":0},"branch":{"covered":30,"missed":4}}
+  },
+  "coveragePolicy": {
+    "backendBaseline":"coverage-baseline/backend-modules.json",
+    "backendModuleCounters":"covered must not decrease and missed must not increase for LINE and BRANCH",
+    "backendCriticalClasses":"all 11 fixed classes require at least 80 percent LINE and BRANCH",
+    "frontendBaseline":"frontend/ecommerce-app/coverage-baseline.json",
+    "frontendCriticalPolicy":"80 percent line coverage for named checkout/payment/cart/auth modules; branch counters remain non-regression ratchets"
+  },
+  "noComposeDeclaration":"All database/Kafka integration tests used isolated Testcontainers. No Docker Compose lifecycle command or live deployment mutation was performed.",
+  "controllerReview":{"status":"REPOSITORY_VERIFICATION_APPROVED","independent":false,"basis":"Explicit user request for no Wave 7 subagents; CI capture compared with queried run/job/step conclusions, completed-task commits verified in Git ancestry, critical counters and local documentation links checked. Owner approved deferring live smoke for the repository-only scope.","applicationBehaviorChanges":false},
+  "verificationScope":"REPOSITORY_ONLY",
+  "liveSmoke":{"status":"DEFERRED","performed":false,"reason":"Owner approved proceeding with repository-only verification; no deployment target is configured.","decisionArtifact":"smoke-deferral.json","requiresBeforeProductionDeployment":true},
+  "historicalSonar":{"status":"REMOVED_FROM_REQUIREMENTS","runId":37114276766,"observedResult":"SonarCloud bootstrap returned HTTP 403 in this historical capture; the integration was subsequently removed at the user's request."},
+  "sonarRemovalVerification": {
+    "scope":"Uncommitted follow-up requested by the user after the full application verification; Sonar job, Maven properties/plugin, and release gate removed. Historical captures retained.",
+    "results":[
+      {"command":"bash scripts/verify-release-evidence.test.sh","exitStatus":0,"outputExcerpt":"PASS: CI and Maven contain no Sonar integration; Sonar-free and historical CI evidence accepted; obsolete gates and unsupported claims rejected."},
+      {"command":"./mvnw -B -ntp validate","javaRuntime":"17.0.12","exitStatus":0,"outputExcerpt":"BUILD SUCCESS; all 13 reactor modules SUCCESS"},
+      {"command":"bash scripts/check-jacoco-baseline.sh coverage-baseline/backend-modules.json","exitStatus":0,"outputExcerpt":"JaCoCo baseline and critical-class checks passed"},
+      {"command":"bash scripts/test-common-parent-dockerfiles.sh","exitStatus":0,"outputExcerpt":"All nine Dockerfile invariants and CI image entries passed."}
+    ]
+  },
+  "overallStatus":"REPOSITORY_CHECKS_PASSED_FINAL_RECORD_PENDING"
+}
