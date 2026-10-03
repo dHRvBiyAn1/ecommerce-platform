@@ -1,4 +1,4 @@
-.PHONY: keys env build up down logs reset psql mongo
+.PHONY: keys env build up down logs reset psql mongo smoke smoke-test
 
 COMPOSE := docker compose -f docker-compose.yml
 
@@ -38,6 +38,12 @@ psql: ## Open psql against the local Postgres
 
 mongo: ## Open mongosh against the local Mongo
 	$(COMPOSE) --env-file .env exec mongodb sh -lc 'mongosh -u "$$MONGO_INITDB_ROOT_USERNAME" -p "$$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin'
+
+smoke: ## Probe configured release health and OpenAPI endpoints (SMOKE_BASE_URL required)
+	bash scripts/smoke-release.sh
+
+smoke-test: ## Test that release smoke probes stay bounded and read-only
+	bash scripts/smoke-release.test.sh
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'

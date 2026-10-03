@@ -15,13 +15,16 @@ spring:
         jwt:
           jwk-set-uri: ${JWK_SET_URI}
 
-# Webhook signing
+# In-house webhook signing only (/api/v1/payments/webhook).
+# Stripe deliveries to /api/v1/payments/webhook/stripe use stripe.webhook-secret below.
 payment:
   webhook:
     secret: ${PAYMENT_WEBHOOK_SECRET}
     tolerance-seconds: 300
 
-# Stripe; if STRIPE_SECRET_KEY is empty, SandboxGateway is used.
+# Stripe PaymentIntents are enabled when STRIPE_SECRET_KEY is non-empty; otherwise
+# SandboxGateway supplies a synthetic intent for local server-side testing. Its
+# synthetic clientSecret is not usable by Stripe.js and is never a Stripe credential.
 stripe:
   secret-key: ${STRIPE_SECRET_KEY}
   webhook-secret: ${STRIPE_WEBHOOK_SECRET}

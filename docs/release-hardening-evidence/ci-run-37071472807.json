@@ -1,0 +1,115 @@
+{
+  "databaseId": 37071472807,
+  "headSha": "29789440a7542bf3e587ff2e64a18907b3acfc0d",
+  "url": "https://github.com/dHRvBiyAn1/ecommerce-platform/actions/runs/37071472807",
+  "status": "completed",
+  "conclusion": "success",
+  "captureCommand": "gh run view 37071472807 --json databaseId,headSha,url,status,conclusion,jobs",
+  "jobsProjection": "Required release jobs and their gating step conclusions from the captured gh run view output; unrelated setup/cleanup steps omitted.",
+  "jobs": [
+    {
+      "name": "detect-changes",
+      "conclusion": "success",
+      "steps": [{"name": "Run dorny/paths-filter@v3", "conclusion": "success"}]
+    },
+    {
+      "name": "backend",
+      "databaseId": 111051724625,
+      "url": "https://github.com/dHRvBiyAn1/ecommerce-platform/actions/runs/37071472807/job/111051724625",
+      "conclusion": "success",
+      "steps": [
+        {"name": "Verify Docker availability for Testcontainers", "conclusion": "success"},
+        {"name": "Test backend coverage checker", "conclusion": "success"},
+        {"name": "Verify the whole reactor", "conclusion": "success"},
+        {"name": "Check backend coverage baseline", "conclusion": "success"}
+      ]
+    },
+    {
+      "name": "frontend",
+      "databaseId": 111051724779,
+      "url": "https://github.com/dHRvBiyAn1/ecommerce-platform/actions/runs/37071472807/job/111051724779",
+      "conclusion": "success",
+      "steps": [
+        {"name": "React quality", "conclusion": "success"},
+        {"name": "Build frontend distribution", "conclusion": "success"}
+      ]
+    },
+    {
+      "name": "sonar",
+      "databaseId": 111053004473,
+      "url": "https://github.com/dHRvBiyAn1/ecommerce-platform/actions/runs/37071472807/job/111053004473",
+      "conclusion": "failure",
+      "steps": [{"name": "SonarCloud", "conclusion": "failure"}]
+    },
+    {
+      "name": "images (api-gateway)",
+      "databaseId": 111053004625,
+      "url": "https://github.com/dHRvBiyAn1/ecommerce-platform/actions/runs/37071472807/job/111053004625",
+      "conclusion": "success",
+      "steps": [{"name": "Build image", "conclusion": "success"}]
+    },
+    {
+      "name": "images (auth-service)",
+      "databaseId": 111053004664,
+      "url": "https://github.com/dHRvBiyAn1/ecommerce-platform/actions/runs/37071472807/job/111053004664",
+      "conclusion": "success",
+      "steps": [{"name": "Build image", "conclusion": "success"}]
+    },
+    {
+      "name": "images (product-service)",
+      "databaseId": 111053004616,
+      "url": "https://github.com/dHRvBiyAn1/ecommerce-platform/actions/runs/37071472807/job/111053004616",
+      "conclusion": "success",
+      "steps": [{"name": "Build image", "conclusion": "success"}]
+    },
+    {
+      "name": "images (inventory-service)",
+      "databaseId": 111053004653,
+      "url": "https://github.com/dHRvBiyAn1/ecommerce-platform/actions/runs/37071472807/job/111053004653",
+      "conclusion": "success",
+      "steps": [{"name": "Build image", "conclusion": "success"}]
+    },
+    {
+      "name": "images (order-service)",
+      "databaseId": 111053004637,
+      "url": "https://github.com/dHRvBiyAn1/ecommerce-platform/actions/runs/37071472807/job/111053004637",
+      "conclusion": "success",
+      "steps": [{"name": "Build image", "conclusion": "success"}]
+    },
+    {
+      "name": "images (payment-service)",
+      "databaseId": 111053004621,
+      "url": "https://github.com/dHRvBiyAn1/ecommerce-platform/actions/runs/37071472807/job/111053004621",
+      "conclusion": "success",
+      "steps": [{"name": "Build image", "conclusion": "success"}]
+    },
+    {
+      "name": "images (notification-service)",
+      "databaseId": 111053004810,
+      "url": "https://github.com/dHRvBiyAn1/ecommerce-platform/actions/runs/37071472807/job/111053004810",
+      "conclusion": "success",
+      "steps": [{"name": "Build image", "conclusion": "success"}]
+    },
+    {
+      "name": "images (cart-service)",
+      "databaseId": 111053004733,
+      "url": "https://github.com/dHRvBiyAn1/ecommerce-platform/actions/runs/37071472807/job/111053004733",
+      "conclusion": "success",
+      "steps": [{"name": "Build image", "conclusion": "success"}]
+    },
+    {
+      "name": "images (coupon-service)",
+      "databaseId": 111053004723,
+      "url": "https://github.com/dHRvBiyAn1/ecommerce-platform/actions/runs/37071472807/job/111053004723",
+      "conclusion": "success",
+      "steps": [{"name": "Build image", "conclusion": "success"}]
+    },
+    {
+      "name": "JUnit Test Report",
+      "databaseId": 111052840370,
+      "url": "https://github.com/dHRvBiyAn1/ecommerce-platform/runs/111052840370",
+      "conclusion": "success",
+      "steps": []
+    }
+  ]
+}

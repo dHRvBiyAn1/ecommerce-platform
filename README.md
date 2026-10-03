@@ -1,9 +1,8 @@
 # Ecommerce Platform
 
-A Spring Boot microservices ecommerce platform: auth, catalog, inventory, orders,
-payments (Stripe), notifications, plus 11 more services in the roadmap (cart,
-wishlist, reviews, coupons, tax, shipping, marketplace, CMS, admin BFF, analytics,
-recommendations).
+A Spring Boot microservices ecommerce platform with authentication, catalog,
+inventory, cart, orders, payments, notifications, and coupons. Additional gateway
+routes are reserved for domains that are not deployed in this Compose stack.
 
 ## Quick start
 
@@ -29,24 +28,53 @@ make up
 make logs
 ```
 
-Services:
+Compose-published host ports (left side of each mapping):
 
-| Service              | Port  | Description                                      |
-|----------------------|-------|--------------------------------------------------|
-| api-gateway          | 8080  | Edge router, rate limiting, header stripping     |
-| auth-service         | 8081  | JWT issuer, JWKS, OAuth2 social login            |
-| product-service      | 8082  | Catalog, search (ES), categories                 |
-| inventory-service    | 8083  | Atomic stock reservation                         |
-| order-service        | 8084  | Order saga, ProductClient, payment-event consumer|
-| payment-service      | 8085  | Stripe + sandbox; HMAC webhook                   |
-| notification-service | 8086  | Mongo-persisted notifications + Mailhog          |
-| discovery-server     | 8761  | Eureka                                           |
-| config-server        | 8888  | Spring Cloud Config                              |
-| frontend             | 5173  | Production-built SPA and same-origin API proxy   |
-| Prometheus           | 9090  | Metrics                                          |
-| Grafana              | 3000  | Dashboards                                       |
-| Loki                 | 3100  | Log aggregation                                  |
-| Tempo                | 3200  | Distributed tracing                              |
+| Service              | Host → container | Health / purpose |
+|----------------------|------------------|------------------|
+| api-gateway          | `8080:8080` | `GET /actuator/health`; edge routes below |
+| auth-service         | `8081:8081` | `GET /actuator/health`; auth, users, JWKS |
+| product-service      | `8082:8082` | `GET /actuator/health`; products and categories |
+| inventory-service    | `8083:8083` | `GET /actuator/health`; inventory |
+| order-service        | `8084:8084` | `GET /actuator/health`; orders |
+| payment-service      | `8085:8085` | `GET /actuator/health`; payments |
+| notification-service | `8086:8086` | `GET /actuator/health`; notifications |
+| cart-service         | `8087:8087` | `GET /actuator/health`; cart |
+| coupon-service       | `8088:8088` | `GET /actuator/health`; coupons |
+| discovery-server     | `8761:8761` | Eureka; `GET /actuator/health` |
+| config-server        | `8888:8888` | Spring Cloud Config; `GET /actuator/health` |
+| frontend             | `5173:8080` | Production SPA; container health path `/health` |
+| PostgreSQL           | `5433:5432` | Database |
+| MongoDB              | `27017:27017` | Database |
+| Redis                | `6379:6379` | Cache and rate-limit store |
+| Elasticsearch        | `9200:9200` | Product search |
+| Kafka                | `29092:29092` | Host listener; services use `kafka:9092` |
+| Prometheus           | `9090:9090` | Metrics |
+| Grafana              | `3000:3000` | Dashboards |
+| Loki                 | `3100:3100` | Log aggregation; readiness `/ready` |
+| Tempo                | `3200:3200` | Tracing; OTLP ports `4317`, `4318` |
+
+Spring-service health checks use `/actuator/health`; Compose polls them every
+30 seconds after a 45-second startup allowance (data services have their own
+health checks). The frontend image exposes `/health`. Configured gateway routes
+forward these deployed API prefixes without rewriting them:
+
+| Gateway path | Service |
+|--------------|---------|
+| `/api/auth/**`, `/api/user/**`, `/api/admin/**`, `/oauth2/**`, `/login/oauth2/**`, `/.well-known/**` | auth-service |
+| `/api/v1/products/**`, `/api/v1/categories/**` | product-service |
+| `/api/v1/inventory/**` | inventory-service |
+| `/api/v1/orders/**` | order-service |
+| `/api/v1/payments/**` | payment-service |
+| `/api/v1/notifications/**` | notification-service |
+| `/api/v1/cart/**` | cart-service |
+| `/api/v1/coupons/**` | coupon-service |
+
+`GET /v3/api-docs/swagger-config` is the gateway OpenAPI discovery endpoint;
+it returns discovered service `/v3/api-docs` URLs. The gateway authorization
+interceptor requires a nonblank `Authorization` header for this path and even
+for gateway `/actuator/health`. Compose's gateway health check supplies a
+non-secret header; external smoke checks can use `SMOKE_BEARER_TOKEN` below.
 
 The service Dockerfiles compile their own JARs in multi-stage builds, so a
 clean checkout can build images without host `target/` directories. `make
@@ -112,6 +140,86 @@ The callers set `service.auth.enabled: true`, `token-uri`, `client-id`,
 the local default `http://auth-service:8081/api/auth/token`. HTTP is only suitable
 for an isolated local network; production requires TLS (HTTPS) for token exchange
 and protected internal traffic, plus restricted access to the config endpoint.
+
+## API and payment safety
+
+The API is served through <http://localhost:8080>. Order creation is
+`POST /api/v1/orders`; payment initiation is `POST /api/v1/payments`. Both accept
+`X-Idempotency-Key` (the exact implemented header). Reuse the same stable key
+only when retrying the same logical operation; generate a new key for a new
+order/payment attempt. The Postman collection stores order, payment, and refund
+keys across sends; clear only that operation's collection variable before
+starting a genuinely new operation.
+
+Payment initiation is card-only and customer-only, never a service-client flow.
+The authenticated bearer customer must own the order before the backend creates
+a payment. The first successful create response has `data.payment` and may
+include `data.clientSecret`; only the first successful customer create may
+return the secret. Idempotency replays do not return it. Keep it in memory only
+for immediate Stripe.js card confirmation. Never put it in browser storage,
+logs, analytics, URLs, or a `PaymentResponse`. Payment
+GET/list/reference/order endpoints return secret-free status; recovery polls
+`GET /api/v1/payments/{paymentId}` and must not request a replacement secret.
+
+Compose passes the public `VITE_STRIPE_PUBLISHABLE_KEY` build argument to the
+frontend Dockerfile's Vite production build; configure the Stripe publishable
+`pk_…` value for Stripe card confirmation. The backend's `STRIPE_SECRET_KEY`
+enables Stripe; when empty, `SandboxGateway` returns a synthetic secret that
+cannot be confirmed by Stripe.js. Keep Stripe API/webhook secrets in backend
+runtime configuration only, never Vite build args or browser code.
+
+The Stripe webhook is `POST /api/v1/payments/webhook/stripe`, authenticated by
+Stripe's `Stripe-Signature` and `STRIPE_WEBHOOK_SECRET`. The separate internal
+HMAC webhook is `POST /api/v1/payments/webhook`, signed with
+`PAYMENT_WEBHOOK_SECRET` and `X-Webhook-Signature: t=<unix>,v1=<hex>`. These
+secrets and signature formats are not interchangeable.
+
+## Release checks
+
+`bash scripts/smoke-release.sh` only performs bounded GET requests; it never
+starts, stops, or changes services. Set `SMOKE_BASE_URL` to an absolute HTTP(S)
+base URL. Defaults are `/actuator/health` and
+`/v3/api-docs/swagger-config`; set `SMOKE_HEALTH_URL` and
+`SMOKE_OPENAPI_URL` to override either endpoint. Both probes require HTTP 2xx.
+When a gateway endpoint requires Authorization, set `SMOKE_BEARER_TOKEN`; the
+smoke script sends `Authorization: Bearer …` to both probes, rejects CR/LF, and
+passes the header through curl stdin rather than its argument list. It does not
+print or persist the token or log configured URLs. The gateway currently checks
+for a nonblank Authorization header on both default paths. The upstream API
+services perform actual JWT validation for protected APIs.
+
+```bash
+make smoke-test
+SMOKE_BASE_URL=https://your-gateway.example \
+SMOKE_BEARER_TOKEN="${SMOKE_BEARER_TOKEN:?set it from your local secret source}" \
+  make smoke
+bash scripts/verify-release-evidence.test.sh
+bash scripts/verify-release-evidence.sh docs/release-hardening-evidence.md
+```
+
+The evidence checker is expected to reject the current partial evidence until
+Task 28 records all task statuses and release gates. See
+[release-hardening evidence](docs/release-hardening-evidence.md) for the current
+CI run, available checks, reviewer evidence, Sonar status, and outstanding
+reconciliation items. Task records are per-task entries in
+`docs/release-hardening-evidence/task-records.json`; CI claims are checked
+against the captured job and step conclusions in its `ci-run-*.json` artifact.
+A smoke PASS requires a configured live transcript artifact with both GET probes
+returning 2xx; the smoke unit test alone is never accepted as a release result.
+Sonar is accepted only when the captured Sonar job and SonarCloud step both
+succeeded. For a final run, capture `gh run view <run-id> --json
+databaseId,headSha,url,status,conclusion,jobs` and persist its run identity plus
+the release jobs and gating-step conclusions in a commit-safe evidence
+artifact. The checked-in CI record is a gate-focused projection of that output;
+the checker reads only local records and does not call GitHub.
+
+Task 28 smoke evidence belongs in `docs/release-hardening-evidence/smoke-run-*.json`
+and records `capturedAt`, `capturedFrom`, command/exit status, configured base
+URL, both probe names/methods/URLs/HTTP statuses, and the captured smoke output.
+Record explicit endpoint overrides when used. The verifier checks probe URLs
+against the base defaults or those overrides. Use URLs without credentials,
+query, or fragment, and never include the bearer token. A source script, mocked
+test, or unit-test output cannot establish a live smoke PASS.
 
 ## What works today
 

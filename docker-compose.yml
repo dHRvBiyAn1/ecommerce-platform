@@ -248,7 +248,8 @@ services:
           memory: 256M
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      # The gateway interceptor requires a nonblank Authorization header even on health.
+      test: ["CMD", "curl", "-f", "-H", "Authorization: healthcheck", "http://localhost:8080/actuator/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -425,9 +426,12 @@ services:
       MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
       MONGO_HOST: ${MONGO_HOST}
       MONGO_PORT: ${MONGO_PORT}
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
-      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET}
+      # Empty Stripe credentials select the sandbox gateway. PAYMENT_WEBHOOK_SECRET
+      # separately signs the in-house /webhook endpoint; Stripe uses STRIPE_WEBHOOK_SECRET.
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_WEBHOOK_SECRET_DEV: ${STRIPE_WEBHOOK_SECRET:-}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:?Set a generated PAYMENT_WEBHOOK_SECRET}
     depends_on:
       mongodb: {condition: service_healthy}
       kafka: {condition: service_healthy}
@@ -560,6 +564,7 @@ services:
       dockerfile: frontend/ecommerce-app/Dockerfile
       args:
         VITE_API_BASE_URL: ${FRONTEND_VITE_API_BASE_URL:-}
+        VITE_STRIPE_PUBLISHABLE_KEY: ${VITE_STRIPE_PUBLISHABLE_KEY:-}
     container_name: frontend-app
     ports:
       - "5173:8080"

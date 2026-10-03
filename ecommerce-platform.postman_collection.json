@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Ecommerce Platform API",
-    "description": "Complete API collection for the Spring Boot microservices ecommerce platform.\n\nServices covered: auth, product, inventory, order, payment, notification.\nAll requests go through the API Gateway at `{{base_url}}` (default http://localhost:8080).\n\nQuick start:\n1. Run `make up` from the repo root.\n2. Open the **Setup \u2192 Bootstrap admin login** request and run it (uses ADMIN_EMAIL/ADMIN_PASSWORD from .env).\n3. Run **Auth \u2192 Register customer**, then **Auth \u2192 Login (customer)** \u2014 it auto-saves `access_token`.\n4. Use any of the customer-scoped requests (catalog, cart, checkout, orders).\n5. To exercise seller flows, run **Admin \u2192 Promote user to seller** with the customer's userId, then re-login.\n\nTokens are cached in collection variables (`access_token`, `admin_token`). Tests at the request level capture order ids, product ids, etc. for chaining.",
+    "description": "Complete API collection for the Spring Boot microservices ecommerce platform.\n\nServices covered: auth, product, inventory, order, payment, notification.\nAll requests go through the API Gateway at `{{base_url}}` (default http://localhost:8080).\n\nQuick start:\n1. Run `make up` from the repo root.\n2. Open the **Setup \u2192 Bootstrap admin login** request and run it (uses ADMIN_EMAIL/ADMIN_PASSWORD from .env).\n3. Run **Auth \u2192 Register customer**, then **Auth \u2192 Login (customer)** \u2014 it auto-saves `access_token`.\n4. Use any of the customer-scoped requests (catalog, cart, checkout, orders).\n5. To exercise seller flows, run **Admin \u2192 Promote user to seller** with the customer's userId, then re-login.\n\nTokens are cached in collection variables (`access_token`, `admin_token`). Tests at the request level capture order ids, product ids, etc. for chaining.\n\nIdempotency keys are generated once and reused across sends, including timeout retries. To start a genuinely new operation, clear only its corresponding variable (`order_idempotency_key`, `payment_idempotency_key`, `refund_idempotency_key`, `e2e_order_idempotency_key`, or `e2e_payment_idempotency_key`) in Postman; the next send generates a fresh key. Never clear a key to retry the same operation.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -61,12 +61,42 @@
       "type": "string"
     },
     {
+      "key": "order_idempotency_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "e2e_order_idempotency_key",
+      "value": "",
+      "type": "string"
+    },
+    {
       "key": "order_number",
       "value": "",
       "type": "string"
     },
     {
       "key": "payment_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "payment_idempotency_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refund_idempotency_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "e2e_payment_idempotency_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "transaction_id",
       "value": "",
       "type": "string"
     },
@@ -87,7 +117,12 @@
     },
     {
       "key": "webhook_secret",
-      "value": "change_me_payment_webhook",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "stripe_signature",
+      "value": "",
       "type": "string"
     },
     {
@@ -1351,7 +1386,7 @@
               },
               {
                 "key": "X-Idempotency-Key",
-                "value": "{{$guid}}"
+                "value": "{{order_idempotency_key}}"
               }
             ],
             "body": {
@@ -1364,6 +1399,17 @@
             }
           },
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('order_idempotency_key')) {",
+                  "  pm.collectionVariables.set('order_idempotency_key', pm.variables.replaceIn('{{$guid}}'));",
+                  "}"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
@@ -1488,7 +1534,7 @@
     },
     {
       "name": "Payments",
-      "description": "Payment-service. Stripe (when STRIPE_SECRET_KEY is set) or SandboxGateway. Webhook signing uses HMAC-SHA256 with the format `t=<unix>,v1=<hex>`.",
+      "description": "Payment-service. Stripe is enabled when STRIPE_SECRET_KEY is set; otherwise SandboxGateway creates a synthetic intent that cannot be confirmed with Stripe.js. A production frontend build also requires VITE_STRIPE_PUBLISHABLE_KEY. Stripe webhook: POST /api/v1/payments/webhook/stripe with the exact raw Stripe event body and Stripe-Signature. The separate in-house webhook uses PAYMENT_WEBHOOK_SECRET and X-Webhook-Signature (t=<unix>,v1=<hex>).",
       "item": [
         {
           "name": "Create payment (idempotent)",
@@ -1505,7 +1551,7 @@
               },
               {
                 "key": "X-Idempotency-Key",
-                "value": "{{$guid}}"
+                "value": "{{payment_idempotency_key}}"
               }
             ],
             "body": {
@@ -1513,11 +1559,23 @@
               "raw": "{\n  \"orderId\": \"{{order_id}}\",\n  \"orderNumber\": \"{{order_number}}\",\n  \"paymentMethod\": \"card\",\n  \"amount\": 1768.82,\n  \"currency\": \"INR\",\n  \"description\": \"Order {{order_number}}\"\n}"
             },
             "url": "{{base_url}}/api/v1/payments",
+            "description": "Requires a customer bearer token and verifies that customer owns the order before creating an intent. Only this first successful create response can contain data.clientSecret; the collection stores only data.payment.id, paymentReference, and transactionId. Replays and GET/list routes are secret-free. Uses the implemented X-Idempotency-Key header.",
             "auth": {
               "type": "noauth"
             }
           },
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('payment_idempotency_key')) {",
+                  "  pm.collectionVariables.set('payment_idempotency_key', pm.variables.replaceIn('{{$guid}}'));",
+                  "}"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
@@ -1525,8 +1583,9 @@
                 "exec": [
                   "pm.test('201', () => pm.response.to.have.status(201));",
                   "const body = pm.response.json();",
-                  "pm.collectionVariables.set('payment_id', body?.data?.id ?? '');",
-                  "pm.collectionVariables.set('payment_reference', body?.data?.paymentReference ?? '');"
+                  "pm.collectionVariables.set('payment_id', body?.data?.payment?.id ?? '');",
+                  "pm.collectionVariables.set('payment_reference', body?.data?.payment?.paymentReference ?? '');",
+                  "pm.collectionVariables.set('transaction_id', body?.data?.payment?.transactionId ?? '');"
                 ]
               }
             }
@@ -1628,7 +1687,7 @@
               },
               {
                 "key": "X-Idempotency-Key",
-                "value": "{{$guid}}"
+                "value": "{{refund_idempotency_key}}"
               }
             ],
             "body": {
@@ -1640,7 +1699,20 @@
             "auth": {
               "type": "noauth"
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('refund_idempotency_key')) {",
+                  "  pm.collectionVariables.set('refund_idempotency_key', pm.variables.replaceIn('{{$guid}}'));",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Webhook (HMAC-signed)",
@@ -1661,10 +1733,10 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"paymentReference\": \"{{payment_reference}}\",\n  \"transactionId\": \"sandbox-tx-1\",\n  \"status\": \"COMPLETED\",\n  \"failureReason\": null\n}"
+              "raw": "{\n  \"paymentReference\": \"{{payment_reference}}\",\n  \"transactionId\": \"{{transaction_id}}\",\n  \"status\": \"COMPLETED\",\n  \"failureReason\": null\n}"
             },
             "url": "{{base_url}}/api/v1/payments/webhook",
-            "description": "Pre-request script computes the HMAC over the JSON body and stores it in the {{webhook_signature}} variable. Format: `t=<unix>,v1=<hex>`. Replace `webhook_secret` collection var with PAYMENT_WEBHOOK_SECRET from your .env."
+            "description": "Pre-request script computes HMAC-SHA256 over the exact raw JSON body with PAYMENT_WEBHOOK_SECRET and sends X-Webhook-Signature as t=<unix>,v1=<hex>. Keep webhook_secret blank in the exported collection; provide a local Postman value. This internal demo webhook is distinct from Stripe-Signature."
           },
           "event": [
             {
@@ -1676,7 +1748,7 @@
                   "const secret = pm.collectionVariables.get('webhook_secret');",
                   "const ts = Math.floor(Date.now() / 1000);",
                   "const ref = pm.collectionVariables.get('payment_reference');",
-                  "const body = JSON.stringify({\n  paymentReference: ref,\n  transactionId: 'sandbox-tx-1',\n  status: 'COMPLETED',\n  failureReason: null\n});",
+                  "const body = JSON.stringify({\n  paymentReference: ref,\n  transactionId: pm.collectionVariables.get('transaction_id'),\n  status: 'COMPLETED',\n  failureReason: null\n});",
                   "const signed = ts + '.' + body;",
                   "const hex = CryptoJS.HmacSHA256(signed, secret).toString(CryptoJS.enc.Hex);",
                   "pm.collectionVariables.set('webhook_signature', `t=${ts},v1=${hex}`);",
@@ -1686,6 +1758,23 @@
               }
             }
           ]
+        },
+        {
+          "name": "Stripe webhook (signed fixture)",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Stripe-Signature", "value": "{{stripe_signature}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"evt_example\",\n  \"object\": \"event\",\n  \"type\": \"payment_intent.succeeded\",\n  \"data\": {\n    \"object\": {\n      \"id\": \"{{transaction_id}}\",\n      \"object\": \"payment_intent\",\n      \"metadata\": {\n        \"paymentReference\": \"{{payment_reference}}\"\n      }\n    }\n  }\n}"
+            },
+            "url": "{{base_url}}/api/v1/payments/webhook/stripe",
+            "description": "Stripe-only route. Verification signs the exact raw body; replace the fixture body and Stripe-Signature with a matching delivery from Stripe CLI. Do not put STRIPE_WEBHOOK_SECRET or clientSecret in the collection."
+          }
         }
       ]
     },
@@ -2125,7 +2214,7 @@
               },
               {
                 "key": "X-Idempotency-Key",
-                "value": "{{$guid}}"
+                "value": "{{e2e_order_idempotency_key}}"
               }
             ],
             "body": {
@@ -2138,6 +2227,17 @@
             }
           },
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('e2e_order_idempotency_key')) {",
+                  "  pm.collectionVariables.set('e2e_order_idempotency_key', pm.variables.replaceIn('{{$guid}}'));",
+                  "}"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
@@ -2168,7 +2268,7 @@
               },
               {
                 "key": "X-Idempotency-Key",
-                "value": "{{$guid}}"
+                "value": "{{e2e_payment_idempotency_key}}"
               }
             ],
             "body": {
@@ -2182,14 +2282,26 @@
           },
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('e2e_payment_idempotency_key')) {",
+                  "  pm.collectionVariables.set('e2e_payment_idempotency_key', pm.variables.replaceIn('{{$guid}}'));",
+                  "}"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('201', () => pm.response.to.have.status(201));",
                   "const d = pm.response.json()?.data;",
-                  "pm.collectionVariables.set('payment_id', d?.id ?? '');",
-                  "pm.collectionVariables.set('payment_reference', d?.paymentReference ?? '');"
+                  "pm.collectionVariables.set('payment_id', d?.payment?.id ?? '');",
+                  "pm.collectionVariables.set('payment_reference', d?.payment?.paymentReference ?? '');",
+                  "pm.collectionVariables.set('transaction_id', d?.payment?.transactionId ?? '');"
                 ]
               }
             }
@@ -2227,7 +2339,7 @@
                   "const secret = pm.collectionVariables.get('webhook_secret');",
                   "const ref = pm.collectionVariables.get('payment_reference');",
                   "const ts = Math.floor(Date.now() / 1000);",
-                  "const body = JSON.stringify({\n  paymentReference: ref,\n  transactionId: 'sandbox-tx-1',\n  status: 'COMPLETED',\n  failureReason: null\n});",
+                  "const body = JSON.stringify({\n  paymentReference: ref,\n  transactionId: pm.collectionVariables.get('transaction_id'),\n  status: 'COMPLETED',\n  failureReason: null\n});",
                   "const hex = CryptoJS.HmacSHA256(ts + '.' + body, secret).toString(CryptoJS.enc.Hex);",
                   "pm.collectionVariables.set('webhook_signature', `t=${ts},v1=${hex}`);",
                   "pm.request.body.raw = body;"

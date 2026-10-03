@@ -11,7 +11,8 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY frontend/ecommerce-app/ .
 
 ARG VITE_API_BASE_URL=
-RUN VITE_API_BASE_URL="$VITE_API_BASE_URL" npm run build
+ARG VITE_STRIPE_PUBLISHABLE_KEY=
+RUN VITE_API_BASE_URL="$VITE_API_BASE_URL" VITE_STRIPE_PUBLISHABLE_KEY="$VITE_STRIPE_PUBLISHABLE_KEY" npm run build
 
 FROM nginxinc/nginx-unprivileged:stable-alpine
 
