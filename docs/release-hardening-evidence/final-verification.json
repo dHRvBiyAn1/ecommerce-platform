@@ -59,5 +59,6 @@
       {"command":"bash scripts/test-common-parent-dockerfiles.sh","exitStatus":0,"outputExcerpt":"All nine Dockerfile invariants and CI image entries passed."}
     ]
   },
-  "overallStatus":"REPOSITORY_CHECKS_PASSED_FINAL_RECORD_PENDING"
+  "verificationCheckpointCommit":"c5f0e94107ff7792083edea42bce637ef8b211e5",
+  "overallStatus":"REPOSITORY_VERIFIED_DEPLOYMENT_VALIDATION_DEFERRED"
 }

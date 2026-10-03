@@ -2,8 +2,8 @@
 
 **Verification scope:** REPOSITORY_ONLY
 
-**State:** Tasks 1–27 are complete and reviewed. Task 28's local verification
-passed on 2026-10-03; its final evidence commit confirmation is being recorded.
+**State:** All 28 tasks are complete for the repository-only scope. Task 28's
+verification and reviewed evidence checkpoint are recorded in commit `c5f0e941`.
 The owner deferred live smoke for this GitHub-only personal project. This is
 repository verification, not validation of a deployed production environment.
 SonarCloud was removed from CI, Maven, and completion requirements by explicit
@@ -86,7 +86,7 @@ still requires actual live smoke PASS evidence.
 | 25 | COMPLETE | `task:25` |
 | 26 | COMPLETE | `task:26` |
 | 27 | COMPLETE | `task:27` |
-| 28 | PARTIAL | `task:28` |
+| 28 | COMPLETE | `task:28` |
 
 Task 27's reviewed commit `a4d2833e` is recorded in its supporting task record.
 Task 28's direct verification results and coverage counters are captured in
@@ -103,7 +103,7 @@ Task 28's direct verification results and coverage counters are captured in
 | frontend-coverage | PASS | `ci:ci-run-37114276766.json` |
 | testcontainers | PASS | `ci:ci-run-37114276766.json` |
 | smoke | DEFERRED | `smoke-deferral:smoke-deferral.json` |
-| reviewers | PARTIAL | `tasks:all` |
+| reviewers | SIGNED_OFF | `tasks:all` |
 | no-compose | DECLARED | `task:26` |
 | image:api-gateway | SUCCESS | `ci:ci-run-37114276766.json` |
 | image:auth-service | SUCCESS | `ci:ci-run-37114276766.json` |
@@ -115,10 +115,10 @@ Task 28's direct verification results and coverage counters are captured in
 | image:cart-service | SUCCESS | `ci:ci-run-37114276766.json` |
 | image:coupon-service | SUCCESS | `ci:ci-run-37114276766.json` |
 
-The overall reviewer gate remains `PARTIAL` until Task 28's verification commit
-is recorded. Earlier tasks retain their independent review outcomes. The user
+The repository reviewer gate is signed off. Earlier tasks retain their
+independent review outcomes. The user
 explicitly requested no subagents for Task 28; its final verification and
-evidence review are performed directly by the controller, not represented as
+evidence review were performed directly by the controller, not represented as
 an independent subagent sign-off.
 
 ## Task 27 checks and reconciliation
