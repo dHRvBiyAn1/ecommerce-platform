@@ -6,15 +6,17 @@
 verification and reviewed evidence checkpoint are recorded in commit `c5f0e941`.
 The owner deferred live smoke for this GitHub-only personal project. This is
 repository verification, not validation of a deployed production environment.
-SonarCloud was removed from CI, Maven, and completion requirements by explicit
-user instruction.
+SonarCloud was removed at that checkpoint, then restored by subsequent user
+approval in a coverage-aware CI integration. Historical captures are unchanged;
+current Sonar acceptance is pending a scan of the restoration.
 
 The latest successful CI run is Wave 6 commit `a4d2833e`, run
 <https://github.com/dHRvBiyAn1/ecommerce-platform/actions/runs/37114276766>.
 The commit-safe capture at `release-hardening-evidence/ci-run-37114276766.json`
 records the backend/frontend gating steps and all nine image builds as
 successful. It preserves the historical failed Sonar job and step rather than
-rewriting past results. That removed integration is no longer a release gate.
+rewriting past results. That historical integration does not prove the restored
+job passed.
 
 Java 17 remains the backend/runtime target through completion of all waves. CI
 Testcontainers run against isolated containers and does not use Docker Compose.
@@ -48,8 +50,10 @@ unit suite is not a live result. The smoke JSON records capture time/provenance,
 command and exit status, configured base URL, both probe URLs/statuses, and
 explicit endpoint overrides, and captured stdout; recorded probe URLs must
 match the base defaults or those overrides. It omits bearer tokens and URL
-queries/fragments. New captures do not require a Sonar job; historical captures
-may retain one. Removed `sonar-external` gate rows are rejected as obsolete.
+queries/fragments. Historical captures may omit the removed Sonar job. Restored
+analysis uses `sonar-analysis`, requiring both setup and quality-gate success;
+old `sonar-external` rows are obsolete. A successful old workflow with a failed
+Sonar job cannot satisfy the restored gate.
 For the explicit `REPOSITORY_ONLY` scope, smoke may be `DEFERRED` only when
 `smoke-deferral.json` records the project owner's decision, reason, and required
 follow-up before production deployment. Default deployed-release verification
@@ -103,6 +107,7 @@ Task 28's direct verification results and coverage counters are captured in
 | frontend-coverage | PASS | `ci:ci-run-37114276766.json` |
 | testcontainers | PASS | `ci:ci-run-37114276766.json` |
 | smoke | DEFERRED | `smoke-deferral:smoke-deferral.json` |
+| sonar-analysis | PENDING | `ci:ci-run-37114276766.json` |
 | reviewers | SIGNED_OFF | `tasks:all` |
 | no-compose | DECLARED | `task:26` |
 | image:api-gateway | SUCCESS | `ci:ci-run-37114276766.json` |
@@ -130,7 +135,7 @@ an independent subagent sign-off.
 | `node scripts/test-postman-idempotency.js` | Passed: per-operation order/payment/refund keys (including E2E keys) remain stable on retry and rotate only after explicit reset. |
 | `bash scripts/verify-release-evidence.sh docs/release-hardening-evidence.md` | Repository-scope verification requires Task 28's reviewed evidence commit and the explicit owner-approved smoke deferral record. |
 | Configured live health/OpenAPI smoke | DEFERRED by owner; no deployment URL or bearer value was supplied. No successful live result is claimed. |
-| Sonar integration | Removed from CI, Maven, and release-completion criteria at the user's request; historical captures remain unchanged. |
+| Sonar integration | Restored by subsequent approval; new coverage-aware remote analysis pending. Historical captures remain unchanged. |
 
 Gateway health and the default OpenAPI URL (`GET /v3/api-docs/swagger-config`)
 both require a nonblank Authorization header. `SMOKE_BEARER_TOKEN` now supplies
@@ -189,6 +194,9 @@ mutation, or data reset was performed for this verification.
   evidence checks. Its reviewed commit is present in current ancestry.
 - The recorded CI job and step outcomes match the queried run; successful
   backend/frontend/image jobs do not hide the failed non-blocking Sonar job.
+- Current integration and scoped dispositions are in [Sonar analysis](sonar.md).
+  Acceptance remains PENDING until the new job succeeds; local results are not
+  substituted for a remote analysis.
 - Unit/isolated E2E smoke fixtures are not relabeled as configured deployment
   probes. No live smoke PASS is claimed; the owner-approved deferral has its own
   structured supporting record.

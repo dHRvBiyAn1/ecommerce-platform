@@ -45,6 +45,7 @@ jobs:
               - 'scripts/check-jacoco-baseline.sh'
               - 'scripts/check-jacoco-baseline.test.sh'
               - 'scripts/test-active-service-routes.sh'
+              - 'scripts/test-sonar-integration.sh'
               - 'scripts/fixtures/jacoco/**'
               - 'coverage-baseline/backend-modules.json'
             auth-service: &shared_backend_paths
@@ -83,7 +84,7 @@ jobs:
 
   backend:
     needs: detect-changes
-    if: needs.detect-changes.outputs.backend == 'true'
+    if: needs.detect-changes.outputs.backend == 'true' || needs.detect-changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -111,6 +112,9 @@ jobs:
 
       - name: Verify active service routes
         run: bash scripts/test-active-service-routes.sh
+
+      - name: Verify Sonar integration contract
+        run: bash scripts/test-sonar-integration.sh
 
       - name: Verify the whole reactor
         run: ./mvnw -B -ntp -fae clean verify
@@ -186,7 +190,7 @@ jobs:
 
   frontend:
     needs: detect-changes
-    if: needs.detect-changes.outputs.frontend == 'true'
+    if: needs.detect-changes.outputs.frontend == 'true' || needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -204,6 +208,25 @@ jobs:
         run: npx playwright install --with-deps chrome
       - name: React quality
         run: npm run react:quality
+      - name: Prepare repository-rooted Sonar coverage
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          source = Path("coverage/lcov.info").read_text()
+          paths = re.findall(r"^SF:(.*)$", source, flags=re.MULTILINE)
+          if not paths or any(not path.startswith("src/") for path in paths):
+              raise SystemExit("Expected frontend-relative LCOV source paths")
+          Path("coverage/sonar-lcov.info").write_text(
+              re.sub(r"^SF:src/", "SF:frontend/ecommerce-app/src/", source, flags=re.MULTILINE))
+          PY
+      - name: Upload frontend Sonar coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-sonar-lcov
+          retention-days: 7
+          path: frontend/ecommerce-app/coverage/sonar-lcov.info
+          if-no-files-found: error
       - name: Build frontend distribution
         run: npm run build
       - name: Upload dist
@@ -212,3 +235,75 @@ jobs:
           name: frontend-dist
           path: frontend/ecommerce-app/dist
           retention-days: 7
+
+  sonar:
+    needs: [backend, frontend]
+    if: |
+      needs.backend.result == 'success' &&
+      needs.frontend.result == 'success' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - name: Validate Sonar authentication and analysis mode
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          import xml.etree.ElementTree as ET
+          token = os.environ.get("SONAR_TOKEN")
+          if not token:
+              raise SystemExit("::error::Configure a current SONAR_TOKEN repository secret")
+          def get(endpoint):
+              request = urllib.request.Request("https://sonarcloud.io/api/" + endpoint,
+                                               headers={"Authorization": "Bearer " + token})
+              try:
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      return json.load(response)
+              except urllib.error.HTTPError as error:
+                  raise SystemExit("::error::Sonar authentication/setup returned HTTP " + str(error.code))
+          if get("authentication/validate").get("valid") is not True:
+              raise SystemExit("::error::SONAR_TOKEN is invalid; replace it with an authorized personal token")
+          project = ET.parse("pom.xml").getroot().findtext("{*}properties/{*}sonar.projectKey")
+          settings = get("settings/values?" + urllib.parse.urlencode(
+              {"component": project, "keys": "sonar.autoscan.enabled"}))["settings"]
+          automatic = next((setting.get("value") for setting in settings
+                            if setting.get("key") == "sonar.autoscan.enabled"), None)
+          if automatic == "true":
+              raise SystemExit("::error::Disable Automatic Analysis in the Sonar project's Analysis Method settings before CI analysis")
+          if automatic != "false":
+              raise SystemExit("::error::Unable to confirm Sonar Automatic Analysis is disabled")
+          PY
+      - name: Download verified backend coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-jacoco-xml
+          path: services
+      - name: Download verified frontend coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-sonar-lcov
+          path: frontend/ecommerce-app/coverage
+      - name: Build bytecode and analyze Sonar quality gate
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: >-
+          ./mvnw -B -ntp -DskipTests install
+          org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
+          -Dsonar.java.jdkHome="$JAVA_HOME"
+          -Dsonar.qualitygate.wait=true

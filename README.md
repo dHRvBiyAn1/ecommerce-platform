@@ -242,13 +242,19 @@ This GitHub-only project's `REPOSITORY_ONLY` scope explicitly defers live smoke
 with a recorded owner decision. Repository verification does not claim the app
 has been validated in a deployed production environment; live smoke remains a
 required follow-up before deployment.
-SonarCloud has been removed from CI, Maven, and release-completion requirements.
-Historical CI captures retain their original job results. For a final run,
+SonarQube Cloud runs a coverage-aware CI job using the existing project. It
+consumes JaCoCo/LCOV reports, builds analysis bytecode, and waits for the quality
+gate; see [Sonar setup and reviewed findings](docs/sonar.md). CI requires a valid
+`SONAR_TOKEN` secret and project Automatic Analysis turned off. Historical
+captures retain their original job results. For a final run,
 capture `gh run view <run-id> --json
 databaseId,headSha,url,status,conclusion,jobs` and persist its run identity plus
 the release jobs and gating-step conclusions in a commit-safe evidence
 artifact. The checked-in CI record is a gate-focused projection of that output;
 the checker reads only local records and does not call GitHub.
+An explicit `sonar-analysis` evidence gate additionally requires captured setup
+and quality-gate success. Older checkpoints without that requirement remain
+historical records.
 
 ### Obtaining a smoke bearer token
 

@@ -167,6 +167,20 @@ variant("historical-sonar", mutate_ci=lambda data: data["jobs"].append({
 }))
 variant("obsolete-sonar-gate", document=markdown(gates=valid_gates + [
     ("sonar-external", "BLOCKED", "ci:ci-run-424242.json")]))
+sonar_gates = valid_gates + [("sonar-analysis", "SUCCESS", "ci:ci-run-424242.json")]
+def append_sonar(data, conclusion):
+    data["jobs"].append({
+        "name": "sonar", "conclusion": conclusion,
+        "steps": [
+            {"name": "Validate Sonar authentication and analysis mode", "conclusion": "success"},
+            {"name": "Build bytecode and analyze Sonar quality gate", "conclusion": conclusion},
+        ],
+    })
+variant("sonar-analysis-pass", document=markdown(gates=sonar_gates),
+        mutate_ci=lambda data: append_sonar(data, "success"))
+variant("sonar-analysis-failure", document=markdown(gates=sonar_gates),
+        mutate_ci=lambda data: append_sonar(data, "failure"))
+variant("sonar-analysis-missing", document=markdown(gates=sonar_gates))
 variant("task-identity", mutate_tasks=lambda data: data["records"][0].update(status="PENDING"))
 variant("ci-identity", mutate_ci=lambda data: data.update(databaseId=424243))
 variant("fake-task", mutate_tasks=lambda data: data["records"][0].update(result="README overview only"))
@@ -210,16 +224,8 @@ expect_reject() {
 bash "$checker" "$tmp/complete.md"
 bash "$checker" "$tmp/historical-sonar/evidence.md"
 bash "$checker" "$tmp/repository-smoke-deferred/evidence.md"
-
-python3 - "$root" <<'PY'
-from pathlib import Path
-import sys
-
-root = Path(sys.argv[1])
-assert "sonar" not in (root / ".github/workflows/ci.yml").read_text().lower()
-assert "sonar" not in (root / "pom.xml").read_text().lower()
-print("PASS: CI and Maven contain no Sonar integration")
-PY
+bash "$checker" "$tmp/sonar-analysis-pass/evidence.md"
+bash "$root/scripts/test-sonar-integration.sh"
 
 expect_reject() {
   local name=$1 file=$2 expected=$3 output
@@ -240,6 +246,8 @@ expect_reject 'unknown task status' "$tmp/unknown.md" "Task 28 has unknown statu
 expect_reject 'README citations' "$tmp/readme-citations.md" 'must cite its task-specific record'
 expect_reject 'mock smoke test source' "$tmp/mock-smoke-source.md" 'live smoke evidence must be a captured smoke-run JSON artifact'
 expect_reject 'obsolete Sonar gate' "$tmp/obsolete-sonar-gate/evidence.md" 'unknown gate record: sonar-external'
+expect_reject 'failed required Sonar analysis' "$tmp/sonar-analysis-failure/evidence.md" "CI job 'sonar' is absent or not successful"
+expect_reject 'missing required Sonar analysis' "$tmp/sonar-analysis-missing/evidence.md" "CI job 'sonar' is absent or not successful"
 expect_reject 'task status mismatch' "$tmp/task-identity/evidence.md" 'task record identity/status mismatch for Task 1'
 expect_reject 'run id mismatch' "$tmp/ci-identity/evidence.md" 'CI capture identity/provenance does not match run 424242'
 expect_reject 'fake task completion' "$tmp/fake-task/evidence.md" 'Task 1 lacks task-specific verification output'
@@ -250,4 +258,4 @@ expect_reject 'deployment smoke deferral' "$tmp/deployment-smoke-deferred/eviden
 expect_reject 'unapproved smoke deferral' "$tmp/unapproved-smoke-deferral/evidence.md" 'smoke deferral requires project-owner approval'
 expect_reject 'untracked deployment follow-up' "$tmp/untracked-deployment-followup/evidence.md" 'deferred smoke must remain required before production deployment'
 
-printf 'PASS: Sonar-free and historical CI evidence accepted; unsupported sources, obsolete gates, false CI/smoke claims, mismatches, and missing outputs rejected\n'
+printf 'PASS: checkpoint compatibility, required Sonar outcomes, scoped smoke deferrals, and supporting evidence validated\n'

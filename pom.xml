@@ -61,6 +61,20 @@
         <shedlock.version>5.13.0</shedlock.version>
         <caffeine.version>3.1.8</caffeine.version>
 
+        <sonar-maven-plugin.version>5.8.0.7211</sonar-maven-plugin.version>
+        <sonar.projectKey>dHRvBiyAn1_ecommerce-platform</sonar.projectKey>
+        <sonar.organization>dhrvbiyan1</sonar.organization>
+        <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+        <sonar.maven.scanAll>true</sonar.maven.scanAll>
+        <sonar.coverage.jacoco.xmlReportPaths>${maven.multiModuleProjectDirectory}/services/*/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <sonar.javascript.lcov.reportPaths>${maven.multiModuleProjectDirectory}/frontend/ecommerce-app/coverage/sonar-lcov.info</sonar.javascript.lcov.reportPaths>
+        <sonar.exclusions>**/target/**,**/node_modules/**,**/dist/**,**/coverage/**,**/e2e/**,**/*.test.ts,**/*.test.tsx</sonar.exclusions>
+        <!-- V3 intentionally normalizes every existing coupon before the unique index.
+             Keep the applied Flyway migration immutable; other SQL checks remain active. -->
+        <sonar.issue.ignore.multicriteria>couponNormalization</sonar.issue.ignore.multicriteria>
+        <sonar.issue.ignore.multicriteria.couponNormalization.ruleKey>plsql:DeleteOrUpdateWithoutWhereCheck</sonar.issue.ignore.multicriteria.couponNormalization.ruleKey>
+        <sonar.issue.ignore.multicriteria.couponNormalization.resourceKey>**/src/main/resources/db/migration/V3__coupon_lifecycle_locking.sql</sonar.issue.ignore.multicriteria.couponNormalization.resourceKey>
+
     </properties>
 
     <dependencyManagement>
@@ -182,6 +196,11 @@
         </plugins>
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>org.sonarsource.scanner.maven</groupId>
+                    <artifactId>sonar-maven-plugin</artifactId>
+                    <version>${sonar-maven-plugin.version}</version>
+                </plugin>
                 <plugin>
                     <groupId>org.jacoco</groupId>
                     <artifactId>jacoco-maven-plugin</artifactId>

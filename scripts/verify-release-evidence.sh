@@ -165,6 +165,8 @@ required = {
 images = {"api-gateway", "auth-service", "product-service", "inventory-service", "order-service",
           "payment-service", "notification-service", "cart-service", "coupon-service"}
 required.update({f"image:{service}": "SUCCESS" for service in images})
+if "sonar-analysis" in gate_data:
+    required["sonar-analysis"] = "SUCCESS"
 for name in gate_data.keys() - required.keys():
     errors.append(f"unknown gate record: {name}")
 for name in required.keys() - gate_data.keys():
@@ -330,6 +332,9 @@ for name, (status, reference) in gate_data.items():
     elif name == "testcontainers":
         successful_step(reference, "backend", "Verify Docker availability for Testcontainers")
         successful_step(reference, "backend", "Verify the whole reactor")
+    elif name == "sonar-analysis":
+        successful_step(reference, "sonar", "Validate Sonar authentication and analysis mode")
+        successful_step(reference, "sonar", "Build bytecode and analyze Sonar quality gate")
     elif name.startswith("image:"):
         successful_step(reference, f"images ({name.split(':', 1)[1]})", "Build image")
 
