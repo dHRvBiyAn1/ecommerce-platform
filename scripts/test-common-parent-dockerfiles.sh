@@ -13,6 +13,12 @@ dockerfiles=(
   services/coupon-service/Dockerfile
 )
 
+all_service_dockerfiles=(
+  "${dockerfiles[@]}"
+  services/config-server/Dockerfile
+  services/discovery-server/Dockerfile
+)
+
 expected_image_services=(
   api-gateway
   auth-service
@@ -23,6 +29,8 @@ expected_image_services=(
   notification-service
   cart-service
   coupon-service
+  config-server
+  discovery-server
 )
 
 failures=0
@@ -115,6 +123,20 @@ for dockerfile in "${dockerfiles[@]}"; do
   fi
 done
 
+for dockerfile in "${all_service_dockerfiles[@]}"; do
+  if [[ ! -f "$dockerfile" ]]; then
+    fail "missing service Dockerfile: $dockerfile"
+    continue
+  fi
+
+  if [[ "$(grep -cF 'FROM eclipse-temurin:21-jdk-jammy AS build' "$dockerfile")" -ne 1 ]]; then
+    fail "$dockerfile: build stage must use eclipse-temurin:21-jdk-jammy"
+  fi
+  if [[ "$(grep -cF 'FROM eclipse-temurin:21-jre-jammy' "$dockerfile")" -ne 1 ]]; then
+    fail "$dockerfile: runtime stage must use eclipse-temurin:21-jre-jammy"
+  fi
+done
+
 workflow=.github/workflows/ci.yml
 if [[ ! -f "$workflow" ]]; then
   fail "missing workflow: $workflow"
@@ -148,4 +170,4 @@ if [[ "$failures" -ne 0 ]]; then
   exit 1
 fi
 
-printf '%s\n' "all ${#dockerfiles[@]} Dockerfiles install the root parent POM, services/common, and their service package in one RUN; CI builds all ${#expected_image_services[@]} common-consuming images"
+printf '%s\n' "all ${#dockerfiles[@]} common-consuming Dockerfiles preserve parent/common/service install invariants; all ${#all_service_dockerfiles[@]} service images use Java 21; CI builds all ${#expected_image_services[@]} service images"

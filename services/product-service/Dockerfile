@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM eclipse-temurin:17-jdk-jammy AS build
+FROM eclipse-temurin:21-jdk-jammy AS build
 WORKDIR /workspace
 COPY --chmod=0755 mvnw pom.xml ./
 COPY .mvn/ .mvn/
@@ -17,7 +17,7 @@ WORKDIR /work
 RUN cp /workspace/services/product-service/target/product-service-*.jar app.jar \
  && java -Djarmode=layertools -jar app.jar extract --destination /work/extracted
 
-FROM eclipse-temurin:17-jre-jammy
+FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 RUN groupadd --system spring && useradd --system --gid spring spring \
  && apt-get update && apt-get install -y --no-install-recommends curl \
