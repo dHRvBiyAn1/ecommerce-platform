@@ -35,6 +35,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -68,7 +69,7 @@ class CartServiceTest {
     void addItemPersistsAuthoritativeProductSnapshotAndDoesNotLeakCartItem() {
         UUID userId = UUID.randomUUID();
         ProductSummary product = new ProductSummary(
-                "product-1", "REAL-SKU", "Real product", List.of("real-image"),
+                "product-1", "REAL-SKU", "Real product", List.of("first-image", "second-image"),
                 new BigDecimal("125.50"), true);
         when(cartRepository.findByUserId(userId)).thenReturn(Optional.empty());
         when(productClient.getProduct("product-1")).thenReturn(product);
@@ -82,10 +83,23 @@ class CartServiceTest {
         assertEquals("REAL-SKU", savedItem.getSku());
         assertEquals("Real product", savedItem.getProductName());
         assertEquals(new BigDecimal("125.50"), savedItem.getUnitPrice());
-        assertEquals("real-image", savedItem.getImageUrl());
+        assertEquals("first-image", savedItem.getImageUrl());
         assertEquals(2, savedItem.getQuantity());
         assertInstanceOf(CartResponse.Item.class, response.items().get(0));
         assertTrue(response.items().stream().noneMatch(CartItem.class::isInstance));
+    }
+
+    @Test
+    void addItemKeepsImageNullWhenProductHasNoImages() {
+        UUID userId = UUID.randomUUID();
+        when(productClient.getProduct("no-image")).thenReturn(
+                new ProductSummary("no-image", "SKU", "No image", List.of(), BigDecimal.TEN, true));
+        when(cartRepository.findByUserId(userId)).thenReturn(Optional.empty());
+        when(cartRepository.save(any(Cart.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CartResponse response = cartService.addItem(userId, new AddCartItemRequest("no-image", 1));
+
+        assertNull(response.items().get(0).imageUrl());
     }
 
     @Test

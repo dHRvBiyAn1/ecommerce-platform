@@ -5,6 +5,7 @@ import org.springframework.cache.support.SimpleValueWrapper;
 import org.springframework.data.redis.core.RedisTemplate;
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.TimeUnit;
 
 public class LayeredCache implements Cache {
@@ -13,6 +14,7 @@ public class LayeredCache implements Cache {
     private final com.github.benmanes.caffeine.cache.Cache<Object, Object> l1Cache;
     private final RedisTemplate<String, Object> redisTemplate;
     private final long ttlSeconds;
+    private final ReentrantLock loadLock = new ReentrantLock();
 
     public LayeredCache(String name, com.github.benmanes.caffeine.cache.Cache<Object, Object> l1Cache,
                         RedisTemplate<String, Object> redisTemplate, long ttlSeconds) {
@@ -69,8 +71,9 @@ public class LayeredCache implements Cache {
             return (T) wrapper.get();
         }
 
-        // Key-level synchronization to prevent Cache Stampede
-        synchronized (this) {
+        // Serialize cache misses across this cache and recheck after waiting.
+        loadLock.lock();
+        try {
             wrapper = get(key);
             if (wrapper != null) {
                 return (T) wrapper.get();
@@ -82,6 +85,8 @@ public class LayeredCache implements Cache {
             } catch (Exception e) {
                 throw new ValueRetrievalException(key, valueLoader, e);
             }
+        } finally {
+            loadLock.unlock();
         }
     }
 
