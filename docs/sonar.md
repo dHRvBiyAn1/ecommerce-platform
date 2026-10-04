@@ -28,13 +28,14 @@ receive the scanner credential. A failed quality gate fails the analysis job.
   scanner's provisioned JRE is separate, with the application's JDK home passed
   explicitly for Java API resolution.
 
-The analysis-only `sonar-analysis` Maven profile registers
-`frontend/ecommerce-app/src` as a root-project source directory using pinned
-build-helper 3.6.1. `scanAll` alone only added top-level non-JVM files in the first
-live scan and omitted the frontend; the explicit source registration fixes that
-without adding an application module or changing normal builds. Each Java module
-imports its own JaCoCo XML, avoiding cross-module report mismatch warnings.
-`scanAll` additionally includes top-level configuration alongside Java modules.
+The `sonar-analysis` Maven profile selects the frontend analysis-only POM at
+`frontend/ecommerce-app/pom.xml`, which explicitly declares `sonar.sources=src`.
+The pinned scanner ignores compile-source roots on `pom` projects, so the earlier
+root build-helper registration did not include the frontend. Explicit frontend
+scope replaces that ineffective registration. Java modules use their native
+Maven source/test roots and each imports its own JaCoCo XML. The root POM and
+GitHub Actions configuration retain their scanner-default scope. Normal builds
+do not select the frontend analysis module.
 Generated/dependency/output directories and frontend test/E2E sources are
 excluded from production-source analysis; Java tests keep Maven classification.
 Security rules are not globally disabled.
@@ -54,7 +55,7 @@ a subsequent CI analysis.
 | --- | --- | --- |
 | `javabugs:S2259`, payment transition lookup | Required journal reads fail explicitly if a save result omits its transition, before acknowledgement/outbox completion. Optional lookup paths remain nullable. | Two durability tests reproduced null dereferences before the guard; afterward both fail closed and safely replay from persisted state. |
 | `java:S4502`, order/payment/product/notification/coupon chains | Reviewed, method-scoped suppression for stateless Bearer-only APIs. | Each MVC test rejects a valid JWT supplied only by cookie and a pre-authenticated session, accepts the same Bearer header, and proves no HTTP Basic filter exists. Payment webhooks use provider signatures, not browser authentication. |
-| `plsql:DeleteOrUpdateWithoutWhereCheck`, coupon V3 | Reviewed, one-rule/one-immutable-migration exception: deliberately normalize every coupon before the normalized unique index. | PostgreSQL upgrade/concurrency tests cover the normalization. The applied Flyway script and checksum are unchanged; other SQL rules and migration files remain analyzed. |
+| `plsql:DeleteOrUpdateWithoutWhereCheck`, coupon V3 | Reviewed, one-rule/one-immutable-migration exception: deliberately normalize every coupon before the normalized unique index. | PostgreSQL upgrade/concurrency tests cover the normalization. The applied Flyway script and checksum are unchanged; other SQL rules are not suppressed. |
 
 CSRF exceptions do not apply to auth-service's cookie-based refresh flow. If a
 reviewed API gains cookie, session, or Basic authentication, reassess CSRF before
@@ -80,11 +81,35 @@ Clean frontend installation with lifecycle scripts ignored passes typecheck,
 lint, 30 tests, coverage, Playwright, and production build. Remote acceptance
 still requires reanalysis of this follow-up, including frontend source/coverage.
 
+## Source-scope correction and branch diagnostics
+
+Commit `618985b3` passed PR CI run `37196512112` and its Sonar quality gate:
+Java new-code coverage was 81.5%, with A ratings and no new bugs or vulnerabilities.
+However, scanner logs and the public component API still showed no frontend
+files. That gate does not establish frontend analysis or LCOV import.
+
+`scripts/test-sonar-maven-scope.sh` exercises the real pinned scanner in local
+simulation mode against a loopback address, without credentials or a source
+upload. It builds fresh analysis bytecode and verifies actual frontend source
+selection, LCOV location, Java test classification, and module-local XML paths.
+It also verifies that normal builds exclude the frontend analysis module.
+CI runs this proof before the authenticated cloud analysis.
+
+The separate push run `37196509610` uploaded branch analysis but failed while
+waiting for the quality gate with an authorization/project error; PR analysis
+succeeded with the same credential. A failure-only diagnostic now queries the
+scanner's background task and, if processing succeeded, its analysis-specific
+quality gate. It reports processing/access failures without printing credentials
+or changing the failed scanner outcome. Remote source/coverage acceptance and
+the cause of branch failure remain pending the next scan.
+
 ## Local checks
 
 ```bash
 bash scripts/test-sonar-integration.sh
 bash scripts/verify-release-evidence.test.sh
+# Requires Java 17; installs reactor artifacts but does not upload analysis:
+bash scripts/test-sonar-maven-scope.sh
 ```
 
 Cloud analysis uploads source to the configured service and needs an authorized

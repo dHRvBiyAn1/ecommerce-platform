@@ -10,6 +10,7 @@ import os
 import re
 import sys
 import textwrap
+import urllib.request
 from unittest.mock import patch
 import urllib.error
 import xml.etree.ElementTree as ET
@@ -31,10 +32,10 @@ assert props.findtext("{*}sonar.issue.ignore.multicriteria") == "couponNormaliza
 assert props.findtext("{*}sonar.issue.ignore.multicriteria.couponNormalization.ruleKey") == "plsql:DeleteOrUpdateWithoutWhereCheck"
 assert props.findtext("{*}sonar.issue.ignore.multicriteria.couponNormalization.resourceKey") == "**/src/main/resources/db/migration/V3__coupon_lifecycle_locking.sql", "only the intentional immutable migration is reviewed"
 profile = next(p for p in pom.findall("{*}profiles/{*}profile") if p.findtext("{*}id") == "sonar-analysis")
-helper = next(p for p in profile.findall("{*}build/{*}plugins/{*}plugin")
-              if p.findtext("{*}artifactId") == "build-helper-maven-plugin")
-assert helper.findtext("{*}inherited") == "false", "frontend scope must belong only to the root project"
-assert helper.findtext("{*}executions/{*}execution/{*}configuration/{*}sources/{*}source") == "${project.basedir}/frontend/ecommerce-app/src", "frontend sources must be registered, not assumed through scanAll"
+assert profile.findtext("{*}modules/{*}module") == "frontend/ecommerce-app", "frontend analysis module must be selected"
+assert "frontend/ecommerce-app" not in [p.text for p in pom.findall("{*}modules/{*}module")], "frontend analysis must be profile-only"
+frontend = ET.parse(root / "frontend/ecommerce-app/pom.xml").getroot()
+assert frontend.findtext("{*}properties/{*}sonar.sources") == "src", "frontend scope must be explicit for pom packaging"
 workflow = (root / ".github/workflows/ci.yml").read_text()
 assert "\n  sonar:\n" in workflow, "missing analysis job"
 sonar = workflow.split("\n  sonar:\n", 1)[1]
@@ -45,7 +46,7 @@ assert "sonar.branch.name" not in sonar, "branch/PR identity must be autodetecte
 assert "-Dsonar.token" not in sonar, "token must stay in the environment"
 assert 'get("authentication/validate")' in sonar and "https://sonarcloud.io/api/" in sonar and "sonar.autoscan.enabled" in sonar, "authentication and duplicate-analysis setup must be checked"
 assert "backend-jacoco-xml" in sonar and "frontend-sonar-lcov" in sonar, "verified coverage artifacts must be downloaded"
-assert "-DskipTests install" in sonar, "fresh bytecode/dependency build is required without repeating tests"
+assert "bash scripts/test-sonar-maven-scope.sh" in sonar, "actual scanner scope and fresh bytecode must be verified"
 assert "-Psonar-analysis" in sonar, "analysis profile must actually execute"
 assert "sonar.qualitygate.wait=true" in sonar and 'sonar.java.jdkHome="$JAVA_HOME"' in sonar
 assert "SF:frontend/ecommerce-app/src/" in workflow, "LCOV paths must be rooted to the repository"
@@ -91,4 +92,65 @@ for token, valid, automatic, http_error, expected in (
             assert expected is None, "invalid setup was accepted"
 print("PASS: coverage-aware Sonar CI contract, trusted events, project identity, and application Java target")
 print("PASS: CI setup rejects missing/invalid credentials, duplicate analysis and HTTP errors without leaking tokens")
+
+# Run the actual failure diagnostic; only its filesystem and HTTP boundaries are mocked.
+marker = "      - name: Diagnose failed Sonar analysis\n"
+assert marker in sonar, "failed branch scans need background-task diagnostics"
+diagnostic = sonar.split(marker, 1)[1]
+assert "failure() && steps.analysis.outcome == 'failure'" in diagnostic
+lines = textwrap.dedent(diagnostic.split("        run: |\n", 1)[1]).strip().splitlines()
+assert lines[0] == "python3 - <<'PY'" and lines[-1] == "PY"
+program = compile("\n".join(lines[1:-1]), "<CI Sonar failure diagnostic>", "exec")
+for report, task, gate, failure, expected in (
+    (None, {}, {}, None, "No scanner task report"),
+    ("ceTaskId=../../other", {}, {}, None, "Invalid scanner task identifier"),
+    ("ceTaskId=task-123", {}, {}, "http", "HTTP 403"),
+    ("ceTaskId=task-123", {}, {}, "network", "request unavailable"),
+    ("ceTaskId=task-123", {}, {}, "json", "invalid response"),
+    ("ceTaskId=task-123", {"status": "FAILED", "errorMessage": "Branch denied: synthetic-sonar-credential\n::error::private"}, {}, None, "[REDACTED]"),
+    ("ceTaskId=task-123", {"status": "PENDING"}, {}, None, "background task status: PENDING"),
+    ("ceTaskId=task-123", {"status": "SUCCESS", "analysisId": "analysis-123"}, {"status": "OK"}, None, "quality gate status: OK"),
+    ("ceTaskId=task-123", {"status": "SUCCESS", "analysisId": "analysis-123"}, {"status": "ERROR"}, None, "quality gate status: ERROR"),
+    ("ceTaskId=task-123", {"status": "SUCCESS", "analysisId": "analysis-123"}, {}, "gate-http", "quality gate returned HTTP 403"),
+):
+    def response(request, timeout):
+        if failure == "http" or (failure == "gate-http" and "qualitygates/" in request.full_url):
+            raise urllib.error.HTTPError(request.full_url, 403, "synthetic-sonar-credential", {}, None)
+        if failure == "network":
+            raise urllib.error.URLError("synthetic-sonar-credential")
+        if failure == "json":
+            return io.BytesIO(b"{")
+        payload = {"task": task} if "/ce/task?id=task-123" in request.full_url else {"projectStatus": gate}
+        return io.BytesIO(json.dumps(payload).encode())
+    output = io.StringIO()
+    with patch.dict(os.environ, {"SONAR_TOKEN": "synthetic-sonar-credential"}), \
+            patch.object(Path, "is_file", return_value=report is not None), \
+            patch.object(Path, "read_text", return_value=report or ""), \
+            patch("urllib.request.urlopen", side_effect=response), patch("sys.stdout", output):
+        try:
+            exec(program, {})
+        except SystemExit as error:
+            assert error.code in (None, 0), "diagnostic must preserve the existing scanner failure"
+    assert expected in output.getvalue(), f"diagnostic lost {expected}"
+    assert "synthetic-sonar-credential" not in output.getvalue(), "credential leaked in failure diagnostic"
+    assert "\n::error::private" not in output.getvalue(), "remote error injected a workflow command"
+print("PASS: scanner failure diagnostics distinguish processing, gate and access errors without leaking credentials")
+
+# Exercise the CI LCOV conversion, including invalid inputs and preserved counters.
+preparation = workflow.split("      - name: Prepare repository-rooted Sonar coverage\n", 1)[1]
+block = preparation.split("        run: |\n", 1)[1].split("      - name:", 1)[0]
+lines = textwrap.dedent(block).strip().splitlines()
+program = compile("\n".join(lines[1:-1]), "<CI LCOV preparation>", "exec")
+original = "TN:\nSF:src/App.tsx\nDA:3,7\nLF:1\nLH:1\nend_of_record\n"
+for source, expected in ((original, original.replace("SF:src/", "SF:frontend/ecommerce-app/src/")),
+                         ("", None), ("SF:../outside.ts\n", None)):
+    with patch.object(Path, "read_text", return_value=source), patch.object(Path, "write_text") as write:
+        try:
+            exec(program, {})
+        except SystemExit:
+            assert expected is None
+            assert not write.called
+        else:
+            assert write.call_args.args == (expected,), "LCOV counters or source identity changed"
+print("PASS: CI LCOV conversion preserves counters and rejects missing or non-frontend sources")
 PY

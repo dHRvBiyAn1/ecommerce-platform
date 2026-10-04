@@ -68,7 +68,7 @@
         <sonar.maven.scanAll>true</sonar.maven.scanAll>
         <sonar.coverage.jacoco.xmlReportPaths>${project.basedir}/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
         <sonar.javascript.lcov.reportPaths>${maven.multiModuleProjectDirectory}/frontend/ecommerce-app/coverage/sonar-lcov.info</sonar.javascript.lcov.reportPaths>
-        <sonar.exclusions>**/target/**,**/node_modules/**,**/dist/**,**/coverage/**,**/e2e/**,**/*.test.ts,**/*.test.tsx</sonar.exclusions>
+        <sonar.exclusions>**/target/**,**/node_modules/**,**/dist/**,**/coverage/**,**/e2e/**,**/test/**,**/*.test.ts,**/*.test.tsx</sonar.exclusions>
         <!-- V3 intentionally normalizes every existing coupon before the unique index.
              Keep the applied Flyway migration immutable; other SQL checks remain active. -->
         <sonar.issue.ignore.multicriteria>couponNormalization</sonar.issue.ignore.multicriteria>
@@ -278,28 +278,9 @@
     <profiles>
         <profile>
             <id>sonar-analysis</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>build-helper-maven-plugin</artifactId>
-                        <version>3.6.1</version>
-                        <inherited>false</inherited>
-                        <executions>
-                            <execution>
-                                <id>sonar-frontend-sources</id>
-                                <phase>generate-sources</phase>
-                                <goals><goal>add-source</goal></goals>
-                                <configuration>
-                                    <sources>
-                                        <source>${project.basedir}/frontend/ecommerce-app/src</source>
-                                    </sources>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
+            <modules>
+                <module>frontend/ecommerce-app</module>
+            </modules>
         </profile>
     </profiles>
 </project>

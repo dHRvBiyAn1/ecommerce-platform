@@ -47,6 +47,8 @@ jobs:
               - 'scripts/check-jacoco-baseline.test.sh'
               - 'scripts/test-active-service-routes.sh'
               - 'scripts/test-sonar-integration.sh'
+              - 'scripts/test-sonar-maven-scope.sh'
+              - 'scripts/fixtures/SonarScopeCheck.java'
               - 'scripts/fixtures/jacoco/**'
               - 'coverage-baseline/backend-modules.json'
             auth-service: &shared_backend_paths
@@ -304,10 +306,62 @@ jobs:
           name: frontend-sonar-lcov
           path: frontend/ecommerce-app/coverage
       - name: Build bytecode and analyze Sonar quality gate
+        id: analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: >-
-          ./mvnw -B -ntp -Psonar-analysis -DskipTests install
-          org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
-          -Dsonar.java.jdkHome="$JAVA_HOME"
-          -Dsonar.qualitygate.wait=true
+        run: |
+          bash scripts/test-sonar-maven-scope.sh
+          ./mvnw -B -ntp -Psonar-analysis \
+            org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+            -Dsonar.java.jdkHome="$JAVA_HOME" \
+            -Dsonar.qualitygate.wait=true
+      - name: Diagnose failed Sonar analysis
+        if: failure() && steps.analysis.outcome == 'failure'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+          report = Path("target/sonar/report-task.txt")
+          if not report.is_file():
+              print("No scanner task report; failure occurred before upload")
+              raise SystemExit(0)
+          metadata = dict(line.split("=", 1) for line in report.read_text().splitlines() if "=" in line)
+          task_id = metadata.get("ceTaskId", "")
+          if not re.fullmatch(r"[A-Za-z0-9_-]+", task_id):
+              print("Invalid scanner task identifier")
+              raise SystemExit(0)
+          token = os.environ.get("SONAR_TOKEN")
+          if not token:
+              print("Sonar diagnostic credential unavailable")
+              raise SystemExit(0)
+          def get(endpoint, label):
+              request = urllib.request.Request("https://sonarcloud.io/api/" + endpoint,
+                                               headers={"Authorization": "Bearer " + token})
+              try:
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      return json.load(response)
+              except urllib.error.HTTPError as error:
+                  print("Sonar " + label + " returned HTTP " + str(error.code))
+              except (urllib.error.URLError, TimeoutError):
+                  print("Sonar " + label + " request unavailable")
+              except ValueError:
+                  print("Sonar " + label + " invalid response")
+              return {}
+          task = get("ce/task?" + urllib.parse.urlencode({"id": task_id}), "background task").get("task", {})
+          status = task.get("status")
+          print("Sonar background task status:", status if status in ("SUCCESS", "FAILED", "CANCELED", "PENDING", "IN_PROGRESS") else "UNKNOWN")
+          if task.get("errorMessage"):
+              print("Sonar processing error:", json.dumps(str(task["errorMessage"]).replace(token, "[REDACTED]")))
+          if task.get("analysisId"):
+              gate = get("qualitygates/project_status?" + urllib.parse.urlencode(
+                  {"analysisId": task["analysisId"]}), "quality gate").get("projectStatus", {})
+              status = gate.get("status")
+              print("Sonar quality gate status:", status if status in ("OK", "ERROR", "WARN", "NONE") else "UNKNOWN")
+          PY
