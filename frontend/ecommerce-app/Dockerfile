@@ -23,6 +23,9 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # Re-resolve service names after Compose replaces the gateway container.
+    resolver 127.0.0.11 valid=5s ipv6=off;
+
     location = /health {
         access_log off;
         add_header Content-Type text/plain;
@@ -30,7 +33,8 @@ server {
     }
 
     location ~ ^/(api|v1|\.well-known|oauth2/authorization|login/oauth2)(/|$) {
-        proxy_pass http://api-gateway:8080;
+        set $gateway http://api-gateway:8080;
+        proxy_pass $gateway;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -55,4 +59,4 @@ COPY --from=build --chown=nginx:nginx /app/dist/ /usr/share/nginx/html/
 EXPOSE 8080
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=5 \
-    CMD wget -q -O /dev/null http://localhost:8080/health || exit 1
+    CMD wget -q -O /dev/null http://127.0.0.1:8080/health || exit 1

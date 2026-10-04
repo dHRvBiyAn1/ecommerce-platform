@@ -85,7 +85,6 @@ bash scripts/test-active-service-routes.sh
 bash scripts/test-common-parent-dockerfiles.sh
 bash scripts/test-sonar-integration.sh
 bash scripts/test-java21-threading-config.sh
-bash scripts/verify-release-evidence.test.sh
 ```
 
 The Maven verification runs Testcontainers-backed tests when Docker is
@@ -99,8 +98,8 @@ PRODUCT_MONGO_INTEGRATION=true ./mvnw -pl services/product-service -am verify
 ```
 
 These commands describe how to verify the migration; their inclusion here does
-not assert that a particular local or CI run has passed. See [the verification report](java21-verification.md) for checks actually
-performed, measured results, and outstanding runtime limitations.
+not assert that a particular local or CI run has passed. Record the checks actually
+performed and any outstanding runtime limitations before rollout.
 
 ## Virtual-thread evaluation and rollout
 
@@ -120,3 +119,10 @@ service so Compose applies the change. The global
 explicit per-service value of `true`. For a JVM rollback, redeploy the last
 Java 17 artifact; Java 21 bytecode and the Java 21 `common` library require Java
 21 and cannot run on Java 17.
+
+Product and category Redis cache reads restore their DTO types from the existing
+plain JSON format, including dates and decimal prices. Malformed cached values
+fall back to database loading. Validate cache reads after restarting the service
+as part of rollout. Validate end-to-end notification delivery and tracing
+propagation explicitly; responsive list endpoints and test-created Observation
+scopes do not establish those outcomes.

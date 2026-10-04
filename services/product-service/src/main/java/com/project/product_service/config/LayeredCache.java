@@ -7,6 +7,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 public class LayeredCache implements Cache {
 
@@ -14,14 +15,22 @@ public class LayeredCache implements Cache {
     private final com.github.benmanes.caffeine.cache.Cache<Object, Object> l1Cache;
     private final RedisTemplate<String, Object> redisTemplate;
     private final long ttlSeconds;
+    private final Function<Object, Object> valueDecoder;
     private final ReentrantLock loadLock = new ReentrantLock();
 
     public LayeredCache(String name, com.github.benmanes.caffeine.cache.Cache<Object, Object> l1Cache,
                         RedisTemplate<String, Object> redisTemplate, long ttlSeconds) {
+        this(name, l1Cache, redisTemplate, ttlSeconds, Function.identity());
+    }
+
+    public LayeredCache(String name, com.github.benmanes.caffeine.cache.Cache<Object, Object> l1Cache,
+                        RedisTemplate<String, Object> redisTemplate, long ttlSeconds,
+                        Function<Object, Object> valueDecoder) {
         this.name = name;
         this.l1Cache = l1Cache;
         this.redisTemplate = redisTemplate;
         this.ttlSeconds = ttlSeconds;
+        this.valueDecoder = valueDecoder;
     }
 
     @Override
@@ -49,6 +58,7 @@ public class LayeredCache implements Cache {
         try {
             value = redisTemplate.opsForValue().get(redisKey);
             if (value != null) {
+                value = valueDecoder.apply(value);
                 l1Cache.put(key, value); // Load into L1 cache for subsequent reads
                 return new SimpleValueWrapper(value);
             }
