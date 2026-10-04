@@ -2,6 +2,7 @@ package com.project.common.feign;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class ServiceTokenProvider {
 
@@ -10,7 +11,7 @@ public class ServiceTokenProvider {
     private final ServiceTokenClient client;
     private final ServiceAuthProperties properties;
     private final Clock clock;
-    private volatile CachedToken cachedToken;
+    private final AtomicReference<CachedToken> cachedToken = new AtomicReference<>();
 
     public ServiceTokenProvider(ServiceTokenClient client, ServiceAuthProperties properties) {
         this(client, properties, Clock.systemUTC());
@@ -23,13 +24,13 @@ public class ServiceTokenProvider {
     }
 
     public String getAccessToken() {
-        CachedToken current = cachedToken;
+        CachedToken current = cachedToken.get();
         Instant now = clock.instant();
         if (current != null && now.isBefore(current.refreshAt())) {
             return current.value();
         }
         synchronized (this) {
-            current = cachedToken;
+            current = cachedToken.get();
             now = clock.instant();
             if (current != null && now.isBefore(current.refreshAt())) {
                 return current.value();
@@ -37,8 +38,9 @@ public class ServiceTokenProvider {
             ServiceTokenResponse response = client.requestToken(properties);
             validateResponse(response);
             long usableLifetime = Math.max(1, response.expiresIn() - REFRESH_SKEW_SECONDS);
-            cachedToken = new CachedToken(response.accessToken(), now.plusSeconds(usableLifetime));
-            return cachedToken.value();
+            CachedToken updated = new CachedToken(response.accessToken(), now.plusSeconds(usableLifetime));
+            cachedToken.set(updated);
+            return updated.value();
         }
     }
 

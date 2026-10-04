@@ -28,10 +28,21 @@ receive the scanner credential. A failed quality gate fails the analysis job.
   scanner's provisioned JRE is separate, with the application's JDK home passed
   explicitly for Java API resolution.
 
-Maven `scanAll` includes frontend/configuration alongside Java modules.
+The analysis-only `sonar-analysis` Maven profile registers
+`frontend/ecommerce-app/src` as a root-project source directory using pinned
+build-helper 3.6.1. `scanAll` alone only added top-level non-JVM files in the first
+live scan and omitted the frontend; the explicit source registration fixes that
+without adding an application module or changing normal builds. Each Java module
+imports its own JaCoCo XML, avoiding cross-module report mismatch warnings.
+`scanAll` additionally includes top-level configuration alongside Java modules.
 Generated/dependency/output directories and frontend test/E2E sources are
 excluded from production-source analysis; Java tests keep Maven classification.
 Security rules are not globally disabled.
+
+All GitHub Actions references are pinned to verified full commit SHAs. Check
+publishing and artifact-read permissions are job-scoped. npm installs use
+`--ignore-scripts`; browser setup invokes the lockfile-installed Playwright CLI
+directly, with no on-demand package download through `npx`.
 
 ## Reviewed PR #11 findings
 
@@ -53,6 +64,21 @@ Lower-priority findings remain subject to the next coverage-aware scan. Passing
 local tests or these notes do not claim a successful remote quality gate.
 Historical captures retain original outcomes; new Sonar evidence must show a
 successful `sonar` job, setup validation, and quality-gate step.
+
+## First CI scan follow-up
+
+PR run `37148517503` successfully validated the new credential/analysis mode and
+uploaded analysis. The original seven priority findings cleared; Java new-code
+coverage was 81.5% (passing the 80% gate), while remaining reliability/security
+conditions failed on workflow supply-chain controls and the cache reference.
+
+The follow-up pins action SHAs, scopes permissions, uses locked local package
+execution, and explicitly publishes the immutable cached token through an
+`AtomicReference` while retaining synchronized refresh/coalescing. All 65 common
+tests pass, including deterministic concurrent exchange and expiry checks.
+Clean frontend installation with lifecycle scripts ignored passes typecheck,
+lint, 30 tests, coverage, Playwright, and production build. Remote acceptance
+still requires reanalysis of this follow-up, including frontend source/coverage.
 
 ## Local checks
 

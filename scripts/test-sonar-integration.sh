@@ -22,7 +22,7 @@ assert props.findtext("{*}sonar.organization") == "dhrvbiyan1", "wrong or missin
 assert props.findtext("{*}sonar.maven.scanAll") == "true", "frontend/configuration sources must be included"
 assert props.findtext("{*}java.version") == "17", "application Java target must remain 17"
 assert props.findtext("{*}sonar.javascript.lcov.reportPaths").endswith("/coverage/sonar-lcov.info"), "missing frontend coverage import"
-assert "services/*/target/site/jacoco/jacoco.xml" in props.findtext("{*}sonar.coverage.jacoco.xmlReportPaths"), "missing backend coverage import"
+assert props.findtext("{*}sonar.coverage.jacoco.xmlReportPaths") == "${project.basedir}/target/site/jacoco/jacoco.xml", "each module must import its own verified coverage"
 plugins = pom.findall("{*}build/{*}pluginManagement/{*}plugins/{*}plugin")
 scanner = next(p for p in plugins if p.findtext("{*}artifactId") == "sonar-maven-plugin")
 assert scanner.findtext("{*}version") == "${sonar-maven-plugin.version}"
@@ -30,6 +30,11 @@ assert props.findtext("{*}sonar-maven-plugin.version") == "5.8.0.7211", "scanner
 assert props.findtext("{*}sonar.issue.ignore.multicriteria") == "couponNormalization", "unexpected broad issue exclusions"
 assert props.findtext("{*}sonar.issue.ignore.multicriteria.couponNormalization.ruleKey") == "plsql:DeleteOrUpdateWithoutWhereCheck"
 assert props.findtext("{*}sonar.issue.ignore.multicriteria.couponNormalization.resourceKey") == "**/src/main/resources/db/migration/V3__coupon_lifecycle_locking.sql", "only the intentional immutable migration is reviewed"
+profile = next(p for p in pom.findall("{*}profiles/{*}profile") if p.findtext("{*}id") == "sonar-analysis")
+helper = next(p for p in profile.findall("{*}build/{*}plugins/{*}plugin")
+              if p.findtext("{*}artifactId") == "build-helper-maven-plugin")
+assert helper.findtext("{*}inherited") == "false", "frontend scope must belong only to the root project"
+assert helper.findtext("{*}executions/{*}execution/{*}configuration/{*}sources/{*}source") == "${project.basedir}/frontend/ecommerce-app/src", "frontend sources must be registered, not assumed through scanAll"
 workflow = (root / ".github/workflows/ci.yml").read_text()
 assert "\n  sonar:\n" in workflow, "missing analysis job"
 sonar = workflow.split("\n  sonar:\n", 1)[1]
@@ -41,9 +46,14 @@ assert "-Dsonar.token" not in sonar, "token must stay in the environment"
 assert 'get("authentication/validate")' in sonar and "https://sonarcloud.io/api/" in sonar and "sonar.autoscan.enabled" in sonar, "authentication and duplicate-analysis setup must be checked"
 assert "backend-jacoco-xml" in sonar and "frontend-sonar-lcov" in sonar, "verified coverage artifacts must be downloaded"
 assert "-DskipTests install" in sonar, "fresh bytecode/dependency build is required without repeating tests"
+assert "-Psonar-analysis" in sonar, "analysis profile must actually execute"
 assert "sonar.qualitygate.wait=true" in sonar and 'sonar.java.jdkHome="$JAVA_HOME"' in sonar
 assert "SF:frontend/ecommerce-app/src/" in workflow, "LCOV paths must be rooted to the repository"
 assert "name: frontend-sonar-lcov" in workflow and "path: frontend/ecommerce-app/coverage/sonar-lcov.info" in workflow
+assert all(re.fullmatch(r"[0-9a-f]{40}", reference) for reference in re.findall(r"uses: [^\s@]+@([^\s#]+)", workflow)), "actions must be commit-pinned"
+global_permissions = workflow.split("permissions:\n", 1)[1].split("\nconcurrency:", 1)[0]
+assert "checks: write" not in global_permissions and "actions: read" not in global_permissions, "permissions must be job-scoped"
+assert "npm ci --ignore-scripts" in workflow and "npx playwright" not in workflow, "install and browser setup must use locked packages without automatic lifecycle scripts"
 for name in ("backend", "frontend"):
     job = re.split(r"\n  [A-Za-z0-9_-]+:\n", workflow.split(f"\n  {name}:\n", 1)[1], maxsplit=1)[0]
     condition = next(line for line in job.splitlines() if line.startswith("    if:"))
