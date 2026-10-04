@@ -214,7 +214,7 @@ jobs:
         run: ./node_modules/.bin/playwright install --with-deps chrome
       - name: React quality
         run: npm run react:quality
-      - name: Prepare repository-rooted Sonar coverage
+      - name: Prepare module-relative Sonar coverage
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -223,8 +223,8 @@ jobs:
           paths = re.findall(r"^SF:(.*)$", source, flags=re.MULTILINE)
           if not paths or any(not path.startswith("src/") for path in paths):
               raise SystemExit("Expected frontend-relative LCOV source paths")
-          Path("coverage/sonar-lcov.info").write_text(
-              re.sub(r"^SF:src/", "SF:frontend/ecommerce-app/src/", source, flags=re.MULTILINE))
+          # The LCOV sensor resolves paths against the frontend Maven module.
+          Path("coverage/sonar-lcov.info").write_text(source)
           PY
       - name: Upload frontend Sonar coverage
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -247,7 +247,10 @@ jobs:
     if: |
       needs.backend.result == 'success' &&
       needs.frontend.result == 'success' &&
-      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'pull_request' &&
+        github.event.pull_request.base.ref == 'main' &&
+        github.event.pull_request.head.repo.full_name == github.repository))
     runs-on: ubuntu-latest
     permissions:
       contents: read

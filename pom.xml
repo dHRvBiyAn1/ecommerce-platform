@@ -66,6 +66,7 @@
         <sonar.organization>dhrvbiyan1</sonar.organization>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.maven.scanAll>true</sonar.maven.scanAll>
+        <sonar.jasmin.modules.all>true</sonar.jasmin.modules.all>
         <sonar.coverage.jacoco.xmlReportPaths>${project.basedir}/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
         <sonar.javascript.lcov.reportPaths>${maven.multiModuleProjectDirectory}/frontend/ecommerce-app/coverage/sonar-lcov.info</sonar.javascript.lcov.reportPaths>
         <sonar.exclusions>**/target/**,**/node_modules/**,**/dist/**,**/coverage/**,**/e2e/**,**/test/**,**/*.test.ts,**/*.test.tsx</sonar.exclusions>

@@ -32,7 +32,7 @@ export const DecryptedText: React.FC<DecryptedTextProps> = ({
                 return text[index];
               }
               if (char === " ") return " ";
-              return CHARS[Math.floor(Math.random() * CHARS.length)];
+              return CHARS[Math.floor(Math.random() * CHARS.length)]; // NOSONAR: S2245 reviewed; decorative glyphs only, no security-sensitive values.
             })
             .join("")
         );

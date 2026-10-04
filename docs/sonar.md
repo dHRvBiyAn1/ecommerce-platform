@@ -5,8 +5,10 @@
 The GitHub Actions `sonar` job analyzes the existing project
 `dHRvBiyAn1_ecommerce-platform` in organization `dhrvbiyan1`, using pinned
 SonarScanner for Maven 5.8.0.7211. Analysis follows successful backend and
-frontend verification on pushes and trusted same-repository PRs. Fork PRs do not
-receive the scanner credential. A failed quality gate fails the analysis job.
+frontend verification on pushes to `main` and trusted same-repository PRs targeting
+`main`, matching the owner's confirmed Free plan. Fork PRs do not receive the
+scanner credential. A failed quality gate fails the analysis job. Feature-branch
+pushes still run the other CI jobs but do not submit unsupported branch analysis.
 
 - Store a current personal token with Execute Analysis permission in the
   repository's `SONAR_TOKEN` Actions secret. Do not put it in code, shell
@@ -17,7 +19,7 @@ receive the scanner credential. A failed quality gate fails the analysis job.
 - CI validates the token and analysis mode before scanning. Missing/invalid
   credentials and concurrent Automatic Analysis have explicit diagnostics.
 - Backend JaCoCo XML and frontend LCOV artifacts come from successful test jobs.
-  Frontend `SF:src/...` entries receive the repository prefix in a separate
+  Frontend `SF:src/...` entries remain relative to the frontend Maven module in
   `sonar-lcov.info`; coverage counters and the original report are unchanged.
 - The analysis job builds fresh bytecode and installs reactor dependencies with
   tests skipped. It does not repeat tests or fabricate reports; Maven supplies
@@ -102,6 +104,28 @@ scanner's background task and, if processing succeeded, its analysis-specific
 quality gate. It reports processing/access failures without printing credentials
 or changing the failed scanner outcome. Remote source/coverage acceptance and
 the cause of branch failure remain pending the next scan.
+
+Commit `9a4bd8ca` confirmed that the cloud scanner analyzes all 82 frontend source
+files. It also exposed a module-relative LCOV requirement: the previous
+repository prefix prevented all 82 report paths from resolving, dropping combined
+new-code coverage to 79.9%. The report now retains the producer's `src/...` paths,
+and the scope check resolves them against the scanner's actual frontend base.
+`sonar.jasmin.modules.all=true` includes the frontend module in JS/TS taint analysis,
+as requested by the analyzer's cross-module warning.
+
+The only reported vulnerability was `typescript:S2245` on decorative text
+scrambling in `decrypted-text.tsx`. Its sole caller supplies a constant storefront
+heading. Generated glyphs are rendered text, not credentials or cryptographic
+material; a line-scoped `NOSONAR` comment records that review without changing
+animation behavior.
+
+The push diagnostic confirmed background processing `SUCCESS` followed by
+HTTP 403 when reading the analysis-specific quality gate. This isolates the
+failure to gate access. The owner confirmed the Free plan and approved scheduling
+Sonar only for main pushes and trusted PRs targeting main. Other branch analysis
+requires an eligible plan; see [subscription plans](https://docs.sonarsource.com/sonarqube-cloud/administering-sonarcloud/managing-subscription/subscription-plans.md).
+The unsupported branch scan is omitted deliberately; no successful branch quality
+gate is claimed.
 
 ## Local checks
 

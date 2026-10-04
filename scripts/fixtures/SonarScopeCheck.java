@@ -26,14 +26,13 @@ class SonarScopeCheck {
                     .equals(root.resolve("frontend/ecommerce-app/coverage/sonar-lcov.info")),
                     "frontend scanner coverage location is incorrect");
             Path report = Path.of(properties.getProperty(frontend + "sonar.javascript.lcov.reportPaths"));
-            boolean repositoryRelative = Files.isRegularFile(report);
-            if (!repositoryRelative) report = root.resolve("frontend/ecommerce-app/coverage/lcov.info");
+            if (!Files.isRegularFile(report)) report = root.resolve("frontend/ecommerce-app/coverage/lcov.info");
+            Path frontendBase = Path.of(properties.getProperty(frontend + "sonar.projectBaseDir"));
             Path sourceRoot = root.resolve("frontend/ecommerce-app/src");
             int files = 0;
             for (String line : Files.readAllLines(report)) {
                 if (!line.startsWith("SF:")) continue;
-                Path source = (repositoryRelative ? root : root.resolve("frontend/ecommerce-app"))
-                        .resolve(line.substring(3)).normalize();
+                Path source = frontendBase.resolve(line.substring(3)).normalize();
                 require(source.startsWith(sourceRoot) && Files.isRegularFile(source),
                         "LCOV source does not resolve within frontend scanner scope");
                 files++;

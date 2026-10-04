@@ -10,6 +10,7 @@ import os
 import re
 import sys
 import textwrap
+from types import SimpleNamespace
 import urllib.request
 from unittest.mock import patch
 import urllib.error
@@ -39,6 +40,25 @@ assert frontend.findtext("{*}properties/{*}sonar.sources") == "src", "frontend s
 workflow = (root / ".github/workflows/ci.yml").read_text()
 assert "\n  sonar:\n" in workflow, "missing analysis job"
 sonar = workflow.split("\n  sonar:\n", 1)[1]
+# Exercise this job's actual boolean condition against supported/free-plan events.
+condition = sonar.split("    if: |\n", 1)[1].split("    runs-on:", 1)[0]
+condition = " ".join(condition.split()).replace("&&", "and").replace("||", "or")
+for event, ref, base, repository, backend, frontend_result, expected in (
+    ("push", "refs/heads/main", "", "", "success", "success", True),
+    ("push", "refs/heads/release-hardening-impl", "", "", "success", "success", False),
+    ("pull_request", "refs/pull/11/merge", "main", "owner/repo", "success", "success", True),
+    ("pull_request", "refs/pull/11/merge", "main", "fork/repo", "success", "success", False),
+    ("pull_request", "refs/pull/11/merge", "release", "owner/repo", "success", "success", False),
+    ("workflow_dispatch", "refs/heads/main", "", "", "success", "success", False),
+    ("pull_request", "refs/pull/11/merge", "main", "owner/repo", "failure", "success", False),
+    ("pull_request", "refs/pull/11/merge", "main", "owner/repo", "success", "skipped", False),
+):
+    github = SimpleNamespace(event_name=event, ref=ref, repository="owner/repo", event=SimpleNamespace(
+        pull_request=SimpleNamespace(base=SimpleNamespace(ref=base), head=SimpleNamespace(repo=SimpleNamespace(full_name=repository)))))
+    needs = SimpleNamespace(backend=SimpleNamespace(result=backend), frontend=SimpleNamespace(result=frontend_result))
+    assert eval(condition, {"__builtins__": {}}, {"github": github, "needs": needs}) is expected, \
+        f"incorrect Sonar scheduling for {event}/{ref}/{base}/{repository}"
+print("PASS: Free-plan Sonar scheduling accepts main pushes/trusted main PRs and rejects unsupported or unverified events")
 assert "needs: [backend, frontend]" in sonar, "analysis must consume both successful verification jobs"
 assert "github.event.pull_request.head.repo.full_name == github.repository" in sonar, "fork code must not receive Sonar credentials"
 assert "continue-on-error" not in sonar, "quality failures must be reported"
@@ -49,7 +69,6 @@ assert "backend-jacoco-xml" in sonar and "frontend-sonar-lcov" in sonar, "verifi
 assert "bash scripts/test-sonar-maven-scope.sh" in sonar, "actual scanner scope and fresh bytecode must be verified"
 assert "-Psonar-analysis" in sonar, "analysis profile must actually execute"
 assert "sonar.qualitygate.wait=true" in sonar and 'sonar.java.jdkHome="$JAVA_HOME"' in sonar
-assert "SF:frontend/ecommerce-app/src/" in workflow, "LCOV paths must be rooted to the repository"
 assert "name: frontend-sonar-lcov" in workflow and "path: frontend/ecommerce-app/coverage/sonar-lcov.info" in workflow
 assert all(re.fullmatch(r"[0-9a-f]{40}", reference) for reference in re.findall(r"uses: [^\s@]+@([^\s#]+)", workflow)), "actions must be commit-pinned"
 global_permissions = workflow.split("permissions:\n", 1)[1].split("\nconcurrency:", 1)[0]
@@ -137,12 +156,12 @@ for report, task, gate, failure, expected in (
 print("PASS: scanner failure diagnostics distinguish processing, gate and access errors without leaking credentials")
 
 # Exercise the CI LCOV conversion, including invalid inputs and preserved counters.
-preparation = workflow.split("      - name: Prepare repository-rooted Sonar coverage\n", 1)[1]
+preparation = workflow.split("      - name: Prepare module-relative Sonar coverage\n", 1)[1]
 block = preparation.split("        run: |\n", 1)[1].split("      - name:", 1)[0]
 lines = textwrap.dedent(block).strip().splitlines()
 program = compile("\n".join(lines[1:-1]), "<CI LCOV preparation>", "exec")
 original = "TN:\nSF:src/App.tsx\nDA:3,7\nLF:1\nLH:1\nend_of_record\n"
-for source, expected in ((original, original.replace("SF:src/", "SF:frontend/ecommerce-app/src/")),
+for source, expected in ((original, original),
                          ("", None), ("SF:../outside.ts\n", None)):
     with patch.object(Path, "read_text", return_value=source), patch.object(Path, "write_text") as write:
         try:
