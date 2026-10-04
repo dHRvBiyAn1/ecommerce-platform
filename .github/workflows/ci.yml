@@ -40,12 +40,16 @@ jobs:
               - 'services/**'
               - 'config-repo/**'
               - 'docker/**'
+              - 'docker-compose.yml'
+              - '.env.example'
               - '.mvn/**'
               - 'mvnw'
               - '.github/workflows/ci.yml'
               - 'scripts/check-jacoco-baseline.sh'
               - 'scripts/check-jacoco-baseline.test.sh'
               - 'scripts/test-active-service-routes.sh'
+              - 'scripts/test-common-parent-dockerfiles.sh'
+              - 'scripts/test-java21-threading-config.sh'
               - 'scripts/test-sonar-integration.sh'
               - 'scripts/test-sonar-maven-scope.sh'
               - 'scripts/fixtures/SonarScopeCheck.java'
@@ -115,6 +119,9 @@ jobs:
 
       - name: Verify active service routes
         run: bash scripts/test-active-service-routes.sh
+
+      - name: Verify Java 21 threading configuration
+        run: bash scripts/test-java21-threading-config.sh
 
       - name: Verify Sonar integration contract
         run: bash scripts/test-sonar-integration.sh
