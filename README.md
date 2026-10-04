@@ -89,6 +89,9 @@ reactor dependencies from the root, use
 
 ## Architecture and operating decisions
 
+Project principles are in [constitution.md](constitution.md); contribution and
+verification instructions are in [Agents.md](Agents.md).
+
 - The backend is a Java 21 Maven reactor using Spring Boot 3.3.5 and Spring Cloud
   2023.0.3. Config Server supplies service configuration; Eureka handles service
   discovery. The migration and rollout guide is in
@@ -226,36 +229,17 @@ bash scripts/test-active-service-routes.sh
 SMOKE_BASE_URL=https://your-gateway.example \
 SMOKE_BEARER_TOKEN="${SMOKE_BEARER_TOKEN:?set it from your local secret source}" \
   make smoke
-bash scripts/verify-release-evidence.test.sh
-bash scripts/verify-release-evidence.sh docs/release-hardening-evidence.md
 ```
 
-The evidence checker verifies all task statuses and the declared verification
-scope. See
-[release-hardening evidence](docs/release-hardening-evidence.md) for the current
-CI run, available checks, reviewer evidence, and outstanding
-reconciliation items. Task records are per-task entries in
-`docs/release-hardening-evidence/task-records.json`; CI claims are checked
-against the captured job and step conclusions in its `ci-run-*.json` artifact.
-A smoke PASS requires a configured live transcript artifact with both GET probes
-returning 2xx; the smoke unit test alone is never accepted as a release result.
-This GitHub-only project's `REPOSITORY_ONLY` scope explicitly defers live smoke
-with a recorded owner decision. Repository verification does not claim the app
-has been validated in a deployed production environment; live smoke remains a
-required follow-up before deployment.
-SonarQube Cloud runs a coverage-aware CI job using the existing project. It
-consumes JaCoCo/LCOV reports, builds analysis bytecode, and waits for the quality
-gate; see [Sonar setup and reviewed findings](docs/sonar.md). CI requires a valid
-`SONAR_TOKEN` secret and project Automatic Analysis turned off. Historical
-captures retain their original job results. For a final run,
-capture `gh run view <run-id> --json
-databaseId,headSha,url,status,conclusion,jobs` and persist its run identity plus
-the release jobs and gating-step conclusions in a commit-safe evidence
-artifact. The checked-in CI record is a gate-focused projection of that output;
-the checker reads only local records and does not call GitHub.
-An explicit `sonar-analysis` evidence gate additionally requires captured setup
-and quality-gate success. Older checkpoints without that requirement remain
-historical records.
+Release validation requires successful CI tests, coverage baselines, image builds,
+and configured live health/OpenAPI probes. A smoke unit test verifies the probe
+script; it does not establish a successful deployed smoke result. Record which
+checks ran and distinguish local validation from production readiness.
+
+SonarQube Cloud consumes JaCoCo/LCOV reports, builds analysis bytecode, and waits
+for the quality gate on supported CI events. See [Sonar setup](docs/sonar.md).
+Configure a valid `SONAR_TOKEN` and disable project Automatic Analysis; a skipped
+analysis job does not establish quality-gate success.
 
 ### Java 21 development
 
@@ -305,13 +289,10 @@ Use `http://localhost:8080` only when your gateway is already running locally;
 otherwise supply your existing deployment URL. Login is a separate manual step;
 the smoke script itself remains GET-only. If the token expires, sign in again.
 
-Task 28 smoke evidence belongs in `docs/release-hardening-evidence/smoke-run-*.json`
-and records `capturedAt`, `capturedFrom`, command/exit status, configured base
-URL, both probe names/methods/URLs/HTTP statuses, and the captured smoke output.
-Record explicit endpoint overrides when used. The verifier checks probe URLs
-against the base defaults or those overrides. Use URLs without credentials,
-query, or fragment, and never include the bearer token. A source script, mocked
-test, or unit-test output cannot establish a live smoke PASS.
+For deployment smoke, record the command, exit status, timestamp, and HTTP status
+of both probes. Use URLs without credentials and never include the bearer token
+in recorded output. A source script, mocked test, or unit-test output cannot
+establish a successful live smoke result.
 
 ## What works today
 

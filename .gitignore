@@ -22,14 +22,7 @@ HELP.md
 .factorypath
 .springBeans
 .sts4-cache/
-.opencode/
-.superpowers/
-.agents/
-.claude/
 .worktrees/
-graphify-out/
-.tools/
-.graphify_*.json
 *.swp
 *.swo
 *.iws
@@ -59,14 +52,12 @@ dist/
 *.pem
 !**/test/**/*.pem
 config-repo/secrets/
-agents.md
 
 # Test outputs
 coverage/
 *.lcov
 test-results/
 playwright-report/
-skills-lock.json
 
 # CycloneDX SBOMs
 **/target/bom.*

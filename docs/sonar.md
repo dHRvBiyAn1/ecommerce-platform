@@ -131,7 +131,6 @@ gate is claimed.
 
 ```bash
 bash scripts/test-sonar-integration.sh
-bash scripts/verify-release-evidence.test.sh
 # Requires Java 21; installs reactor artifacts but does not upload analysis:
 bash scripts/test-sonar-maven-scope.sh
 ```
