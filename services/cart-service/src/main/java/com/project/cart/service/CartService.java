@@ -221,7 +221,7 @@ public class CartService {
         item.setSku(product.sku());
         item.setProductName(product.name());
         item.setImageUrl(product.imageUrls() == null || product.imageUrls().isEmpty()
-                ? null : product.imageUrls().get(0));
+                ? null : product.imageUrls().getFirst());
         item.setUnitPrice(product.price());
     }
 }

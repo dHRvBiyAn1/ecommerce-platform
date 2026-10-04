@@ -55,7 +55,7 @@ class SonarScopeCheck {
             }
             require(Path.of(properties.getProperty(prefix + "sonar.coverage.jacoco.xmlReportPaths"))
                     .equals(base.resolve("target/site/jacoco/jacoco.xml")), "module-local coverage changed for " + module);
-            require(properties.getProperty(prefix + "sonar.java.source").equals("17"), "Java target changed for " + module);
+            require(properties.getProperty(prefix + "sonar.java.source").equals("21"), "Java target changed for " + module);
         }
         System.out.println("PASS: actual Maven scanner scope, coverage locations, and Java test classification (analysis=" + analysis + ")");
     }

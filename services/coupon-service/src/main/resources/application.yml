@@ -1,6 +1,11 @@
 spring:
   application:
     name: coupon-service
+  threads:
+    virtual:
+      enabled: ${SPRING_THREADS_VIRTUAL_ENABLED:false}
+  main:
+    keep-alive: true
   config:
     import: optional:configserver:http://config-server:8888
 

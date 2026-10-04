@@ -42,16 +42,17 @@ public class JwtAuthenticationConverter implements Converter<Jwt, AbstractAuthen
         List<String> permissions = jwt.getClaimAsStringList("permissions");
         if (permissions != null) permissions.forEach(p -> authorities.add(new SimpleGrantedAuthority(p)));
         Object scopeClaim = jwt.getClaims().get("scope");
-        if (scopeClaim instanceof String scopes) {
-            scopes.lines()
+        switch (scopeClaim) {
+            case String scopes -> scopes.lines()
                     .flatMap(line -> java.util.Arrays.stream(line.trim().split("\\s+")))
                     .filter(scope -> !scope.isBlank())
                     .map(scope -> new SimpleGrantedAuthority("SCOPE_" + scope))
                     .forEach(authorities::add);
-        } else if (scopeClaim instanceof Collection<?> scopes) {
-            scopes.stream().map(Object::toString)
+            case Collection<?> scopes -> scopes.stream().map(Object::toString)
                     .map(scope -> new SimpleGrantedAuthority("SCOPE_" + scope))
                     .forEach(authorities::add);
+            case null -> { }
+            default -> { }
         }
         return authorities;
     }

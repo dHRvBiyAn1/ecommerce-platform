@@ -61,7 +61,7 @@ public class SampleDataInitializer implements CommandLineRunner {
         }
 
         // Inventory low-stock alerts (admin-style, sent to the first seller)
-        var seller = SampleIds.SELLERS.get(0);
+        var seller = SampleIds.SELLERS.getFirst();
         for (int i = 0; i < 4; i++) {
             var p = SampleIds.PRODUCTS.get(i * 7 % SampleIds.PRODUCTS.size());
             Notification n = Notification.builder()

@@ -89,9 +89,10 @@ reactor dependencies from the root, use
 
 ## Architecture and operating decisions
 
-- The backend is a Java 17 Maven reactor using Spring Boot 3.3.5 and Spring Cloud
+- The backend is a Java 21 Maven reactor using Spring Boot 3.3.5 and Spring Cloud
   2023.0.3. Config Server supplies service configuration; Eureka handles service
-  discovery.
+  discovery. The migration and rollout guide is in
+  [Java 21 migration](docs/java21-migration.md).
 - PostgreSQL with Flyway owns authentication and coupon records. MongoDB stores
   catalog, inventory, cart, order, payment, and notification documents; product
   search uses Elasticsearch with MongoDB fallback. Redis supports token
@@ -256,6 +257,25 @@ An explicit `sonar-analysis` evidence gate additionally requires captured setup
 and quality-gate success. Older checkpoints without that requirement remain
 historical records.
 
+### Java 21 development
+
+Use Oracle JDK 21.0.8 and Maven 3.9.12, matching the migration's recorded local
+toolchain. On macOS with multiple JDKs installed, select the JDK 21 installation
+before building:
+
+```bash
+export JAVA_HOME="$(/usr/libexec/java_home -v 21)"
+export PATH="$JAVA_HOME/bin:$PATH"
+java -version
+./mvnw -version
+```
+
+The root Maven reactor compiles for Java 21. CI uses Temurin 21; service Docker
+images compile and run on Java 21. The common library is compiled for Java 21,
+so consumers must use a Java 21 runtime. Virtual threads are opt-in: the global
+default is `SPRING_THREADS_VIRTUAL_ENABLED=false`; see the migration guide for
+per-service controls, validation, and rollback.
+
 ### Obtaining a smoke bearer token
 
 Smoke does not require a separate API key. On an already-running environment,
@@ -317,7 +337,7 @@ test, or unit-test output cannot establish a live smoke PASS.
 
 ```
 ecommerce-platform/
-├── pom.xml                      # Java 17 Maven reactor
+├── pom.xml                      # Java 21 Maven reactor
 ├── mvnw / mvnw.cmd / .mvn/       # shared Unix/Windows Maven wrapper
 ├── Makefile                     # one-command bring-up
 ├── .env.example

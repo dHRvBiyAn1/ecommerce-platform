@@ -26,8 +26,8 @@ pushes still run the other CI jobs but do not submit unsupported branch analysis
   the Java analyzer's full build/dependency context.
 - Both test jobs run when either backend or frontend code changes so the combined
   project has fresh reports. Image jobs still follow backend changes.
-- Branch/PR identities are autodetected. Application Java remains 17; the
-  scanner's provisioned JRE is separate, with the application's JDK home passed
+- Branch/PR identities are autodetected. Application Java is 21; the scanner's
+  provisioned JRE is separate, with the application's JDK home passed
   explicitly for Java API resolution.
 
 The `sonar-analysis` Maven profile selects the frontend analysis-only POM at
@@ -132,7 +132,7 @@ gate is claimed.
 ```bash
 bash scripts/test-sonar-integration.sh
 bash scripts/verify-release-evidence.test.sh
-# Requires Java 17; installs reactor artifacts but does not upload analysis:
+# Requires Java 21; installs reactor artifacts but does not upload analysis:
 bash scripts/test-sonar-maven-scope.sh
 ```
 

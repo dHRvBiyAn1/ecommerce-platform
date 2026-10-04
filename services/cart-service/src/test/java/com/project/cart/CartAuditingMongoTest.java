@@ -7,13 +7,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.springframework.data.mongodb.config.EnableMongoAuditing;
 
 import java.util.ArrayList;
 import java.time.LocalDateTime;
@@ -25,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @DataMongoTest
 @EnabledIfSystemProperty(named = "cart.mongo.integration", matches = "true")
 @Testcontainers(disabledWithoutDocker = true)
-@org.springframework.context.annotation.Import(CartAuditingMongoTest.AuditingConfiguration.class)
 class CartAuditingMongoTest {
 
     @Container
@@ -53,10 +50,5 @@ class CartAuditingMongoTest {
         Cart updated = cartRepository.save(saved);
 
         assertTrue(updated.getUpdatedAt().isAfter(initialUpdatedAt));
-    }
-
-    @TestConfiguration
-    @EnableMongoAuditing
-    static class AuditingConfiguration {
     }
 }

@@ -22,7 +22,7 @@ props = pom.find("{*}properties")
 assert props.findtext("{*}sonar.projectKey") == "dHRvBiyAn1_ecommerce-platform", "wrong or missing Sonar project"
 assert props.findtext("{*}sonar.organization") == "dhrvbiyan1", "wrong or missing Sonar organization"
 assert props.findtext("{*}sonar.maven.scanAll") == "true", "frontend/configuration sources must be included"
-assert props.findtext("{*}java.version") == "17", "application Java target must remain 17"
+assert props.findtext("{*}java.version") == "21", "application Java target must be 21"
 assert props.findtext("{*}sonar.javascript.lcov.reportPaths").endswith("/coverage/sonar-lcov.info"), "missing frontend coverage import"
 assert props.findtext("{*}sonar.coverage.jacoco.xmlReportPaths") == "${project.basedir}/target/site/jacoco/jacoco.xml", "each module must import its own verified coverage"
 plugins = pom.findall("{*}build/{*}pluginManagement/{*}plugins/{*}plugin")
@@ -38,6 +38,8 @@ assert "frontend/ecommerce-app" not in [p.text for p in pom.findall("{*}modules/
 frontend = ET.parse(root / "frontend/ecommerce-app/pom.xml").getroot()
 assert frontend.findtext("{*}properties/{*}sonar.sources") == "src", "frontend scope must be explicit for pom packaging"
 workflow = (root / ".github/workflows/ci.yml").read_text()
+assert workflow.count("distribution: temurin\n          java-version: 21") == 2, "both CI Java selections must use Temurin 21"
+assert "java-version: 17" not in workflow, "CI must not select Java 17"
 assert "\n  sonar:\n" in workflow, "missing analysis job"
 sonar = workflow.split("\n  sonar:\n", 1)[1]
 # Exercise this job's actual boolean condition against supported/free-plan events.

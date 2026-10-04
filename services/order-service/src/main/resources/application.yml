@@ -1,6 +1,11 @@
 spring:
   application:
     name: order-service
+  threads:
+    virtual:
+      enabled: ${SPRING_THREADS_VIRTUAL_ENABLED:false}
+  main:
+    keep-alive: true
   data:
     mongodb:
       auto-index-creation: true
