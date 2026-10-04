@@ -174,6 +174,7 @@ services:
     ports: ["8761:8761"]
     environment:
       PORT: 8761
+      SPRING_THREADS_VIRTUAL_ENABLED: ${DISCOVERY_SERVER_VIRTUAL_THREADS:-${SPRING_THREADS_VIRTUAL_ENABLED:-false}}
     # FIX: YAML only allows one `<<:` merge key per mapping. Inline both anchors'
     # contents directly rather than using two separate merge keys (the second `<<:`
     # silently overwrites the first in the YAML 1.1 merge key spec).
@@ -200,6 +201,7 @@ services:
     environment:
       PORT: 8888
       SPRING_PROFILES_ACTIVE: native,${SPRING_PROFILES_ACTIVE}
+      SPRING_THREADS_VIRTUAL_ENABLED: ${CONFIG_SERVER_VIRTUAL_THREADS:-${SPRING_THREADS_VIRTUAL_ENABLED:-false}}
     depends_on:
       discovery-server: {condition: service_healthy}
     volumes:
@@ -234,6 +236,7 @@ services:
       EUREKA_DEFAULT_ZONE: ${EUREKA_DEFAULT_ZONE}
       JWK_SET_URI: http://auth-service:8081/.well-known/jwks.json
       SEED_ENABLED: ${SEED_ENABLED}
+      SPRING_THREADS_VIRTUAL_ENABLED: ${API_GATEWAY_VIRTUAL_THREADS:-${SPRING_THREADS_VIRTUAL_ENABLED:-false}}
     depends_on:
       discovery-server: {condition: service_healthy}
       config-server: {condition: service_healthy}
@@ -262,6 +265,7 @@ services:
     environment:
       <<: *svc-common-env
       PORT: 8081
+      SPRING_THREADS_VIRTUAL_ENABLED: ${AUTH_SERVICE_VIRTUAL_THREADS:-${SPRING_THREADS_VIRTUAL_ENABLED:-false}}
       ORDER_SERVICE_CLIENT_SECRET: ${ORDER_SERVICE_CLIENT_SECRET:?Set a generated ORDER_SERVICE_CLIENT_SECRET}
       PAYMENT_SERVICE_CLIENT_SECRET: ${PAYMENT_SERVICE_CLIENT_SECRET:?Set a generated PAYMENT_SERVICE_CLIENT_SECRET}
       CART_SERVICE_CLIENT_SECRET: ${CART_SERVICE_CLIENT_SECRET:?Set a generated CART_SERVICE_CLIENT_SECRET}
@@ -316,6 +320,7 @@ services:
     environment:
       <<: *svc-common-env
       PORT: 8082
+      SPRING_THREADS_VIRTUAL_ENABLED: ${PRODUCT_SERVICE_VIRTUAL_THREADS:-${SPRING_THREADS_VIRTUAL_ENABLED:-false}}
       MONGO_ROOT_USER: ${MONGO_ROOT_USER}
       MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
       MONGO_HOST: ${MONGO_HOST}
@@ -352,6 +357,7 @@ services:
     environment:
       <<: *svc-common-env
       PORT: 8083
+      SPRING_THREADS_VIRTUAL_ENABLED: ${INVENTORY_SERVICE_VIRTUAL_THREADS:-${SPRING_THREADS_VIRTUAL_ENABLED:-false}}
       MONGO_ROOT_USER: ${MONGO_ROOT_USER}
       MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
       MONGO_HOST: ${MONGO_HOST}
@@ -385,6 +391,7 @@ services:
     environment:
       <<: *svc-common-env
       PORT: 8084
+      SPRING_THREADS_VIRTUAL_ENABLED: ${ORDER_SERVICE_VIRTUAL_THREADS:-${SPRING_THREADS_VIRTUAL_ENABLED:-false}}
       SERVICE_AUTH_TOKEN_URI: ${SERVICE_AUTH_TOKEN_URI:-http://auth-service:8081/api/auth/token}
       ORDER_SERVICE_CLIENT_SECRET: ${ORDER_SERVICE_CLIENT_SECRET:?Set a generated ORDER_SERVICE_CLIENT_SECRET}
       MONGO_ROOT_USER: ${MONGO_ROOT_USER}
@@ -420,6 +427,7 @@ services:
     environment:
       <<: *svc-common-env
       PORT: 8085
+      SPRING_THREADS_VIRTUAL_ENABLED: ${PAYMENT_SERVICE_VIRTUAL_THREADS:-${SPRING_THREADS_VIRTUAL_ENABLED:-false}}
       SERVICE_AUTH_TOKEN_URI: ${SERVICE_AUTH_TOKEN_URI:-http://auth-service:8081/api/auth/token}
       PAYMENT_SERVICE_CLIENT_SECRET: ${PAYMENT_SERVICE_CLIENT_SECRET:?Set a generated PAYMENT_SERVICE_CLIENT_SECRET}
       MONGO_ROOT_USER: ${MONGO_ROOT_USER}
@@ -461,6 +469,7 @@ services:
     environment:
       <<: *svc-common-env
       PORT: 8086
+      SPRING_THREADS_VIRTUAL_ENABLED: ${NOTIFICATION_SERVICE_VIRTUAL_THREADS:-${SPRING_THREADS_VIRTUAL_ENABLED:-false}}
       MONGO_ROOT_USER: ${MONGO_ROOT_USER}
       MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
       MONGO_HOST: ${MONGO_HOST}
@@ -499,6 +508,7 @@ services:
     environment:
       <<: *svc-common-env
       PORT: 8087
+      SPRING_THREADS_VIRTUAL_ENABLED: ${CART_SERVICE_VIRTUAL_THREADS:-${SPRING_THREADS_VIRTUAL_ENABLED:-false}}
       SERVICE_AUTH_TOKEN_URI: ${SERVICE_AUTH_TOKEN_URI:-http://auth-service:8081/api/auth/token}
       CART_SERVICE_CLIENT_SECRET: ${CART_SERVICE_CLIENT_SECRET:?Set a generated CART_SERVICE_CLIENT_SECRET}
       MONGO_ROOT_USER: ${MONGO_ROOT_USER}
@@ -532,6 +542,7 @@ services:
     environment:
       <<: *svc-common-env
       PORT: 8088
+      SPRING_THREADS_VIRTUAL_ENABLED: ${COUPON_SERVICE_VIRTUAL_THREADS:-${SPRING_THREADS_VIRTUAL_ENABLED:-false}}
       APP_DB_USER: ${APP_DB_USER}
       APP_DB_PASSWORD: ${APP_DB_PASSWORD}
       POSTGRES_HOST: ${POSTGRES_HOST}

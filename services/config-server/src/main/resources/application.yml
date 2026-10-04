@@ -1,6 +1,11 @@
 spring:
   application:
     name: config-server
+  threads:
+    virtual:
+      enabled: ${SPRING_THREADS_VIRTUAL_ENABLED:false}
+  main:
+    keep-alive: true
   profiles:
     active: native
   cloud:

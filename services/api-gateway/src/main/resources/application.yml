@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: api-gateway
+  threads:
+    virtual:
+      enabled: ${SPRING_THREADS_VIRTUAL_ENABLED:false}
+  main:
+    keep-alive: true
   config:
     import: optional:configserver:http://config-server:8888
   data:
