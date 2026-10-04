@@ -640,6 +640,7 @@ class PaymentDurabilityTest {
 
         assertThat(controller.handleWebhook(request, payload).getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
         ReflectionTestUtils.setField(controller, "webhookSecret", "whsec_test");
+        ReflectionTestUtils.setField(controller, "webhookToleranceSeconds", 300L);
         assertThat(controller.handleWebhook(request, payload).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         request.addHeader("X-Webhook-Signature", "invalid");
         assertThat(controller.handleWebhook(request, payload).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);

@@ -1,5 +1,7 @@
 package com.project.notification.service;
 
+import com.mongodb.ConnectionString;
+import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.project.notification.application.mapper.NotificationMapper;
@@ -10,6 +12,7 @@ import com.project.notification.model.NotificationDelivery;
 import com.project.notification.repository.NotificationDeliveryRepository;
 import com.project.notification.repository.NotificationRepository;
 import com.project.notification.api.dto.response.NotificationResponse;
+import org.bson.UuidRepresentation;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -36,7 +39,10 @@ class NotificationMongoRaceTest {
 
     @Test
     void serviceRecordUsesRealRepositoriesForConcurrentDuplicateEvents() throws Exception {
-        try (MongoClient client = MongoClients.create(mongo.getReplicaSetUrl())) {
+        try (MongoClient client = MongoClients.create(MongoClientSettings.builder()
+                .applyConnectionString(new ConnectionString(mongo.getReplicaSetUrl()))
+                .uuidRepresentation(UuidRepresentation.STANDARD)
+                .build())) {
             MongoTemplate template = new MongoTemplate(client, "notification-race");
             new NotificationIndexInitializer(template).initialize();
 

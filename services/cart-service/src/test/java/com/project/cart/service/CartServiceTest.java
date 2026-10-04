@@ -28,6 +28,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -100,6 +102,47 @@ class CartServiceTest {
         CartResponse response = cartService.addItem(userId, new AddCartItemRequest("no-image", 1));
 
         assertNull(response.items().get(0).imageUrl());
+    }
+
+    @Test
+    void addingExistingItemIncrementsQuantityRefreshesSnapshotAndInvalidatesCoupon() {
+        UUID userId = UUID.randomUUID();
+        CartItem existingItem = CartItem.builder()
+                .productId("product-1")
+                .sku("OLD-SKU")
+                .productName("Old name")
+                .imageUrl("old-image")
+                .unitPrice(new BigDecimal("100.00"))
+                .quantity(2)
+                .build();
+        Cart cart = Cart.builder()
+                .userId(userId)
+                .currency("INR")
+                .items(new ArrayList<>(List.of(existingItem)))
+                .appliedCouponCode("SAVE10")
+                .appliedDiscountAmount(new BigDecimal("10.00"))
+                .build();
+        ProductSummary refreshedProduct = new ProductSummary(
+                "product-1", "NEW-SKU", "Updated name", List.of("new-first-image", "new-second-image"),
+                new BigDecimal("125.00"), true);
+        when(productClient.getProduct("product-1")).thenReturn(refreshedProduct);
+        when(cartRepository.findByUserId(userId)).thenReturn(Optional.of(cart));
+        when(cartRepository.save(any(Cart.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CartResponse response = cartService.addItem(userId, new AddCartItemRequest("product-1", 3));
+
+        ArgumentCaptor<Cart> savedCart = ArgumentCaptor.forClass(Cart.class);
+        verify(cartRepository, times(1)).save(savedCart.capture());
+        CartItem savedItem = savedCart.getValue().getItems().getFirst();
+        assertEquals(5, savedItem.getQuantity());
+        assertEquals("NEW-SKU", savedItem.getSku());
+        assertEquals("Updated name", savedItem.getProductName());
+        assertEquals("new-first-image", savedItem.getImageUrl());
+        assertEquals(new BigDecimal("125.00"), savedItem.getUnitPrice());
+        assertNull(savedCart.getValue().getAppliedCouponCode());
+        assertNull(savedCart.getValue().getAppliedDiscountAmount());
+        assertNull(response.appliedCouponCode());
+        assertEquals(BigDecimal.ZERO.setScale(2), response.appliedDiscountAmount());
     }
 
     @Test
