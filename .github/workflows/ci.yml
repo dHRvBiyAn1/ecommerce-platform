@@ -123,6 +123,9 @@ jobs:
       - name: Verify Java 21 threading configuration
         run: bash scripts/test-java21-threading-config.sh
 
+      - name: Verify Java 21 service Dockerfiles
+        run: bash scripts/test-common-parent-dockerfiles.sh
+
       - name: Verify Sonar integration contract
         run: bash scripts/test-sonar-integration.sh
 
