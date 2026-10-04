@@ -1,6 +1,6 @@
 # Authentication Service
 
-Auth-service is the platform's Spring Boot 3.3.5 / Java 17 identity provider.
+Auth-service is the platform's Spring Boot 3.3.5 / Java 21 identity provider.
 It stores users, roles, permissions, and hashed refresh-token records in
 PostgreSQL, issues RS256 JWTs, and publishes public signing keys at
 `/.well-known/jwks.json`. The Maven version and Java release are managed by the
