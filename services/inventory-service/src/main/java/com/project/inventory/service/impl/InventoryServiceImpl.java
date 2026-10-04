@@ -4,10 +4,15 @@ import com.project.common.constant.Topics;
 import com.project.common.event.InventoryEvent;
 import com.project.common.exception.DuplicateResourceException;
 import com.project.common.exception.ResourceNotFoundException;
-import com.project.inventory.dto.InventoryRequest;
-import com.project.inventory.dto.InventoryResponse;
-import com.project.inventory.exception.InsufficientStockException;
-import com.project.inventory.model.InventoryItem;
+import com.project.common.exception.ValidationException;
+import com.project.inventory.api.dto.request.InventoryRequest;
+import com.project.inventory.api.dto.response.InventoryResponse;
+import com.project.inventory.application.mapper.InventoryMapper;
+import com.project.inventory.application.validator.InventoryValidator;
+import com.project.inventory.domain.model.InventoryItem;
+import com.project.inventory.domain.model.ReservationStatus;
+import com.project.inventory.domain.model.StockReservation;
+import com.project.inventory.domain.exception.InsufficientStockException;
 import com.project.inventory.repository.InventoryRepository;
 import com.project.inventory.service.InventoryService;
 import lombok.RequiredArgsConstructor;
@@ -37,60 +42,61 @@ import java.util.stream.Collectors;
 public class InventoryServiceImpl implements InventoryService {
 
     private static final String REDIS_KEY_PREFIX = "inventory:";
+    private static final String RESERVATIONS_FIELD = "reservations.";
     private static final long REDIS_TTL_HOURS = 2;
 
     private final InventoryRepository inventoryRepository;
     private final MongoTemplate mongoTemplate;
     private final RedisTemplate<String, Object> redisTemplate;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final InventoryMapper inventoryMapper;
+    private final InventoryValidator inventoryValidator;
 
     @Override
     public Page<InventoryResponse> getAllInventory(Pageable pageable) {
-        return inventoryRepository.findAll(pageable).map(this::mapToResponse);
+        return inventoryRepository.findAll(pageable).map(inventoryMapper::toResponse);
     }
 
     @Override
     public InventoryResponse getByProductId(String productId) {
         String cacheKey = REDIS_KEY_PREFIX + productId;
         InventoryItem cached = (InventoryItem) redisTemplate.opsForValue().get(cacheKey);
-        if (cached != null) return mapToResponse(cached);
+        if (cached != null) return inventoryMapper.toResponse(cached);
 
         InventoryItem item = inventoryRepository.findByProductId(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory for product", productId));
         redisTemplate.opsForValue().set(cacheKey, item, REDIS_TTL_HOURS, TimeUnit.HOURS);
-        return mapToResponse(item);
+        return inventoryMapper.toResponse(item);
     }
 
     @Override
     public InventoryResponse getBySku(String sku) {
         InventoryItem item = inventoryRepository.findBySku(sku)
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory for sku", sku));
-        return mapToResponse(item);
+        return inventoryMapper.toResponse(item);
     }
 
     @Override
     @Transactional
     public InventoryResponse createInventory(InventoryRequest request) {
-        if (inventoryRepository.findByProductId(request.getProductId()).isPresent()) {
-            throw new DuplicateResourceException("Inventory exists for product " + request.getProductId());
+        if (inventoryRepository.findByProductId(request.productId()).isPresent()) {
+            throw new DuplicateResourceException("Inventory exists for product " + request.productId());
         }
-        if (inventoryRepository.findBySku(request.getSku()).isPresent()) {
-            throw new DuplicateResourceException("Inventory exists for sku " + request.getSku());
+        if (inventoryRepository.findBySku(request.sku()).isPresent()) {
+            throw new DuplicateResourceException("Inventory exists for sku " + request.sku());
         }
         InventoryItem item = new InventoryItem();
-        item.setProductId(request.getProductId());
-        item.setSku(request.getSku());
-        item.setQuantity(request.getQuantity());
+        item.setProductId(request.productId());
+        item.setSku(request.sku());
+        item.setQuantity(request.quantity());
         item.setReservedQuantity(0);
-        item.setLowStockThreshold(request.getLowStockThreshold() > 0 ? request.getLowStockThreshold() : 10);
-        item.setLocation(request.getLocation());
-        item.setCreatedAt(LocalDateTime.now());
-        item.setUpdatedAt(LocalDateTime.now());
-        if (request.getQuantity() > 0) item.setLastRestockedAt(LocalDateTime.now());
+        item.setLowStockThreshold(request.lowStockThreshold() > 0 ? request.lowStockThreshold() : 10);
+        item.setLocation(request.location());
+        if (request.quantity() > 0) item.setLastRestockedAt(LocalDateTime.now());
         item = inventoryRepository.save(item);
         cacheItem(item);
         publish(InventoryEvent.Type.INVENTORY_CREATED, item, item.getQuantity(), null);
-        return mapToResponse(item);
+        return inventoryMapper.toResponse(item);
     }
 
     @Override
@@ -98,17 +104,17 @@ public class InventoryServiceImpl implements InventoryService {
     public InventoryResponse updateInventory(String id, InventoryRequest request) {
         InventoryItem item = inventoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory", id));
-        int delta = request.getQuantity() - item.getQuantity();
-        item.setSku(request.getSku());
-        item.setQuantity(request.getQuantity());
-        item.setLowStockThreshold(request.getLowStockThreshold() > 0 ? request.getLowStockThreshold() : 10);
-        item.setLocation(request.getLocation());
-        item.setUpdatedAt(LocalDateTime.now());
+        inventoryValidator.validateUpdate(item, request);
+        int delta = request.quantity() - item.getQuantity();
+        item.setSku(request.sku());
+        item.setQuantity(request.quantity());
+        item.setLowStockThreshold(request.lowStockThreshold() > 0 ? request.lowStockThreshold() : 10);
+        item.setLocation(request.location());
         if (delta > 0) item.setLastRestockedAt(LocalDateTime.now());
         item = inventoryRepository.save(item);
         cacheItem(item);
         publish(InventoryEvent.Type.INVENTORY_UPDATED, item, delta, null);
-        return mapToResponse(item);
+        return inventoryMapper.toResponse(item);
     }
 
     @Override
@@ -128,9 +134,16 @@ public class InventoryServiceImpl implements InventoryService {
      */
     @Override
     public InventoryResponse reserveStock(String productId, int quantity, String orderId) {
-        if (quantity <= 0) throw new IllegalArgumentException("Quantity must be positive");
+        inventoryValidator.validateReservation(quantity, orderId);
+
+        InventoryItem current = findByProductId(productId);
+        StockReservation existingReservation = reservation(current, orderId);
+        if (existingReservation != null) {
+            return handleRepeatedReservation(current, existingReservation, quantity, orderId);
+        }
 
         Query query = new Query(Criteria.where("productId").is(productId)
+                .and(RESERVATIONS_FIELD + orderId).exists(false)
                 .andOperator(Criteria.where("$expr").is(
                         new Document("$gte", List.of(
                                 new Document("$subtract", List.of("$quantity", "$reservedQuantity")),
@@ -138,53 +151,117 @@ public class InventoryServiceImpl implements InventoryService {
                         )))));
         Update update = new Update()
                 .inc("reservedQuantity", quantity)
+                .set(RESERVATIONS_FIELD + orderId,
+                        new StockReservation(quantity, ReservationStatus.RESERVED, LocalDateTime.now()))
                 .set("updatedAt", LocalDateTime.now());
 
         InventoryItem updated = mongoTemplate.findAndModify(query, update,
                 FindAndModifyOptions.options().returnNew(true), InventoryItem.class);
 
         if (updated == null) {
-            // Either product not found OR insufficient stock; disambiguate.
-            InventoryItem existing = inventoryRepository.findByProductId(productId).orElse(null);
-            if (existing == null) {
-                throw new ResourceNotFoundException("Inventory for product", productId);
+            InventoryItem latest = findByProductId(productId);
+            StockReservation concurrentReservation = reservation(latest, orderId);
+            if (concurrentReservation != null) {
+                return handleRepeatedReservation(latest, concurrentReservation, quantity, orderId);
             }
-            int available = existing.getQuantity() - existing.getReservedQuantity();
+            int available = latest.getQuantity() - latest.getReservedQuantity();
             throw new InsufficientStockException(
                     "Insufficient stock for " + productId + ": available=" + available + ", requested=" + quantity);
         }
 
         invalidateCache(productId);
         publish(InventoryEvent.Type.STOCK_RESERVED, updated, -quantity, orderId);
-        return mapToResponse(updated);
+        return inventoryMapper.toResponse(updated);
     }
 
     @Override
-    public InventoryResponse releaseStock(String productId, int quantity, String orderId) {
-        if (quantity <= 0) throw new IllegalArgumentException("Quantity must be positive");
+    public InventoryResponse commitStock(String productId, int quantity, String orderId) {
+        inventoryValidator.validateReservation(quantity, orderId);
+        InventoryItem current = findByProductId(productId);
+        StockReservation existing = requireReservation(current, orderId, quantity);
+        if (existing.status() == ReservationStatus.COMMITTED) {
+            return inventoryMapper.toResponse(current);
+        }
+        if (existing.status() != ReservationStatus.RESERVED) {
+            throw new ValidationException(
+                    "Reservation for order " + orderId + " is not active");
+        }
 
+        String reservationPath = RESERVATIONS_FIELD + orderId;
         Query query = new Query(Criteria.where("productId").is(productId)
-                .and("reservedQuantity").gte(quantity));
+                .and(reservationPath + ".status").is(ReservationStatus.RESERVED)
+                .and(reservationPath + ".quantity").is(quantity)
+                .and("reservedQuantity").gte(quantity)
+                .and("quantity").gte(quantity));
         Update update = new Update()
                 .inc("reservedQuantity", -quantity)
+                .inc("quantity", -quantity)
+                .set(reservationPath + ".status", ReservationStatus.COMMITTED)
+                .set(reservationPath + ".updatedAt", LocalDateTime.now())
                 .set("updatedAt", LocalDateTime.now());
 
         InventoryItem updated = mongoTemplate.findAndModify(query, update,
                 FindAndModifyOptions.options().returnNew(true), InventoryItem.class);
         if (updated == null) {
-            log.warn("Release no-op for {} qty {}: nothing to release", productId, quantity);
-            return mapToResponse(inventoryRepository.findByProductId(productId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Inventory for product", productId)));
+            InventoryItem latest = findByProductId(productId);
+            StockReservation latestReservation = requireReservation(latest, orderId, quantity);
+            if (latestReservation.status() == ReservationStatus.COMMITTED) {
+                return inventoryMapper.toResponse(latest);
+            }
+            throw new ValidationException(
+                    "Reservation for order " + orderId + " could not be committed");
+        }
+
+        invalidateCache(productId);
+        publish(InventoryEvent.Type.STOCK_COMMITTED, updated, -quantity, orderId);
+        return inventoryMapper.toResponse(updated);
+    }
+
+    @Override
+    public InventoryResponse releaseStock(String productId, int quantity, String orderId) {
+        inventoryValidator.validateReservation(quantity, orderId);
+
+        InventoryItem current = findByProductId(productId);
+        StockReservation existing = requireReservation(current, orderId, quantity);
+        if (existing.status() == ReservationStatus.RELEASED) {
+            return inventoryMapper.toResponse(current);
+        }
+        if (existing.status() != ReservationStatus.RESERVED) {
+            throw new ValidationException(
+                    "Reservation for order " + orderId + " is not active");
+        }
+
+        String reservationPath = RESERVATIONS_FIELD + orderId;
+        Query query = new Query(Criteria.where("productId").is(productId)
+                .and(reservationPath + ".status").is(ReservationStatus.RESERVED)
+                .and(reservationPath + ".quantity").is(quantity)
+                .and("reservedQuantity").gte(quantity));
+        Update update = new Update()
+                .inc("reservedQuantity", -quantity)
+                .set(reservationPath + ".status", ReservationStatus.RELEASED)
+                .set(reservationPath + ".updatedAt", LocalDateTime.now())
+                .set("updatedAt", LocalDateTime.now());
+
+        InventoryItem updated = mongoTemplate.findAndModify(query, update,
+                FindAndModifyOptions.options().returnNew(true), InventoryItem.class);
+        if (updated == null) {
+            InventoryItem latest = findByProductId(productId);
+            StockReservation latestReservation = requireReservation(latest, orderId, quantity);
+            if (latestReservation.status() == ReservationStatus.RELEASED) {
+                return inventoryMapper.toResponse(latest);
+            }
+            throw new ValidationException(
+                    "Reservation for order " + orderId + " could not be released");
         }
 
         invalidateCache(productId);
         publish(InventoryEvent.Type.STOCK_RELEASED, updated, quantity, orderId);
-        return mapToResponse(updated);
+        return inventoryMapper.toResponse(updated);
     }
 
     @Override
     public InventoryResponse addStock(String productId, int quantity) {
-        if (quantity <= 0) throw new IllegalArgumentException("Quantity must be positive");
+        inventoryValidator.validatePositiveQuantity(quantity);
 
         Query query = new Query(Criteria.where("productId").is(productId));
         Update update = new Update()
@@ -201,7 +278,7 @@ public class InventoryServiceImpl implements InventoryService {
         if (updated.getQuantity() > updated.getLowStockThreshold()) {
             publish(InventoryEvent.Type.RESTOCKED, updated, quantity, null);
         }
-        return mapToResponse(updated);
+        return inventoryMapper.toResponse(updated);
     }
 
     /**
@@ -213,20 +290,51 @@ public class InventoryServiceImpl implements InventoryService {
         Query q = new Query(Criteria.where("$expr").is(
                 new Document("$lte", List.of("$quantity", "$lowStockThreshold"))));
         return mongoTemplate.find(q, InventoryItem.class).stream()
-                .map(this::mapToResponse).collect(Collectors.toList());
+                .map(inventoryMapper::toResponse).collect(Collectors.toList());
     }
 
     @Override
     public boolean isInStock(String productId, int quantity) {
         try {
             InventoryResponse r = getByProductId(productId);
-            return r.getAvailableQuantity() >= quantity;
+            return quantity > 0 && r.availableQuantity() >= quantity;
         } catch (ResourceNotFoundException e) {
             return false;
         }
     }
 
     // ----- helpers -----
+
+    private InventoryItem findByProductId(String productId) {
+        return inventoryRepository.findByProductId(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Inventory for product", productId));
+    }
+
+    private StockReservation reservation(InventoryItem item, String orderId) {
+        return item.getReservations() == null ? null : item.getReservations().get(orderId);
+    }
+
+    private StockReservation requireReservation(InventoryItem item, String orderId, int quantity) {
+        StockReservation existing = reservation(item, orderId);
+        if (existing == null) {
+            throw new ValidationException(
+                    "No active reservation exists for order " + orderId);
+        }
+        if (existing.quantity() != quantity) {
+            throw new ValidationException(
+                    "Reservation quantity does not match order " + orderId);
+        }
+        return existing;
+    }
+
+    private InventoryResponse handleRepeatedReservation(InventoryItem item, StockReservation reservation,
+                                                        int quantity, String orderId) {
+        if (reservation.quantity() == quantity && reservation.status() == ReservationStatus.RESERVED) {
+            return inventoryMapper.toResponse(item);
+        }
+        throw new ValidationException(
+                "Order " + orderId + " already has a different or completed reservation");
+    }
 
     private void cacheItem(InventoryItem item) {
         try {
@@ -264,19 +372,4 @@ public class InventoryServiceImpl implements InventoryService {
         }
     }
 
-    private InventoryResponse mapToResponse(InventoryItem item) {
-        InventoryResponse r = new InventoryResponse();
-        r.setId(item.getId());
-        r.setProductId(item.getProductId());
-        r.setSku(item.getSku());
-        r.setQuantity(item.getQuantity());
-        r.setReservedQuantity(item.getReservedQuantity());
-        r.setAvailableQuantity(item.getQuantity() - item.getReservedQuantity());
-        r.setLowStockThreshold(item.getLowStockThreshold());
-        r.setLocation(item.getLocation());
-        r.setLastRestockedAt(item.getLastRestockedAt());
-        r.setCreatedAt(item.getCreatedAt());
-        r.setUpdatedAt(item.getUpdatedAt());
-        return r;
-    }
 }

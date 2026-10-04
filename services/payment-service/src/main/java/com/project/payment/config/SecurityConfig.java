@@ -27,22 +27,17 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     @Bean
+    // Bearer-only stateless API; webhooks use provider signatures, not browser cookie authentication.
+    @SuppressWarnings("java:S4502")
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/actuator/health/**",
-                                "/actuator/info",
-                                "/actuator/prometheus",
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html"
-                        ).permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/prometheus").permitAll()
                         // Webhooks: Stripe / internal — verified by HMAC inside the controller
-                        .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook", "/api/v1/payments/webhook/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook", "/api/v1/payments/webhook/stripe").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(new JwtAuthenticationConverter())));
         return http.build();

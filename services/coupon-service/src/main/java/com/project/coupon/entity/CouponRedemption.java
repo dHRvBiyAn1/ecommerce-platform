@@ -2,6 +2,8 @@ package com.project.coupon.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -16,8 +18,8 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * One row per (coupon, user, order). Used to enforce {@code perUserLimit} and
- * to audit refund-time reversals (a future feature).
+ * Order-owned coupon lifecycle ledger. A row starts reserved and reaches one
+ * terminal state: committed after checkout succeeds, or released on failure.
  */
 @Entity
 @Table(name = "coupon_redemptions")
@@ -47,9 +49,19 @@ public class CouponRedemption {
     @Column(name = "discount_amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal discountAmount;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private RedemptionStatus status;
+
     @CreationTimestamp
-    @Column(name = "redeemed_at", updatable = false)
-    private LocalDateTime redeemedAt;
+    @Column(name = "reserved_at", nullable = false, updatable = false)
+    private LocalDateTime reservedAt;
+
+    @Column(name = "committed_at")
+    private LocalDateTime committedAt;
+
+    @Column(name = "released_at")
+    private LocalDateTime releasedAt;
 
     @jakarta.persistence.PrePersist
     void ensureId() {

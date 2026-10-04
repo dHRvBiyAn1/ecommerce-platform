@@ -40,12 +40,11 @@ public class StripeGateway implements PaymentGateway {
     public void init() {
         Stripe.apiKey = secretKey;
         Stripe.setMaxNetworkRetries(2);
-        log.info("Stripe gateway initialized (key prefix={})",
-                secretKey.length() > 7 ? secretKey.substring(0, 7) : "?");
+        log.info("Stripe gateway initialized");
     }
 
     @Override
-    public String createIntent(Payment payment) {
+    public IntentResult createIntent(Payment payment) {
         long minorUnits = toMinorUnits(payment.getAmount(), payment.getCurrency());
         Map<String, String> metadata = new HashMap<>();
         metadata.put("orderId", payment.getOrderId());
@@ -65,7 +64,7 @@ public class StripeGateway implements PaymentGateway {
                     .setIdempotencyKey("create-intent:" + payment.getPaymentReference())
                     .build();
             PaymentIntent intent = PaymentIntent.create(params, opts);
-            return intent.getId();
+            return new IntentResult(intent.getId(), intent.getClientSecret());
         } catch (StripeException e) {
             throw new PaymentException("Stripe createIntent failed: " + e.getMessage());
         }
@@ -79,7 +78,12 @@ public class StripeGateway implements PaymentGateway {
     }
 
     @Override
-    public void refund(Payment payment, BigDecimal amount, String reason) {
+    public boolean requiresVerifiedWebhook() {
+        return true;
+    }
+
+    @Override
+    public void refund(Payment payment, BigDecimal amount, String reason, String idempotencyKey) {
         long minorUnits = toMinorUnits(amount, payment.getCurrency());
         try {
             RefundCreateParams params = RefundCreateParams.builder()
@@ -88,7 +92,7 @@ public class StripeGateway implements PaymentGateway {
                     .setReason(mapReason(reason))
                     .build();
             RequestOptions opts = RequestOptions.builder()
-                    .setIdempotencyKey("refund:" + payment.getPaymentReference() + ":" + amount.toPlainString())
+                    .setIdempotencyKey("refund:" + payment.getPaymentReference() + ":" + idempotencyKey)
                     .build();
             Refund.create(params, opts);
         } catch (StripeException e) {

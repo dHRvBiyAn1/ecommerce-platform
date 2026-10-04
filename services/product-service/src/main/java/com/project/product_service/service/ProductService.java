@@ -43,7 +43,7 @@ public interface ProductService {
 
     ProductResponse setProductActiveStatus(String id, boolean active, UUID sellerId, boolean isAdmin);
 
-    ProductResponse updateStock(String id, Integer stockQuantity);
+    ProductResponse updateStock(String id, Integer stockQuantity, UUID sellerId, boolean isAdmin);
 
     Page<ProductResponse> getProductsByPriceRange(BigDecimal min, BigDecimal max, Pageable pageable);
 

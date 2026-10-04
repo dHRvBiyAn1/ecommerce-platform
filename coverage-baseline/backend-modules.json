@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "modules": {
+    "services/api-gateway": { "line": { "covered": 145, "missed": 62 }, "branch": { "covered": 81, "missed": 45 } },
+    "services/auth-service": { "line": { "covered": 522, "missed": 348 }, "branch": { "covered": 135, "missed": 163 } },
+    "services/cart-service": { "line": { "covered": 162, "missed": 69 }, "branch": { "covered": 46, "missed": 34 } },
+    "services/common": { "line": { "covered": 195, "missed": 242 }, "branch": { "covered": 71, "missed": 48 } },
+    "services/coupon-service": { "line": { "covered": 293, "missed": 136 }, "branch": { "covered": 80, "missed": 56 } },
+    "services/inventory-service": { "line": { "covered": 124, "missed": 199 }, "branch": { "covered": 19, "missed": 59 } },
+    "services/notification-service": { "line": { "covered": 233, "missed": 212 }, "branch": { "covered": 37, "missed": 98 } },
+    "services/order-service": { "line": { "covered": 760, "missed": 221 }, "branch": { "covered": 252, "missed": 121 } },
+    "services/payment-service": { "line": { "covered": 526, "missed": 182 }, "branch": { "covered": 234, "missed": 95 } },
+    "services/product-service": { "line": { "covered": 271, "missed": 218 }, "branch": { "covered": 58, "missed": 37 } }
+  },
+  "criticalClasses": {
+    "com.project.product_service.service.impl.ProductServiceImpl": { "line": 80, "branch": 80 },
+    "com.project.product_service.kafka.ProductSearchConsumer": { "line": 80, "branch": 80 },
+    "com.project.order.service.impl.OrderServiceImpl": { "line": 80, "branch": 80 },
+    "com.project.order.service.impl.OutboxEventRelay": { "line": 80, "branch": 80 },
+    "com.project.payment.service.impl.PaymentServiceImpl": { "line": 80, "branch": 80 },
+    "com.project.payment.service.impl.PaymentOutboxRelay": { "line": 80, "branch": 80 },
+    "com.project.payment.controller.PaymentController": { "line": 80, "branch": 80 },
+    "com.project.gateway.filter.ForwardedIpTrustFilter": { "line": 80, "branch": 80 },
+    "com.project.gateway.config.ClientHeaderStrippingFilter": { "line": 80, "branch": 80 },
+    "com.project.authservice.service.AuthService": { "line": 80, "branch": 80 },
+    "com.project.authservice.service.ClientCredentialsService": { "line": 80, "branch": 80 }
+  }
+}

@@ -11,11 +11,13 @@ export const BorderGlow = ({
   size = 1,
   className,
   children,
+  style,
   ...props
 }: BorderGlowProps) => {
   return (
     <div
       className={cn("group relative rounded-xl p-[1px] overflow-hidden bg-border/50 transition-colors hover:bg-transparent", className)}
+      style={{ padding: size, ...style }}
       {...props}
     >
       <div

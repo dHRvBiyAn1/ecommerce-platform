@@ -16,10 +16,25 @@ export interface CartLine {
   quantity: number;
 }
 
+export interface PendingCheckoutAttempt {
+  idempotencyKey: string;
+  orderId?: string;
+  paymentId?: string;
+  clientSecret?: string;
+}
+
+export const createPendingAttempt = (orderId?: string, paymentId?: string): PendingCheckoutAttempt => ({
+  idempotencyKey: crypto.randomUUID(),
+  orderId,
+  paymentId,
+});
+
 interface CartState {
   lines: CartLine[];
   couponCode: string | null;
   discountAmount: number;
+  pendingAttempt: PendingCheckoutAttempt | null;
+  setPendingAttempt: (attempt: PendingCheckoutAttempt | null) => void;
   add: (product: Product, quantity?: number) => Promise<void>;
   setQuantity: (productId: string, quantity: number) => Promise<void>;
   remove: (productId: string) => Promise<void>;
@@ -45,6 +60,8 @@ export const useCart = create<CartState>()(
       lines: [],
       couponCode: null,
       discountAmount: 0,
+      pendingAttempt: null,
+      setPendingAttempt: (pendingAttempt) => set({ pendingAttempt }),
 
       fetch: async () => {
         if (!useAuthStore.getState().isAuthenticated()) return;
@@ -152,7 +169,7 @@ export const useCart = create<CartState>()(
             console.error("Failed to clear cart", err);
           }
         }
-        set({ lines: [], couponCode: null, discountAmount: 0 });
+        set({ lines: [], couponCode: null, discountAmount: 0, pendingAttempt: null });
       },
 
       applyCoupon: async (code) => {
@@ -191,7 +208,14 @@ export const useCart = create<CartState>()(
     }),
     {
       name: "ecom-cart-v2", // Increment version to clear old incompatible state
-      partialize: (state) => ({ lines: state.lines }), // ONLY persist the data
+      partialize: (state) => ({
+        lines: state.lines,
+        pendingAttempt: state.pendingAttempt && {
+          idempotencyKey: state.pendingAttempt.idempotencyKey,
+          orderId: state.pendingAttempt.orderId,
+          paymentId: state.pendingAttempt.paymentId,
+        },
+      }),
     },
   ),
 );

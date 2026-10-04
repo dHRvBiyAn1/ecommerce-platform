@@ -17,6 +17,14 @@ common:
     resource-server:
       enabled: false
 
+service:
+  auth:
+    enabled: true
+    token-uri: ${SERVICE_AUTH_TOKEN_URI:http://auth-service:8081/api/auth/token}
+    client-id: cart-service
+    client-secret: ${CART_SERVICE_CLIENT_SECRET:}
+    scope: coupons.read
+
 logging:
   level:
     com.project.cart: INFO

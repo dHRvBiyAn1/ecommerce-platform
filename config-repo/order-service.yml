@@ -21,6 +21,14 @@ common:
     resource-server:
       enabled: false
 
+service:
+  auth:
+    enabled: true
+    token-uri: ${SERVICE_AUTH_TOKEN_URI:http://auth-service:8081/api/auth/token}
+    client-id: order-service
+    client-secret: ${ORDER_SERVICE_CLIENT_SECRET:}
+    scope: inventory.write coupons.read coupons.write
+
 logging:
   level:
     com.project.order: INFO

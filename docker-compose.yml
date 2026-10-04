@@ -248,7 +248,8 @@ services:
           memory: 256M
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      # The gateway interceptor requires a nonblank Authorization header even on health.
+      test: ["CMD", "curl", "-f", "-H", "Authorization: healthcheck", "http://localhost:8080/actuator/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -261,6 +262,9 @@ services:
     environment:
       <<: *svc-common-env
       PORT: 8081
+      ORDER_SERVICE_CLIENT_SECRET: ${ORDER_SERVICE_CLIENT_SECRET:?Set a generated ORDER_SERVICE_CLIENT_SECRET}
+      PAYMENT_SERVICE_CLIENT_SECRET: ${PAYMENT_SERVICE_CLIENT_SECRET:?Set a generated PAYMENT_SERVICE_CLIENT_SECRET}
+      CART_SERVICE_CLIENT_SECRET: ${CART_SERVICE_CLIENT_SECRET:?Set a generated CART_SERVICE_CLIENT_SECRET}
       APP_DB_USER: ${APP_DB_USER}
       APP_DB_PASSWORD: ${APP_DB_PASSWORD}
       POSTGRES_HOST: ${POSTGRES_HOST}
@@ -381,6 +385,8 @@ services:
     environment:
       <<: *svc-common-env
       PORT: 8084
+      SERVICE_AUTH_TOKEN_URI: ${SERVICE_AUTH_TOKEN_URI:-http://auth-service:8081/api/auth/token}
+      ORDER_SERVICE_CLIENT_SECRET: ${ORDER_SERVICE_CLIENT_SECRET:?Set a generated ORDER_SERVICE_CLIENT_SECRET}
       MONGO_ROOT_USER: ${MONGO_ROOT_USER}
       MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
       MONGO_HOST: ${MONGO_HOST}
@@ -414,13 +420,18 @@ services:
     environment:
       <<: *svc-common-env
       PORT: 8085
+      SERVICE_AUTH_TOKEN_URI: ${SERVICE_AUTH_TOKEN_URI:-http://auth-service:8081/api/auth/token}
+      PAYMENT_SERVICE_CLIENT_SECRET: ${PAYMENT_SERVICE_CLIENT_SECRET:?Set a generated PAYMENT_SERVICE_CLIENT_SECRET}
       MONGO_ROOT_USER: ${MONGO_ROOT_USER}
       MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
       MONGO_HOST: ${MONGO_HOST}
       MONGO_PORT: ${MONGO_PORT}
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
-      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET}
+      # Empty Stripe credentials select the sandbox gateway. PAYMENT_WEBHOOK_SECRET
+      # separately signs the in-house /webhook endpoint; Stripe uses STRIPE_WEBHOOK_SECRET.
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_WEBHOOK_SECRET_DEV: ${STRIPE_WEBHOOK_SECRET:-}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:?Set a generated PAYMENT_WEBHOOK_SECRET}
     depends_on:
       mongodb: {condition: service_healthy}
       kafka: {condition: service_healthy}
@@ -488,6 +499,8 @@ services:
     environment:
       <<: *svc-common-env
       PORT: 8087
+      SERVICE_AUTH_TOKEN_URI: ${SERVICE_AUTH_TOKEN_URI:-http://auth-service:8081/api/auth/token}
+      CART_SERVICE_CLIENT_SECRET: ${CART_SERVICE_CLIENT_SECRET:?Set a generated CART_SERVICE_CLIENT_SECRET}
       MONGO_ROOT_USER: ${MONGO_ROOT_USER}
       MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
       MONGO_HOST: ${MONGO_HOST}
@@ -550,16 +563,11 @@ services:
       context: .
       dockerfile: frontend/ecommerce-app/Dockerfile
       args:
-        VITE_API_BASE_URL: ${FRONTEND_VITE_API_BASE_URL:-http://api-gateway:8080}
+        VITE_API_BASE_URL: ${FRONTEND_VITE_API_BASE_URL:-}
+        VITE_STRIPE_PUBLISHABLE_KEY: ${VITE_STRIPE_PUBLISHABLE_KEY:-}
     container_name: frontend-app
     ports:
-      - "5173:5173"
-    environment:
-      - NODE_ENV=development
-      - VITE_API_BASE_URL=${FRONTEND_VITE_API_BASE_URL:-http://api-gateway:8080}
-    volumes:
-      - ./frontend/ecommerce-app:/app
-      - /app/node_modules
+      - "5173:8080"
     deploy:
       resources:
         limits:
@@ -569,12 +577,6 @@ services:
       api-gateway: {condition: service_healthy}
     networks:
       - ecommerce-network
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:5173"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
 
   # ---------- Observability stack (lightweight) ----------
   prometheus:
@@ -633,12 +635,9 @@ services:
     restart: unless-stopped
     networks:
       - ecommerce-network
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3100/ready"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
+    # The upstream image is distroless and has no shell or HTTP client. Its
+    # readiness endpoint remains available at http://localhost:3100/ready for
+    # host-side monitoring.
 
   tempo:
     image: grafana/tempo:2.10.5@sha256:ee21727732c7a7199cb71c3eee9153bbf23f9b0b87619f0555a0cf21a67f1a33
@@ -658,12 +657,9 @@ services:
     restart: unless-stopped
     networks:
       - ecommerce-network
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3200/ready"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
+    # The upstream image is distroless and has no shell or HTTP client. Its
+    # readiness endpoint remains available at http://localhost:3200/ready for
+    # host-side monitoring.
 
 secrets:
   auth-private.pem:

@@ -229,6 +229,11 @@ export interface Payment {
   completedAt?: string;
 }
 
+export interface PaymentInitiationResponse {
+  payment: Payment;
+  clientSecret?: string | null;
+}
+
 // ---- Notification ----
 
 export type NotificationStatus = "PENDING" | "SENT" | "FAILED" | "READ";

@@ -1,91 +1,39 @@
 package com.project.authservice.mapper;
 
-import com.project.authservice.dto.UserProfileDto;
-import com.project.authservice.entity.AuthProvider;
+import com.project.authservice.dto.response.UserProfileDto;
 import com.project.authservice.entity.Permission;
 import com.project.authservice.entity.Role;
 import com.project.authservice.entity.User;
-import com.project.authservice.repository.UserCredentialRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Hand-rolled bean that maps the JPA {@link User} entity onto the public
- * {@link UserProfileDto}. Replaces the previous MapStruct-generated
- * {@code @Mapper(componentModel="spring")} variant — MapStruct's generated
- * {@code UserMapperImpl} wasn't being picked up consistently by Spring's
- * component scan in our build. A plain {@code @Component} is more reliable
- * and avoids the annotation-processor dance.
- */
 @Component
 @RequiredArgsConstructor
 public class UserMapper {
 
-    private final UserCredentialRepository userCredentialRepository;
+    private final AddressMapper addressMapper;
 
-    public UserProfileDto toDto(User user) {
+    public UserProfileDto toDto(User user, boolean hasPassword) {
         if (user == null) return null;
-
-        UserProfileDto dto = new UserProfileDto();
-        dto.setId(user.getId());
-        dto.setEmail(user.getEmail());
-        dto.setDisplayName(user.getDisplayName());
-        dto.setImageUrl(user.getImageUrl());
-        dto.setPhone(user.getPhone());
-        dto.setActive(user.isActive());
-        dto.setCreatedAt(user.getCreatedAt());
-        dto.setRoles(mapRoleNames(user.getRoles()));
-        dto.setPermissions(mapPermissionNames(user.getRoles()));
-        dto.setShippingAddress(toAddressDto(user.getShippingAddress()));
-        dto.setBillingAddress(toAddressDto(user.getBillingAddress()));
-        // hasPassword is true if the user has any LOCAL credential row.
-        // OAuth2-only users have no LOCAL credential and therefore no password
-        // to change, so the frontend hides the change-password card for them.
-        dto.setHasPassword(userCredentialRepository
-                .findByUserIdAndAuthProvider(user.getId(), AuthProvider.LOCAL)
-                .isPresent());
-        return dto;
-    }
-
-    public com.project.authservice.entity.Address toAddressEntity(com.project.authservice.dto.AddressDto dto) {
-        if (dto == null) return null;
-        return com.project.authservice.entity.Address.builder()
-                .fullName(dto.getFullName())
-                .phone(dto.getPhone())
-                .street(dto.getStreet())
-                .city(dto.getCity())
-                .state(dto.getState())
-                .zipCode(dto.getZipCode())
-                .country(dto.getCountry())
-                .build();
-    }
-
-    public com.project.authservice.dto.AddressDto toAddressDto(com.project.authservice.entity.Address a) {
-        if (a == null || a.isBlank()) return null;
-        com.project.authservice.dto.AddressDto dto = new com.project.authservice.dto.AddressDto();
-        dto.setFullName(a.getFullName());
-        dto.setPhone(a.getPhone());
-        dto.setStreet(a.getStreet());
-        dto.setCity(a.getCity());
-        dto.setState(a.getState());
-        dto.setZipCode(a.getZipCode());
-        dto.setCountry(a.getCountry());
-        return dto;
+        return new UserProfileDto(user.getId(), user.getEmail(), user.getDisplayName(), user.getImageUrl(),
+                user.getPhone(), user.isActive(), user.getCreatedAt(), mapRoleNames(user.getRoles()),
+                mapPermissionNames(user.getRoles()), addressMapper.toDto(user.getShippingAddress()),
+                addressMapper.toDto(user.getBillingAddress()), hasPassword);
     }
 
     private Set<String> mapRoleNames(Set<Role> roles) {
         if (roles == null) return Set.of();
-        return roles.stream().map(Role::getName).collect(Collectors.toSet());
+        return Set.copyOf(roles.stream().map(Role::getName).collect(Collectors.toSet()));
     }
 
     private Set<String> mapPermissionNames(Set<Role> roles) {
         if (roles == null) return Set.of();
-        return roles.stream()
-                .flatMap(r -> r.getPermissions().stream())
+        return Set.copyOf(roles.stream()
+                .flatMap(role -> role.getPermissions().stream())
                 .map(Permission::getName)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toSet()));
     }
 }

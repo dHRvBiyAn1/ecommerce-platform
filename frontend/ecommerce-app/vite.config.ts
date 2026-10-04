@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 
@@ -14,13 +14,26 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/v1": { target: API_TARGET, changeOrigin: true },   // ← add this line
+      "/v1": { target: API_TARGET, changeOrigin: true },
       "/api": { target: API_TARGET, changeOrigin: true },
       "/.well-known": { target: API_TARGET, changeOrigin: true },
       // Only proxy the Spring Security OAuth2 endpoints, NOT /oauth2/redirect
       // which is a frontend SPA route handled by React Router.
       "/oauth2/authorization": { target: API_TARGET, changeOrigin: true },
       "/login/oauth2": { target: API_TARGET, changeOrigin: true },
+    },
+  },
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["./src/test/setup.ts"],
+    exclude: ["**/node_modules/**", "**/dist/**", "scripts/**"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html", "lcov", "json"],
+      all: true,
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/**/*.test.{ts,tsx}", "src/test/**"],
     },
   },
   build: {
@@ -40,9 +53,6 @@ export default defineConfig({
           if (id.includes("lucide-react")) return "vendor-icons";
           if (id.includes("zod") || id.includes("react-hook-form") || id.includes("@hookform")) {
             return "vendor-forms";
-          }
-          if (id.includes("react-dom") || id.includes("scheduler") || id.includes("/react/")) {
-            return "vendor-react";
           }
           return "vendor";
         },

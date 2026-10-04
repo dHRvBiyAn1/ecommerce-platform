@@ -1,11 +1,13 @@
 package com.project.authservice.controller;
 
-import com.project.authservice.dto.ApiResponse;
-import com.project.authservice.dto.seller.RejectApplicationRequest;
-import com.project.authservice.dto.seller.SellerApplicationRequest;
-import com.project.authservice.dto.seller.SellerApplicationResponse;
+import com.project.authservice.dto.request.seller.RejectApplicationRequest;
+import com.project.authservice.dto.request.seller.SellerApplicationRequest;
+import com.project.authservice.dto.response.seller.SellerApplicationResponse;
 import com.project.authservice.entity.SellerApplicationStatus;
 import com.project.authservice.service.SellerApplicationService;
+import com.project.authservice.security.AuthenticatedUserValidator;
+import com.project.common.dto.ApiResponse;
+import com.project.common.constant.Permissions;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -32,9 +34,7 @@ import java.util.UUID;
  * Admin endpoints live on {@link AdminSellerApplicationController}.
  *
  * <p>auth-service authenticates with its own JwtAuthFilter (not the common
- * resource-server flow), so we extract userId from {@code authentication.getName()}
- * directly rather than going through {@code CurrentUser}, matching the pattern
- * in {@link UserController}.
+ * resource-server flow), so the dedicated validator handles the UUID subject.
  */
 @RestController
 @RequestMapping("/api/user/seller-application")
@@ -42,12 +42,13 @@ import java.util.UUID;
 public class SellerApplicationController {
 
     private final SellerApplicationService service;
+    private final AuthenticatedUserValidator authenticatedUserValidator;
 
     /** 200 with the application body, or 204 if the user has never applied. */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<SellerApplicationResponse>> getMine(Authentication auth) {
-        UUID userId = UUID.fromString(auth.getName());
+        UUID userId = authenticatedUserValidator.requireUserId(auth);
         return service.getMine(userId)
                 .map(r -> ResponseEntity.ok(ApiResponse.success(r)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NO_CONTENT).build());
@@ -58,7 +59,7 @@ public class SellerApplicationController {
     public ResponseEntity<ApiResponse<SellerApplicationResponse>> apply(
             @Valid @RequestBody SellerApplicationRequest req,
             Authentication auth) {
-        UUID userId = UUID.fromString(auth.getName());
+        UUID userId = authenticatedUserValidator.requireUserId(auth);
         SellerApplicationResponse out = service.apply(userId, req);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(out));
     }
@@ -70,9 +71,10 @@ public class SellerApplicationController {
 class AdminSellerApplicationController {
 
     private final SellerApplicationService service;
+    private final AuthenticatedUserValidator authenticatedUserValidator;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('admin:users:read')")
+    @PreAuthorize("hasAuthority('" + Permissions.USERS_READ + "')")
     public ResponseEntity<ApiResponse<Page<SellerApplicationResponse>>> list(
             @RequestParam(required = false) SellerApplicationStatus status,
             @PageableDefault(size = 20, sort = "submittedAt", direction = Sort.Direction.DESC) Pageable pageable) {
@@ -80,26 +82,26 @@ class AdminSellerApplicationController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('admin:users:read')")
+    @PreAuthorize("hasAuthority('" + Permissions.USERS_READ + "')")
     public ResponseEntity<ApiResponse<SellerApplicationResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(service.get(id)));
     }
 
     @PutMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('admin:users:write')")
+    @PreAuthorize("hasAuthority('" + Permissions.USERS_WRITE + "')")
     public ResponseEntity<ApiResponse<SellerApplicationResponse>> approve(
             @PathVariable UUID id, Authentication auth) {
-        UUID adminId = UUID.fromString(auth.getName());
+        UUID adminId = authenticatedUserValidator.requireUserId(auth);
         return ResponseEntity.ok(ApiResponse.success(service.approve(id, adminId)));
     }
 
     @PutMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('admin:users:write')")
+    @PreAuthorize("hasAuthority('" + Permissions.USERS_WRITE + "')")
     public ResponseEntity<ApiResponse<SellerApplicationResponse>> reject(
             @PathVariable UUID id,
             @Valid @RequestBody RejectApplicationRequest req,
             Authentication auth) {
-        UUID adminId = UUID.fromString(auth.getName());
+        UUID adminId = authenticatedUserValidator.requireUserId(auth);
         return ResponseEntity.ok(ApiResponse.success(service.reject(id, adminId, req)));
     }
 }

@@ -14,11 +14,15 @@ import java.util.UUID;
 
 public interface CouponRepository extends JpaRepository<Coupon, UUID> {
 
-    Optional<Coupon> findByCodeIgnoreCase(String code);
+    Optional<Coupon> findByCode(String code);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Coupon c WHERE c.id = :id")
+    Optional<Coupon> findByIdForUpdate(@Param("id") UUID id);
 
     /** Pessimistic lock when we redeem so usageCount increments are serializable. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT c FROM Coupon c WHERE LOWER(c.code) = LOWER(:code)")
+    @Query("SELECT c FROM Coupon c WHERE c.code = :code")
     Optional<Coupon> findByCodeForUpdate(@Param("code") String code);
 
     Page<Coupon> findAll(Pageable pageable);

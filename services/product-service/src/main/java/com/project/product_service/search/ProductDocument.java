@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.project.product_service.model.ProductApprovalStatus;
+
 @Document(indexName = "products")
 @Getter
 @Setter
@@ -47,6 +49,9 @@ public class ProductDocument {
 
     @Field(type = FieldType.Boolean)
     private boolean active;
+
+    @Field(type = FieldType.Keyword)
+    private ProductApprovalStatus approvalStatus;
 
     /**
      * Flexible product attributes indexed as a flattened object in ES.

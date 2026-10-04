@@ -1,8 +1,8 @@
 package com.project.authservice.service;
 
-import com.project.authservice.dto.RegistrationRequest;
+import com.project.authservice.dto.request.RegistrationRequest;
 import com.project.authservice.dto.TokenResponse;
-import com.project.authservice.dto.UserProfileDto;
+import com.project.authservice.dto.response.UserProfileDto;
 import com.project.authservice.entity.AuthProvider;
 import com.project.authservice.entity.RefreshToken;
 import com.project.authservice.entity.Role;
@@ -56,15 +56,15 @@ public class AuthService {
      */
     @Transactional
     public UserProfileDto register(RegistrationRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmail(request.email())) {
             throw new UserAlreadyExistsException("Email already in use");
         }
         Role customerRole = roleRepository.findByName(Roles.CUSTOMER)
                 .orElseThrow(() -> new IllegalStateException(Roles.CUSTOMER + " role missing"));
 
         User user = new User();
-        user.setEmail(request.getEmail());
-        user.setDisplayName(request.getDisplayName());
+        user.setEmail(request.email());
+        user.setDisplayName(request.displayName());
         user.setActive(true);
         user.getRoles().add(customerRole);
         user = userRepository.save(user);
@@ -72,7 +72,7 @@ public class AuthService {
         UserCredential credential = new UserCredential();
         credential.setUser(user);
         credential.setAuthProvider(AuthProvider.LOCAL);
-        credential.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        credential.setPasswordHash(passwordEncoder.encode(request.password()));
         userCredentialRepository.save(credential);
 
         userEventPublisher.publish(UserEvent.userEventBuilder()
@@ -82,10 +82,10 @@ public class AuthService {
                 .displayName(user.getDisplayName())
                 .build());
 
-        return userMapper.toDto(user);
+        return userMapper.toDto(user, true);
     }
 
-    @Transactional
+    @Transactional(dontRollbackOn = TokenRefreshException.class)
     public TokenResponseWithRefresh authenticate(String grantType, String email, String password,
                                                  String refreshTokenCookie, String userAgent, String ipAddress) {
         return switch (grantType == null ? "" : grantType) {
@@ -126,7 +126,7 @@ public class AuthService {
         }
         String hash = TokenHasher.sha256(refreshTokenCookie);
 
-        RefreshToken stored = refreshTokenRepository.findByTokenHash(hash)
+        RefreshToken stored = refreshTokenRepository.findForUpdateByTokenHash(hash)
                 .orElseThrow(() -> new TokenRefreshException("Refresh token invalid"));
 
         // Token-reuse detection: if a previously-rotated token is presented, revoke the entire family.

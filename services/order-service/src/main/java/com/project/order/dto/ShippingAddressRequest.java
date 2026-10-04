@@ -1,31 +1,25 @@
 package com.project.order.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import lombok.*;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class ShippingAddressRequest {
+public record ShippingAddressRequest(
     @NotBlank(message = "Full name is required")
-    private String fullName;
+    String fullName,
 
     @NotBlank(message = "Phone is required")
-    private String phone;
+    String phone,
 
     @NotBlank(message = "Street is required")
-    private String street;
+    String street,
 
     @NotBlank(message = "City is required")
-    private String city;
+    String city,
 
-    private String state;
+    String state,
 
     @NotBlank(message = "Zip code is required")
-    private String zipCode;
+    String zipCode,
 
     @NotBlank(message = "Country is required")
-    private String country;
-}
+    String country
+) {}

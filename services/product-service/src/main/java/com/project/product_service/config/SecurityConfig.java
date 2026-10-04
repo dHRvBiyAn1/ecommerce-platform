@@ -26,6 +26,8 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     @Bean
+    // Bearer-only stateless writes; cookie/session identities and HTTP Basic are rejected by security tests.
+    @SuppressWarnings("java:S4502")
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -41,6 +43,12 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
+                        // Seller and moderation views expose non-public product states.
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/products/seller",
+                                "/api/v1/products/seller/**",
+                                "/api/v1/products/admin/**"
+                        ).authenticated()
                         // Public catalog reads
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/products",

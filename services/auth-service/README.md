@@ -1,90 +1,55 @@
 # Authentication Service
 
-A complete, production-ready Authentication Service built with Spring Boot 3.4 and Spring Security 6.3. It uses a zero-trust architecture where it issues JWTs via asymmetric RSA signing, allowing downstream microservices to independently verify tokens without needing to contact the auth server.
+Auth-service is the platform's Spring Boot 3.3.5 / Java 17 identity provider.
+It stores users, roles, permissions, and hashed refresh-token records in
+PostgreSQL, issues RS256 JWTs, and publishes public signing keys at
+`/.well-known/jwks.json`. The Maven version and Java release are managed by the
+root POM.
 
-## Features
-- **Custom Password Grant:** Provides a simple `grant_type=password` implementation for first-party SPA clients, returning an access token and setting a secure HttpOnly cookie for the refresh token.
-- **Refresh Token Rotation:** Uses a family-based rotation strategy to detect replay attacks and automatically revoke compromised token trees.
-- **Social Login:** Integrates with Google OAuth2 and syncs social accounts to the local user database.
-- **Role-Based Access Control (RBAC):** Normalized PostgreSQL schema for users, roles, and fine-grained permissions.
-- **Stateless & RSA-Signed JWTs:** Access tokens are signed using an RSA private key. Downstream services can fetch the public key from the `/.well-known/jwks.json` endpoint to validate tokens.
+## Run and verify
 
-## Setup & Run
+Configuration is supplied by the root Compose setup and Spring Cloud Config;
+bootstrap admin creation requires configured `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
+Do not use sample credentials or commit secrets. From the repository root:
 
-### Prerequisites
-- Java 21
-- PostgreSQL (or use Docker)
-- Maven
-
-### Database
-1. Create a PostgreSQL database named `ecommerce_auth`:
-   ```bash
-   psql -U postgres -c "CREATE DATABASE ecommerce_auth;"
-   ```
-2. Update `application.yml` with your database credentials if they differ from the defaults (`postgres`/`password`).
-3. Flyway will automatically run the migrations (`V1__init.sql` and `V2__seed_data.sql`) on startup.
-
-### Keys & Secrets
-By default, the application will automatically generate an in-memory RSA key pair if none is provided via the `rsa.private-key` and `rsa.public-key` properties. For production, you should provide `.pem` files.
-Update the Google OAuth2 credentials in `application.yml` (or via environment variables `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`) to test social login.
-
-### Running the Application
 ```bash
-mvn spring-boot:run
+make env
+make keys
+make up
+./mvnw -pl services/auth-service -am verify
 ```
 
-## API Flows & Testing
+The root wrapper supports Windows with `mvnw.cmd`. The service itself uses
+PostgreSQL, Redis, Kafka, and the configured RSA keys. See the root README for
+ports, stack operations, and release-evidence checks.
 
-### 1. Registration
-Register a new user (assigns `ROLE_USER` by default).
-```bash
-curl -X POST http://localhost:8081/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "test@example.com",
-    "password": "password123",
-    "displayName": "Test User"
-  }'
-```
+## Implemented identity contracts
 
-### 2. Login (Custom Password Grant)
-Login using the custom password grant. The access token is returned in the JSON body, and the refresh token is set as an `HttpOnly` cookie.
-```bash
-curl -i -X POST http://localhost:8081/api/auth/token \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=password&email=test@example.com&password=password123"
-```
+- Registration through `POST /api/auth/register` always assigns `ROLE_CUSTOMER`.
+  Seller access requires the seller-application flow or an authorized admin
+  role assignment.
+- Password and refresh grants use `POST /api/auth/token` with form fields.
+  User access tokens live for 15 minutes; refresh tokens live for 7 days by
+  default, are stored as SHA-256 hashes, rotate by family, and are sent only in
+  an HttpOnly `refresh_token` cookie (`SameSite=Strict`, Secure according to
+  `SECURE_COOKIES`).
+- User JWTs contain a UUID `sub`, email, `ROLE_*` roles, and fine-grained
+  permissions. RS256 signing includes a `kid`; the JWKS endpoint can publish
+  current and previous public keys for rotation. Configure key locations using
+  `AUTH_RSA_PRIVATE_KEY_LOCATION`, `AUTH_RSA_PUBLIC_KEY_LOCATION`, and related
+  key-rotation variables. An ephemeral development key invalidates tokens at
+  restart and is not a persistent deployment key.
+- `POST /api/auth/token` with `grant_type=client_credentials` returns raw OAuth
+  JSON, without the ordinary API envelope or refresh cookie. The three
+  allowlisted callers, scopes, TTL limits, and fail-closed rules are in the
+  [authentication contract](../../docs/authentication.md).
+- Profiles use `GET` and `PUT /api/user/profile`; password changes require an
+  authenticated user. Normal REST responses use the shared API envelope.
+- Google and GitHub sign-in are enabled only when both credentials for that
+  provider are configured. `GET /api/auth/providers` advertises the configured
+  options.
 
-*Note: The seeded Admin user can be accessed with `admin@example.com` / `admin`.*
-
-### 3. Refresh Token
-When the access token expires (15 minutes), the frontend should call the token endpoint again using `grant_type=refresh_token`. The server will read the `refresh_token` from the HttpOnly cookie.
-```bash
-curl -i -X POST http://localhost:8081/api/auth/token \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -H "Cookie: refresh_token=<YOUR_REFRESH_TOKEN_COOKIE>" \
-  -d "grant_type=refresh_token"
-```
-
-### 4. Fetch Current Profile
-Requires a valid JWT Access Token.
-```bash
-curl -X GET http://localhost:8081/api/users/me \
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
-```
-
-### 5. JWK Set Endpoint (For Resource Servers)
-Downstream services should configure their OAuth2 Resource Server to fetch the public key from this URL.
-```bash
-curl -X GET http://localhost:8081/.well-known/jwks.json
-```
-
-### 6. Logout
-Revokes the refresh token in the database and clears the HttpOnly cookie.
-```bash
-curl -i -X POST http://localhost:8081/api/auth/logout \
-  -H "Cookie: refresh_token=<YOUR_REFRESH_TOKEN_COOKIE>"
-```
-
-### 7. Google OAuth2 Login
-Navigate to `http://localhost:8081/oauth2/authorization/google` in your browser. After successful authentication, you will be redirected to the configured frontend URL with the access token, and the refresh token will be set as a cookie.
+See [Authentication contracts and decisions](../../docs/authentication.md) for
+the complete token, key, cookie, scope, compatibility, and service-client
+contract. It is the canonical maintained reference; this file summarizes only
+service setup and endpoints.

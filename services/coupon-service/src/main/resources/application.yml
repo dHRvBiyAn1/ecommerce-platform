@@ -3,3 +3,8 @@ spring:
     name: coupon-service
   config:
     import: optional:configserver:http://config-server:8888
+
+common:
+  security:
+    resource-server:
+      enabled: false

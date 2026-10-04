@@ -37,6 +37,13 @@ public class InventoryClientFallbackFactory implements FallbackFactory<Inventory
                 // Log and return a dummy failure state so that OrderServiceImpl logs the compensation error
                 throw new IllegalStateException("Compensation release failed due to inventory service outage.");
             }
+
+            @Override
+            public InventoryReservationResult commit(String productId, StockReservationCommand command) {
+                log.error("Inventory commit failed for product={}, quantity={} in order={}. Cause: {}",
+                        productId, command.getQuantity(), command.getOrderId(), cause.getMessage());
+                throw new IllegalStateException("Inventory commit failed due to inventory service outage.");
+            }
         };
     }
 }

@@ -15,9 +15,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
+import java.time.Duration;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -40,6 +43,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class JwtService {
+
+    private static final String SERVICE_TOKEN_TYPE = "service";
 
     private final KeyManager keyManager;
 
@@ -74,6 +79,24 @@ public class JwtService {
                 .compact();
     }
 
+    public String generateServiceToken(String clientId, Set<String> scopes, Duration ttl) {
+        JwtKey key = keyManager.getCurrentKey();
+        long now = System.currentTimeMillis();
+        String scope = String.join(" ", new TreeSet<>(scopes));
+
+        return Jwts.builder()
+                .header().keyId(key.getKid()).type("JWT").and()
+                .subject(clientId)
+                .issuer(issuer)
+                .id(UUID.randomUUID().toString())
+                .issuedAt(new Date(now))
+                .expiration(new Date(now + ttl.toMillis()))
+                .claim("token_type", SERVICE_TOKEN_TYPE)
+                .claim("scope", scope)
+                .signWith(key.getPrivateKey(), Jwts.SIG.RS256)
+                .compact();
+    }
+
     public boolean validateToken(String token) {
         try {
             parseClaims(token);
@@ -82,6 +105,10 @@ public class JwtService {
             log.debug("JWT validation failed: {}", e.getMessage());
             return false;
         }
+    }
+
+    public boolean isUserToken(String token) {
+        return !SERVICE_TOKEN_TYPE.equals(parseClaims(token).get("token_type", String.class));
     }
 
     public String getUserIdFromToken(String token) {

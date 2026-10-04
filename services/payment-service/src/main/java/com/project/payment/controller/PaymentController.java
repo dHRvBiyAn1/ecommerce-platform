@@ -4,10 +4,12 @@ import com.project.common.constant.Permissions;
 import com.project.common.dto.ApiResponse;
 import com.project.common.security.CurrentUser;
 import com.project.common.security.HmacSignatureVerifier;
-import com.project.payment.dto.PaymentRequest;
-import com.project.payment.dto.PaymentResponse;
-import com.project.payment.dto.PaymentWebhookRequest;
-import com.project.payment.dto.RefundRequest;
+import com.project.payment.application.validator.PaymentAccessValidator;
+import com.project.payment.api.dto.request.PaymentRequest;
+import com.project.payment.api.dto.request.PaymentWebhookRequest;
+import com.project.payment.api.dto.request.RefundRequest;
+import com.project.payment.api.dto.response.PaymentResponse;
+import com.project.payment.api.dto.response.PaymentInitiationResponse;
 import com.project.payment.exception.PaymentException;
 import com.project.payment.service.PaymentService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,11 +31,15 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.net.Webhook;
 import com.stripe.model.Event;
 import com.stripe.model.PaymentIntent;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
 @Slf4j
 @RestController
@@ -42,6 +48,7 @@ import com.stripe.model.PaymentIntent;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final PaymentAccessValidator accessValidator;
 
     @Value("${payment.webhook.secret:}")
     private String webhookSecret;
@@ -54,8 +61,16 @@ public class PaymentController {
     // ---- Customer-initiated payment flows ----
 
     @PostMapping
-    @PreAuthorize("hasAuthority('" + Permissions.PAYMENTS_PROCESS + "') or hasRole('CUSTOMER')")
-    public ResponseEntity<ApiResponse<PaymentResponse>> createPayment(
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @Operation(summary = "Initiate a customer payment", security = @SecurityRequirement(name = "bearerAuth"),
+            description = "Validates current customer owns order. Returns clientSecret only for first successful "
+                    + "initiation; idempotency replays return payment state without clientSecret.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Payment initiated"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Order is not owned by current customer"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Idempotency key conflicts with another order")
+    })
+    public ResponseEntity<ApiResponse<PaymentInitiationResponse>> createPayment(
             @Valid @RequestBody PaymentRequest request,
             @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
         UUID userId = CurrentUser.requireId();
@@ -73,23 +88,19 @@ public class PaymentController {
     @GetMapping("/{paymentId}")
     @PreAuthorize("hasAuthority('" + Permissions.PAYMENTS_READ + "')")
     public ResponseEntity<ApiResponse<PaymentResponse>> getPayment(@PathVariable String paymentId) {
-        PaymentResponse p = paymentService.getPayment(paymentId);
-        if (!CurrentUser.isAdmin() && !p.getUserId().equals(CurrentUser.requireId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-        return ResponseEntity.ok(ApiResponse.success(p));
+        return accessible(paymentService.getPayment(paymentId));
     }
 
     @GetMapping("/reference/{reference}")
     @PreAuthorize("hasAuthority('" + Permissions.PAYMENTS_READ + "')")
     public ResponseEntity<ApiResponse<PaymentResponse>> getByReference(@PathVariable String reference) {
-        return ResponseEntity.ok(ApiResponse.success(paymentService.getPaymentByReference(reference)));
+        return accessible(paymentService.getPaymentByReference(reference));
     }
 
     @GetMapping("/order/{orderId}")
     @PreAuthorize("hasAuthority('" + Permissions.PAYMENTS_READ + "')")
     public ResponseEntity<ApiResponse<PaymentResponse>> getByOrderId(@PathVariable String orderId) {
-        return ResponseEntity.ok(ApiResponse.success(paymentService.getPaymentByOrderId(orderId)));
+        return accessible(paymentService.getPaymentByOrderId(orderId));
     }
 
     // ---- Process / refund — admins or system only ----
@@ -119,6 +130,13 @@ public class PaymentController {
      * {@code X-Webhook-Signature: t=<unix>,v1=<hex-hmac>}.
      */
     @PostMapping(value = "/webhook")
+    @Operation(summary = "Receive verified internal payment webhook",
+            description = "Public endpoint. HMAC verification is required; duplicate verified events resume one durable transition and outbox publication.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Verified event accepted"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Signature missing or invalid"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "Webhook secret is unavailable")
+    })
     public ResponseEntity<Void> handleWebhook(
             HttpServletRequest request,
             @RequestBody String rawBody) throws IOException {
@@ -145,13 +163,21 @@ public class PaymentController {
         } catch (Exception e) {
             throw new PaymentException("Invalid webhook payload");
         }
-        paymentService.handlePaymentWebhook(payload.getPaymentReference(), payload);
+        String eventId = UUID.nameUUIDFromBytes(rawBody.getBytes(StandardCharsets.UTF_8)).toString();
+        paymentService.handleVerifiedWebhook("internal", eventId, payload.status(), payload.paymentReference(), payload);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping(value = "/webhook/stripe")
+    @Operation(summary = "Receive verified Stripe payment webhook",
+            description = "Public endpoint. Stripe signature verification is required; duplicate verified events resume one durable transition and outbox publication.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Verified event accepted"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Signature or payload is invalid"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "Webhook secret is unavailable")
+    })
     public ResponseEntity<Void> handleStripeWebhook(
-            @RequestHeader("Stripe-Signature") String sigHeader,
+            @RequestHeader(value = "Stripe-Signature", required = false) String sigHeader,
             @RequestBody String rawBody) {
         if (stripeWebhookSecret == null || stripeWebhookSecret.isBlank()) {
             log.error("Stripe webhook received but stripe.webhook-secret is not configured");
@@ -169,26 +195,32 @@ public class PaymentController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
 
-        if ("payment_intent.succeeded".equals(event.getType()) || "payment_intent.payment_failed".equals(event.getType())) {
-            PaymentIntent intent = (PaymentIntent) event.getDataObjectDeserializer().getObject().orElse(null);
-            if (intent != null) {
-                PaymentWebhookRequest payload = new PaymentWebhookRequest();
-                payload.setPaymentReference(intent.getMetadata().get("paymentReference"));
-                payload.setTransactionId(intent.getId());
-                
-                if ("payment_intent.succeeded".equals(event.getType())) {
-                    payload.setStatus("COMPLETED");
-                } else {
-                    payload.setStatus("FAILED");
-                    payload.setFailureReason(intent.getLastPaymentError() != null ? intent.getLastPaymentError().getMessage() : "Payment failed");
-                }
-                
-                if (payload.getPaymentReference() != null) {
-                    paymentService.handlePaymentWebhook(payload.getPaymentReference(), payload);
-                }
-            }
+        if (event.getId() == null || event.getId().isBlank()
+                || !("payment_intent.succeeded".equals(event.getType())
+                || "payment_intent.payment_failed".equals(event.getType()))) {
+            return ResponseEntity.badRequest().build();
         }
-        
+        Object data = event.getDataObjectDeserializer().getObject().orElse(null);
+        if (!(data instanceof PaymentIntent intent)) {
+            return ResponseEntity.badRequest().build();
+        }
+        String paymentReference = intent.getMetadata().get("paymentReference");
+        if (paymentReference == null || paymentReference.isBlank() || intent.getId() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        String status = "payment_intent.succeeded".equals(event.getType()) ? "COMPLETED" : "FAILED";
+        String failureReason = "FAILED".equals(status)
+                ? intent.getLastPaymentError() != null ? intent.getLastPaymentError().getMessage() : "Payment failed"
+                : null;
+        PaymentWebhookRequest payload = new PaymentWebhookRequest(
+                paymentReference, intent.getId(), status, failureReason);
+        paymentService.handleStripeWebhook(event.getId(), event.getType(), paymentReference, payload);
+
         return ResponseEntity.ok().build();
+    }
+
+    private ResponseEntity<ApiResponse<PaymentResponse>> accessible(PaymentResponse payment) {
+        accessValidator.validateAccess(payment, CurrentUser.requireId(), CurrentUser.isAdmin());
+        return ResponseEntity.ok(ApiResponse.success(payment));
     }
 }

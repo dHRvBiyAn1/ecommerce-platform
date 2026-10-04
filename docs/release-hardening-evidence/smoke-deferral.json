@@ -1,0 +1,9 @@
+{
+  "schema": "release-smoke-deferral-v1",
+  "scope": "REPOSITORY_ONLY",
+  "decision": "defer-live-smoke",
+  "approvedBy": "project-owner",
+  "recordedDecision": "After discussing GitHub-only hosting for this personal project and smoke-token acquisition, the user instructed: leave it and continue.",
+  "reason": "The project is currently maintained on GitHub without a configured deployment target. Repository hardening is verified; live deployment validation is deferred rather than reported as passed.",
+  "requiresBeforeProductionDeployment": true
+}

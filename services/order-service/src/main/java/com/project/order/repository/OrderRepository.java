@@ -11,11 +11,14 @@ import org.springframework.data.mongodb.repository.Query;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.LocalDateTime;
 
 public interface OrderRepository extends MongoRepository<Order, String> {
     Page<Order> findByUserId(UUID userId, Pageable pageable);
 
     Optional<Order> findByOrderNumber(String orderNumber);
+
+    Optional<Order> findByUserIdAndIdempotencyKey(UUID userId, String idempotencyKey);
 
     Page<Order> findByStatus(OrderStatus status, Pageable pageable);
 
@@ -25,4 +28,8 @@ public interface OrderRepository extends MongoRepository<Order, String> {
 
     @Query("{ 'outboxEvents.status': ?0 }")
     List<Order> findOrdersWithPendingEvents(String status);
+
+    @Query("{ 'sagaState.stage': { $in: ['RESERVING', 'COMPENSATING', 'RETRYABLE'] }, "
+            + "'sagaState.nextAttemptAt': { $lte: ?0 } }")
+    List<Order> findOrdersWithRecoverableSaga(LocalDateTime now);
 }

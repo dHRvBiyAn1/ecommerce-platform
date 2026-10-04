@@ -33,20 +33,6 @@
         <module>services/notification-service</module>
         <module>services/cart-service</module>
         <module>services/coupon-service</module>
-        <!--
-          Modules below are scaffolded but not yet implemented. Uncomment as each
-          service is built so the multi-module build doesn't fail on missing
-          children.
-            <module>services/wishlist-service</module>
-            <module>services/review-service</module>
-            <module>services/tax-service</module>
-            <module>services/shipping-service</module>
-            <module>services/seller-service</module>
-            <module>services/cms-service</module>
-            <module>services/admin-bff</module>
-            <module>services/analytics-service</module>
-            <module>services/recommendation-service</module>
-        -->
     </modules>
 
     <properties>
@@ -75,9 +61,21 @@
         <shedlock.version>5.13.0</shedlock.version>
         <caffeine.version>3.1.8</caffeine.version>
 
+        <sonar-maven-plugin.version>5.8.0.7211</sonar-maven-plugin.version>
+        <sonar.projectKey>dHRvBiyAn1_ecommerce-platform</sonar.projectKey>
+        <sonar.organization>dhrvbiyan1</sonar.organization>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
-        <sonar.coverage.jacoco.xmlReportPaths>**/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
-        <sonar-maven-plugin.version>4.0.0.4121</sonar-maven-plugin.version>
+        <sonar.maven.scanAll>true</sonar.maven.scanAll>
+        <sonar.jasmin.modules.all>true</sonar.jasmin.modules.all>
+        <sonar.coverage.jacoco.xmlReportPaths>${project.basedir}/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <sonar.javascript.lcov.reportPaths>${maven.multiModuleProjectDirectory}/frontend/ecommerce-app/coverage/sonar-lcov.info</sonar.javascript.lcov.reportPaths>
+        <sonar.exclusions>**/target/**,**/node_modules/**,**/dist/**,**/coverage/**,**/e2e/**,**/test/**,**/*.test.ts,**/*.test.tsx</sonar.exclusions>
+        <!-- V3 intentionally normalizes every existing coupon before the unique index.
+             Keep the applied Flyway migration immutable; other SQL checks remain active. -->
+        <sonar.issue.ignore.multicriteria>couponNormalization</sonar.issue.ignore.multicriteria>
+        <sonar.issue.ignore.multicriteria.couponNormalization.ruleKey>plsql:DeleteOrUpdateWithoutWhereCheck</sonar.issue.ignore.multicriteria.couponNormalization.ruleKey>
+        <sonar.issue.ignore.multicriteria.couponNormalization.resourceKey>**/src/main/resources/db/migration/V3__coupon_lifecycle_locking.sql</sonar.issue.ignore.multicriteria.couponNormalization.resourceKey>
+
     </properties>
 
     <dependencyManagement>
@@ -191,6 +189,12 @@
     </dependencyManagement>
 
     <build>
+        <plugins>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
         <pluginManagement>
             <plugins>
                 <plugin>
@@ -198,7 +202,6 @@
                     <artifactId>sonar-maven-plugin</artifactId>
                     <version>${sonar-maven-plugin.version}</version>
                 </plugin>
-
                 <plugin>
                     <groupId>org.jacoco</groupId>
                     <artifactId>jacoco-maven-plugin</artifactId>
@@ -273,4 +276,12 @@
             </plugins>
         </pluginManagement>
     </build>
+    <profiles>
+        <profile>
+            <id>sonar-analysis</id>
+            <modules>
+                <module>frontend/ecommerce-app</module>
+            </modules>
+        </profile>
+    </profiles>
 </project>

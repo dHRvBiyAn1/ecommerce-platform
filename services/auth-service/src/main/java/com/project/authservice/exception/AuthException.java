@@ -1,11 +1,11 @@
 package com.project.authservice.exception;
 
+import com.project.common.constant.ErrorCode;
+import com.project.common.exception.BusinessException;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
 
-@ResponseStatus(HttpStatus.UNAUTHORIZED)
-public class AuthException extends RuntimeException {
+public class AuthException extends BusinessException {
     public AuthException(String message) {
-        super(message);
+        super(HttpStatus.UNAUTHORIZED, ErrorCode.UNAUTHENTICATED.value(), message);
     }
 }

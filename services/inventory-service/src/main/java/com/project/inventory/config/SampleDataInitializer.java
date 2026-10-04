@@ -1,7 +1,7 @@
 package com.project.inventory.config;
 
 import com.project.common.sampledata.SampleIds;
-import com.project.inventory.model.InventoryItem;
+import com.project.inventory.domain.model.InventoryItem;
 import com.project.inventory.repository.InventoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
