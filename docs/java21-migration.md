@@ -84,6 +84,7 @@ bash scripts/check-jacoco-baseline.sh coverage-baseline/backend-modules.json
 bash scripts/test-active-service-routes.sh
 bash scripts/test-common-parent-dockerfiles.sh
 bash scripts/test-sonar-integration.sh
+bash scripts/test-java21-threading-config.sh
 bash scripts/verify-release-evidence.test.sh
 ```
 
@@ -98,8 +99,8 @@ PRODUCT_MONGO_INTEGRATION=true ./mvnw -pl services/product-service -am verify
 ```
 
 These commands describe how to verify the migration; their inclusion here does
-not assert that a particular local or CI run has passed. See the migration task
-report for the checks actually performed and the evidence still outstanding.
+not assert that a particular local or CI run has passed. See [the verification report](java21-verification.md) for checks actually
+performed, measured results, and outstanding runtime limitations.
 
 ## Virtual-thread evaluation and rollout
 
