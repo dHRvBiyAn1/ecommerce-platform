@@ -120,7 +120,9 @@ explicit per-service value of `true`. For a JVM rollback, redeploy the last
 Java 17 artifact; Java 21 bytecode and the Java 21 `common` library require Java
 21 and cannot run on Java 17.
 
-Before product rollout, investigate typed Redis cache rehydration after restart:
-a populated cache has returned a map where a product DTO was expected. Validate
-end-to-end notification delivery and tracing propagation explicitly; responsive
-list endpoints and test-created Observation scopes do not establish those outcomes.
+Product and category Redis cache reads restore their DTO types from the existing
+plain JSON format, including dates and decimal prices. Malformed cached values
+fall back to database loading. Validate cache reads after restarting the service
+as part of rollout. Validate end-to-end notification delivery and tracing
+propagation explicitly; responsive list endpoints and test-created Observation
+scopes do not establish those outcomes.

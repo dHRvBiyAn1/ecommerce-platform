@@ -3,6 +3,8 @@ package com.project.gatewaytest;
 import com.project.gateway.config.OpenApiAggregationConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
@@ -21,9 +23,11 @@ import org.springframework.web.context.WebApplicationContext;
 import java.util.List;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.web.servlet.function.RequestPredicates.GET;
 
 @SpringJUnitWebConfig(classes = GatewayRouteSecurityTest.TestConfiguration.class)
 class GatewayRouteSecurityTest {
@@ -56,8 +60,32 @@ class GatewayRouteSecurityTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/products", "/api/v1/products/product-1",
+            "/api/v1/products/search", "/api/v1/products/category/category-1",
+            "/api/v1/products/filter", "/api/v1/categories", "/api/v1/categories/category-1"})
+    void permitsGuestCatalogReads(String path) throws Exception {
+        mockMvc.perform(get(path)).andExpect(status().isOk());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/products", "/api/v1/products/product-1", "/api/v1/categories"})
+    void keepsCatalogWritesProtected(String path) throws Exception {
+        mockMvc.perform(post(path)).andExpect(status().isUnauthorized());
+        mockMvc.perform(put(path)).andExpect(status().isUnauthorized());
+        mockMvc.perform(delete(path)).andExpect(status().isUnauthorized());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/products/seller", "/api/v1/products/seller/seller-1",
+            "/api/v1/products/admin/by-status", "/api/v1/cart", "/api/v1/orders",
+            "/api/v1/products-extra", "/api/v1/categories-extra"})
+    void keepsPrivateAndLookalikeReadsProtected(String path) throws Exception {
+        mockMvc.perform(get(path)).andExpect(status().isUnauthorized());
+    }
+
     @Test
-    void permitsOnlyPublicAuthAndDiscoveryRoutesWithoutAuthorization() throws Exception {
+    void permitsPublicAuthAndDiscoveryRoutesWithoutAuthorization() throws Exception {
         mockMvc.perform(get("/api/auth/login"))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/eureka/apps"))
@@ -92,9 +120,7 @@ class GatewayRouteSecurityTest {
 
         @Bean
         RouterFunction<ServerResponse> testRoutes() {
-            return RouterFunctions.route(GET("/api/v1/orders")
-                            .or(GET("/api/auth/login"))
-                            .or(GET("/eureka/apps")),
+            return RouterFunctions.route(request -> true,
                     request -> ServerResponse.ok().body("ok"));
         }
     }

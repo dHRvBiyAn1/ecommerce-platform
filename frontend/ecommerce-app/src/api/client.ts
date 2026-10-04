@@ -7,7 +7,7 @@ import axios, {
 import { useAuthStore } from "@/stores/auth";
 import type { ErrorResponse } from "@/api/types";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || "/api";
 
 /**
  * Lightweight axios wrapper that:

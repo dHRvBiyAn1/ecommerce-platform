@@ -51,7 +51,8 @@ public class OpenApiAggregationConfig implements WebMvcConfigurer {
         public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
                 throws Exception {
             String authorization = request.getHeader("Authorization");
-            if (isPublic(request.getRequestURI()) || (authorization != null && !authorization.isBlank())) {
+            if (isPublic(request.getRequestURI()) || isPublicCatalogRead(request)
+                    || (authorization != null && !authorization.isBlank())) {
                 return true;
             }
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
@@ -60,6 +61,22 @@ public class OpenApiAggregationConfig implements WebMvcConfigurer {
 
         private static boolean isPublic(String path) {
             return path.startsWith("/api/auth/") || path.startsWith("/eureka/");
+        }
+
+        private static boolean isPublicCatalogRead(HttpServletRequest request) {
+            if (!"GET".equals(request.getMethod())) {
+                return false;
+            }
+            String path = request.getRequestURI();
+            // Match product-service's public catalog policy, including its private views.
+            return isPathOrChild(path, "/api/v1/categories")
+                    || (isPathOrChild(path, "/api/v1/products")
+                        && !isPathOrChild(path, "/api/v1/products/seller")
+                        && !isPathOrChild(path, "/api/v1/products/admin"));
+        }
+
+        private static boolean isPathOrChild(String path, String root) {
+            return path.equals(root) || path.startsWith(root + "/");
         }
     }
 }
