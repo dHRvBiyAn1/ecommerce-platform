@@ -12,7 +12,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,7 +37,9 @@ class ServiceTokenHardeningTest {
         ServiceTokenProvider provider = new ServiceTokenProvider(ignored -> new ServiceTokenResponse(
                 "invalid", "Bearer", 300, "inventory.write coupons.read"), properties);
 
-        assertThatThrownBy(provider::getAccessToken).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(provider::getAccessToken)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Auth service did not grant the requested scopes");
     }
 
     static Stream<ServiceTokenResponse> invalidResponses() {
@@ -94,12 +95,38 @@ class ServiceTokenHardeningTest {
     }
 
     @Test
-    void concurrentCallersShareOneExchange() throws Exception {
+    void retriesAfterClientException() {
+        AtomicInteger calls = new AtomicInteger();
+        ServiceTokenProvider provider = new ServiceTokenProvider(properties -> {
+            if (calls.incrementAndGet() == 1) throw new IllegalStateException("exchange unavailable");
+            return new ServiceTokenResponse("recovered", "Bearer", 300, "coupons.read");
+        }, properties());
+
+        assertThatThrownBy(provider::getAccessToken).hasMessage("exchange unavailable");
+        assertThat(provider.getAccessToken()).isEqualTo("recovered");
+        assertThat(calls.get()).isEqualTo(2);
+    }
+
+    @Test
+    void distinguishesMalformedResponseFromMissingRequestedScopes() {
+        ServiceTokenProvider malformed = new ServiceTokenProvider(ignored -> new ServiceTokenResponse(
+                "token", "Bearer", 300, "  "), properties());
+        ServiceTokenProvider denied = new ServiceTokenProvider(ignored -> new ServiceTokenResponse(
+                "token", "Bearer", 300, "coupons.write"), properties());
+
+        assertThatThrownBy(malformed::getAccessToken)
+                .hasMessage("Auth service returned an invalid service token response");
+        assertThatThrownBy(denied::getAccessToken)
+                .hasMessage("Auth service did not grant the requested scopes");
+    }
+
+    @Test
+    void virtualThreadCallersShareOneExchange() throws Exception {
+        int callers = 16;
         AtomicInteger calls = new AtomicInteger();
         CountDownLatch requestStarted = new CountDownLatch(1);
         CountDownLatch releaseRequest = new CountDownLatch(1);
-        CountDownLatch waiterStarted = new CountDownLatch(1);
-        AtomicReference<Thread> waiterThread = new AtomicReference<>();
+        CountDownLatch callersReady = new CountDownLatch(callers);
         ServiceTokenProvider provider = new ServiceTokenProvider(properties -> {
             calls.incrementAndGet();
             requestStarted.countDown();
@@ -113,26 +140,22 @@ class ServiceTokenHardeningTest {
             }
             return new ServiceTokenResponse("shared", "Bearer", 300, "coupons.read");
         }, properties(), Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
-        var executor = Executors.newFixedThreadPool(2);
+        var executor = Executors.newVirtualThreadPerTaskExecutor();
         try {
-            Future<String> first = executor.submit(provider::getAccessToken);
-            assertThat(requestStarted.await(2, TimeUnit.SECONDS)).isTrue();
-            Future<String> second = executor.submit(() -> {
-                waiterThread.set(Thread.currentThread());
-                waiterStarted.countDown();
-                return provider.getAccessToken();
-            });
-            assertThat(waiterStarted.await(2, TimeUnit.SECONDS)).isTrue();
-
-            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
-            while (waiterThread.get().getState() != Thread.State.BLOCKED && System.nanoTime() < deadline) {
-                Thread.onSpinWait();
+            var results = new java.util.ArrayList<Future<String>>();
+            for (int i = 0; i < callers; i++) {
+                results.add(executor.submit(() -> {
+                    callersReady.countDown();
+                    return provider.getAccessToken();
+                }));
             }
-            assertThat(waiterThread.get().getState()).isEqualTo(Thread.State.BLOCKED);
+            assertThat(requestStarted.await(2, TimeUnit.SECONDS)).isTrue();
+            assertThat(callersReady.await(2, TimeUnit.SECONDS)).isTrue();
 
             releaseRequest.countDown();
-            assertThat(first.get(2, TimeUnit.SECONDS)).isEqualTo("shared");
-            assertThat(second.get(2, TimeUnit.SECONDS)).isEqualTo("shared");
+            for (Future<String> result : results) {
+                assertThat(result.get(2, TimeUnit.SECONDS)).isEqualTo("shared");
+            }
             assertThat(calls.get()).isEqualTo(1);
         } finally {
             releaseRequest.countDown();
