@@ -58,8 +58,7 @@ class CartOpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/v1/cart/coupon'].delete.security[0].bearerAuth").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/cart'].get.responses['401'].headers['WWW-Authenticate'].schema.type")
                         .value("string"))
-                .andExpect(jsonPath("$.paths['/api/v1/cart'].get.responses['401'].content['application/json'].schema.$ref")
-                        .value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath("$.paths['/api/v1/cart'].get.responses['401'].content").doesNotExist())
                 .andExpect(jsonPath("$.paths['/api/v1/cart'].get.responses['403'].content['application/json'].schema.$ref")
                         .value("#/components/schemas/ErrorResponse"))
                 .andExpect(jsonPath("$.paths['/api/v1/cart/items'].post.responses['403'].description").exists())
@@ -71,7 +70,7 @@ class CartOpenApiContractTest {
     @SpringBootConfiguration
     @EnableAutoConfiguration
     @EnableConfigurationProperties(SpringDocConfigProperties.class)
-    @Import(CartController.class)
+    @Import({CartController.class, com.project.cart.application.mapper.CartApiMapperImpl.class})
     static class OpenApiTestApplication {
     }
 }

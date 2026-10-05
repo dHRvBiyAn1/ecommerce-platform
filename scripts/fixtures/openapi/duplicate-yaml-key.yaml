@@ -1,0 +1,6 @@
+openapi: 3.0.1
+info: {title: Duplicate key, version: '1'}
+paths:
+  /duplicate:
+    get: {operationId: first, responses: {'200': {description: ok}}}
+    get: {operationId: second, responses: {'200': {description: ok}}}

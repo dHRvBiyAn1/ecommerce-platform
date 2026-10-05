@@ -1,0 +1,385 @@
+---
+openapi: 3.0.1
+info:
+  title: Cart Service API
+  description: Authenticated customer cart operations
+  version: 1.0.0
+  contact:
+    name: Ecommerce Platform maintainers
+servers:
+- url: http://localhost:8087
+  description: Direct service endpoint
+- url: http://localhost:8080
+  description: API gateway endpoint
+tags:
+- name: Cart
+  description: Cart and coupon application operations
+paths:
+  "/api/v1/cart":
+    get:
+      operationId: getMyCart
+      summary: Get the authenticated user’s cart
+      tags:
+      - Cart
+      responses:
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '200':
+          description: Cart returned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CartResponse"
+      description: Returns the cart belonging to the bearer token subject. If no cart
+        exists yet, the service returns an empty cart projection.
+      security:
+      - bearerAuth: []
+    delete:
+      operationId: clearCart
+      summary: Clear the authenticated user’s cart
+      tags:
+      - Cart
+      responses:
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '200':
+          description: Cart cleared
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CartResponse"
+      description: Removes all items and any applied coupon from the authenticated
+        user’s cart.
+      security:
+      - bearerAuth: []
+  "/api/v1/cart/items":
+    post:
+      operationId: addCartItem
+      summary: Add a product to the cart
+      tags:
+      - Cart
+      responses:
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '201':
+          description: Item added
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CartResponse"
+        '400':
+          "$ref": "#/components/responses/ValidationError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailableError"
+      description: Adds the requested quantity, or increases the existing line quantity
+        for the same product. Product data is read from the product service.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/AddCartItemRequest"
+      security:
+      - bearerAuth: []
+  "/api/v1/cart/items/{productId}":
+    patch:
+      operationId: updateCartItemQuantity
+      summary: Set a cart item quantity
+      tags:
+      - Cart
+      responses:
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '200':
+          description: Cart item quantity updated
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CartResponse"
+        '400':
+          "$ref": "#/components/responses/ValidationError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/UpdateQuantityRequest"
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        description: Product identifier in this user’s cart.
+        schema:
+          type: string
+      security:
+      - bearerAuth: []
+      description: Sets the quantity of a product in the authenticated user’s cart.
+        A quantity of zero removes the item. Returns the updated cart.
+    delete:
+      operationId: removeCartItem
+      summary: Remove a product from the cart
+      tags:
+      - Cart
+      responses:
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '200':
+          description: Cart returned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CartResponse"
+      description: Removing a product that is not currently in the cart is an idempotent
+        no-op.
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        description: Product identifier to remove.
+        schema:
+          type: string
+      security:
+      - bearerAuth: []
+  "/api/v1/cart/coupon":
+    post:
+      operationId: applyCartCoupon
+      summary: Apply a coupon to the cart
+      tags:
+      - Cart
+      responses:
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '200':
+          description: Coupon applied
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CartResponse"
+        '400':
+          "$ref": "#/components/responses/ValidationError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '503':
+          "$ref": "#/components/responses/ServiceUnavailableError"
+      description: Validates the coupon against the current cart subtotal before applying
+        it. Coupon validation failure returns 400; coupon-service unavailability returns
+        503.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ApplyCouponRequest"
+      security:
+      - bearerAuth: []
+    delete:
+      operationId: removeCartCoupon
+      summary: Remove the applied coupon
+      tags:
+      - Cart
+      responses:
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '200':
+          description: Coupon removed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CartResponse"
+      security:
+      - bearerAuth: []
+      description: Removes the applied coupon from the authenticated user’s cart and
+        returns the updated cart.
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        code:
+          type: string
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: string
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+      - status
+      description: Structured error body returned by the service
+    AddCartItemRequest:
+      type: object
+      properties:
+        productId:
+          type: string
+          minLength: 1
+          pattern: ".*\\S.*"
+          x-not-null-message: must not be blank
+          x-pattern-message: must not be blank
+          x-size-message: must not be blank
+          description: Product identifier.
+        quantity:
+          type: integer
+          format: int32
+          minimum: 1
+          x-not-null-message: must be greater than or equal to 1
+          description: Positive number of units to add.
+      required:
+      - productId
+      - quantity
+    ApplyCouponRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          pattern: ".*\\S.*"
+          x-not-null-message: must not be blank
+          x-pattern-message: must not be blank
+          x-size-message: must not be blank
+          description: Coupon code.
+      required:
+      - code
+    UpdateQuantityRequest:
+      type: object
+      properties:
+        quantity:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Zero removes the line item; positive values set its quantity.
+    CartItem:
+      type: object
+      properties:
+        productId:
+          type: string
+        sku:
+          type: string
+          nullable: true
+          x-field-extra-annotation: "@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS)"
+        productName:
+          type: string
+          nullable: true
+          x-field-extra-annotation: "@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS)"
+        imageUrl:
+          type: string
+          nullable: true
+          x-field-extra-annotation: "@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS)"
+        unitPrice:
+          type: number
+        quantity:
+          type: integer
+          format: int32
+      required:
+      - productId
+      - unitPrice
+      - quantity
+    CartResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          nullable: true
+          x-field-extra-annotation: "@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS)"
+        userId:
+          type: string
+          format: uuid
+        items:
+          type: array
+          items:
+            "$ref": "#/components/schemas/CartItem"
+        currency:
+          type: string
+          nullable: true
+          x-field-extra-annotation: "@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS)"
+        appliedCouponCode:
+          type: string
+          nullable: true
+          x-field-extra-annotation: "@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS)"
+        appliedDiscountAmount:
+          type: number
+        subtotal:
+          type: number
+        total:
+          type: number
+        itemCount:
+          type: integer
+          format: int32
+        updatedAt:
+          type: string
+          nullable: true
+          format: local-date-time
+          x-field-extra-annotation: "@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS)"
+      required:
+      - userId
+      - items
+      - appliedDiscountAmount
+      - subtotal
+      - total
+      - itemCount
+  responses:
+    UnauthorizedError:
+      description: Authentication is required
+      headers:
+        WWW-Authenticate:
+          description: Bearer authentication challenge
+          schema:
+            type: string
+    ForbiddenError:
+      description: Authenticated user access is required
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    ValidationError:
+      description: Request validation or cart business validation failed
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    NotFoundError:
+      description: Requested product, cart, or cart item was not found
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    ServiceUnavailableError:
+      description: Product or coupon service is temporarily unavailable
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

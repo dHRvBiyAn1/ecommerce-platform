@@ -53,6 +53,9 @@ dist/
 !**/test/**/*.pem
 config-repo/secrets/
 
+# Local OpenAPI tooling
+.openapi-venv/
+
 # Test outputs
 coverage/
 *.lcov

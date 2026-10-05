@@ -1,0 +1,780 @@
+---
+openapi: 3.0.1
+info:
+  title: Coupon Service API
+  description: Coupon administration, validation, and order-owned reservation lifecycle
+  version: 1.0.0
+  contact:
+    name: Ecommerce Platform maintainers
+servers:
+- url: http://localhost:8088
+  description: Direct service endpoint
+- url: http://localhost:8080
+  description: API gateway endpoint
+tags:
+- name: Coupons
+  description: Coupon administration, validation, and checkout lifecycle
+paths:
+  "/api/v1/coupons":
+    get:
+      operationId: listCoupons
+      summary: List coupons
+      tags:
+      - Coupons
+      responses:
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '200':
+          description: Coupon page returned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/PageCouponResponse"
+      description: Requires a validated JWT with ADMIN role or coupons:read permission.
+      parameters:
+      - name: page
+        in: query
+        required: false
+        description: Zero-based page index.
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+          default: 0
+      - name: size
+        in: query
+        required: false
+        description: Maximum number of results per page.
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 20
+      - name: sort
+        in: query
+        required: false
+        description: Sort property and direction; Spring defaults to createdAt,desc.
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+          default:
+          - createdAt,desc
+      security:
+      - bearerAuth: []
+    post:
+      operationId: createCoupon
+      summary: Create a coupon
+      tags:
+      - Coupons
+      responses:
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '201':
+          description: Coupon created
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CouponResponse"
+        '400':
+          "$ref": "#/components/responses/ValidationError"
+        '409':
+          "$ref": "#/components/responses/ConflictError"
+      description: Requires a validated JWT with ADMIN role and coupons:write permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/CouponRequest"
+      security:
+      - bearerAuth: []
+  "/api/v1/coupons/{id}":
+    get:
+      operationId: getCoupon
+      summary: Get a coupon
+      tags:
+      - Coupons
+      responses:
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '200':
+          description: Coupon returned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CouponResponse"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+      description: Requires a validated JWT with ADMIN role or coupons:read permission.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Coupon UUID.
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+    put:
+      operationId: updateCoupon
+      summary: Update a coupon
+      tags:
+      - Coupons
+      responses:
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '200':
+          description: Coupon updated
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CouponResponse"
+        '400':
+          "$ref": "#/components/responses/ValidationError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '409':
+          "$ref": "#/components/responses/ConflictError"
+      description: Requires a validated JWT with ADMIN role and coupons:write permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/CouponRequest"
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Coupon UUID.
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+    delete:
+      operationId: deleteCoupon
+      summary: Delete a coupon
+      tags:
+      - Coupons
+      responses:
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '204':
+          description: Coupon deleted
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+      description: Requires a validated JWT with ADMIN role and coupons:write permission.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Coupon UUID.
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+  "/api/v1/coupons/validate":
+    post:
+      operationId: validateCoupon
+      summary: Validate a coupon without reserving it
+      tags:
+      - Coupons
+      responses:
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '200':
+          description: Validation result returned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ValidateCouponResponse"
+        '400':
+          "$ref": "#/components/responses/ValidationError"
+      description: An authenticated user may act only for the JWT subject; an ADMIN
+        may act for another user. A service token may act for the supplied userId
+        when it has coupons.read scope (SCOPE_coupons.read).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ValidateCouponRequest"
+      security:
+      - bearerAuth: []
+  "/api/v1/coupons/reserve":
+    post:
+      operationId: reserveCoupon
+      summary: Reserve coupon capacity for an order
+      tags:
+      - Coupons
+      responses:
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '200':
+          description: Reservation created or existing reservation returned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CouponReservationResponse"
+        '400':
+          "$ref": "#/components/responses/ValidationError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '409':
+          "$ref": "#/components/responses/ConflictError"
+      description: An authenticated user may act only for the JWT subject; an ADMIN
+        may act for another user. A service token may act for the supplied userId
+        when it has coupons.write scope (SCOPE_coupons.write).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/CouponReservationRequest"
+      security:
+      - bearerAuth: []
+  "/api/v1/coupons/commit":
+    post:
+      operationId: commitCouponReservation
+      summary: Commit an order coupon reservation
+      tags:
+      - Coupons
+      responses:
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '200':
+          description: Reservation committed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CouponReservationResponse"
+        '400':
+          "$ref": "#/components/responses/ValidationError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '409':
+          "$ref": "#/components/responses/ConflictError"
+      description: An authenticated user may act only for the JWT subject; an ADMIN
+        may act for another user. A service token may act for the supplied userId
+        when it has coupons.write scope (SCOPE_coupons.write).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/CouponTransitionRequest"
+      security:
+      - bearerAuth: []
+  "/api/v1/coupons/release":
+    post:
+      operationId: releaseCouponReservation
+      summary: Release an order coupon reservation
+      tags:
+      - Coupons
+      responses:
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '200':
+          description: Reservation released
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CouponReservationResponse"
+        '400':
+          "$ref": "#/components/responses/ValidationError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '409':
+          "$ref": "#/components/responses/ConflictError"
+      description: An authenticated user may act only for the JWT subject; an ADMIN
+        may act for another user. A service token may act for the supplied userId
+        when it has coupons.write scope (SCOPE_coupons.write).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/CouponTransitionRequest"
+      security:
+      - bearerAuth: []
+  "/api/v1/coupons/redeem":
+    post:
+      operationId: redeemCoupon
+      summary: Redeem a coupon for an order
+      tags:
+      - Coupons
+      responses:
+        '401':
+          "$ref": "#/components/responses/UnauthorizedError"
+        '403':
+          "$ref": "#/components/responses/ForbiddenError"
+        '200':
+          description: Redemption result returned
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ValidateCouponResponse"
+        '400':
+          "$ref": "#/components/responses/ValidationError"
+        '404':
+          "$ref": "#/components/responses/NotFoundError"
+        '409':
+          "$ref": "#/components/responses/ConflictError"
+      description: An authenticated user may act only for the JWT subject; an ADMIN
+        may act for another user. A service token may act for the supplied userId
+        when it has coupons.write scope (SCOPE_coupons.write).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/RedeemCouponRequest"
+      security:
+      - bearerAuth: []
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        code:
+          type: string
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: string
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+      - status
+      description: Structured error body returned by the service
+    CouponRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[A-Z0-9_-]+$"
+          description: Unique coupon code. Create/update accepts uppercase letters,
+            digits, underscores, and hyphens.
+        description:
+          type: string
+          nullable: true
+          maxLength: 1000
+        discountType:
+          type: string
+          enum:
+          - PERCENT
+          - FIXED
+        discountValue:
+          type: number
+          minimum: 0.01
+          description: For PERCENT coupons, the value cannot exceed 100.
+        maxDiscountAmount:
+          type: number
+          nullable: true
+          exclusiveMinimum: true
+          minimum: 0
+        minOrderAmount:
+          type: number
+          nullable: true
+          exclusiveMinimum: true
+          minimum: 0
+        currency:
+          type: string
+          nullable: true
+          minLength: 3
+          maxLength: 3
+          pattern: "^[A-Za-z]{3}$"
+        validFrom:
+          type: string
+          format: local-date-time
+        validUntil:
+          type: string
+          format: local-date-time
+          description: Must be later than validFrom and in the future.
+        usageLimit:
+          type: integer
+          nullable: true
+          format: int32
+          minimum: 1
+        perUserLimit:
+          type: integer
+          nullable: true
+          format: int32
+          minimum: 1
+        active:
+          type: boolean
+          nullable: true
+      required:
+      - code
+      - discountType
+      - discountValue
+      - validFrom
+      - validUntil
+    ValidateCouponRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[A-Za-z0-9_-]+$"
+        userId:
+          type: string
+          format: uuid
+        subtotal:
+          type: number
+          exclusiveMinimum: true
+          minimum: 0
+        currency:
+          type: string
+          nullable: true
+          minLength: 3
+          maxLength: 3
+          pattern: "^[A-Za-z]{3}$"
+      required:
+      - code
+      - userId
+      - subtotal
+    CouponReservationRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[A-Za-z0-9_-]+$"
+        userId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[A-Za-z0-9_-]+$"
+        subtotal:
+          type: number
+          exclusiveMinimum: true
+          minimum: 0
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          pattern: "^[A-Za-z]{3}$"
+      required:
+      - code
+      - userId
+      - orderId
+      - subtotal
+      - currency
+    CouponTransitionRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[A-Za-z0-9_-]+$"
+        userId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[A-Za-z0-9_-]+$"
+      required:
+      - code
+      - userId
+      - orderId
+    RedeemCouponRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[A-Za-z0-9_-]+$"
+        userId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[A-Za-z0-9_-]+$"
+        discountAmount:
+          type: number
+          exclusiveMinimum: true
+          minimum: 0
+      required:
+      - code
+      - userId
+      - orderId
+      - discountAmount
+    CouponResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        description:
+          type: string
+          nullable: true
+        discountType:
+          type: string
+          enum:
+          - PERCENT
+          - FIXED
+        discountValue:
+          type: number
+        maxDiscountAmount:
+          type: number
+          nullable: true
+        minOrderAmount:
+          type: number
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+        validFrom:
+          type: string
+          format: local-date-time
+        validUntil:
+          type: string
+          format: local-date-time
+        usageLimit:
+          type: integer
+          nullable: true
+          format: int32
+        usageCount:
+          type: integer
+          format: int32
+        reservedCount:
+          type: integer
+          format: int32
+        perUserLimit:
+          type: integer
+          nullable: true
+          format: int32
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: local-date-time
+        updatedAt:
+          type: string
+          format: local-date-time
+      required:
+      - id
+      - code
+      - discountType
+      - discountValue
+      - validFrom
+      - validUntil
+      - usageCount
+      - reservedCount
+      - active
+      - createdAt
+      - updatedAt
+    ValidateCouponResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        code:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        discountAmount:
+          type: number
+          nullable: true
+        description:
+          type: string
+          nullable: true
+      required:
+      - valid
+    CouponReservationResponse:
+      type: object
+      properties:
+        reservationId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        userId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+        discountAmount:
+          type: number
+        status:
+          type: string
+          enum:
+          - RESERVED
+          - COMMITTED
+          - RELEASED
+      required:
+      - reservationId
+      - code
+      - userId
+      - orderId
+      - discountAmount
+      - status
+    PageCouponResponse:
+      type: object
+      properties:
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        content:
+          type: array
+          items:
+            "$ref": "#/components/schemas/CouponResponse"
+        number:
+          type: integer
+          format: int32
+        sort:
+          type: array
+          items:
+            type: object
+            properties:
+              direction:
+                type: string
+              nullHandling:
+                type: string
+              ascending:
+                type: boolean
+              property:
+                type: string
+              ignoreCase:
+                type: boolean
+        pageable:
+          type: object
+          properties:
+            offset:
+              type: integer
+              format: int64
+            sort:
+              type: array
+              items:
+                type: object
+                properties:
+                  direction:
+                    type: string
+                  nullHandling:
+                    type: string
+                  ascending:
+                    type: boolean
+                  property:
+                    type: string
+                  ignoreCase:
+                    type: boolean
+            paged:
+              type: boolean
+            pageNumber:
+              type: integer
+              format: int32
+            pageSize:
+              type: integer
+              format: int32
+            unpaged:
+              type: boolean
+        numberOfElements:
+          type: integer
+          format: int32
+        first:
+          type: boolean
+        last:
+          type: boolean
+        empty:
+          type: boolean
+  responses:
+    UnauthorizedError:
+      description: Authentication required
+      headers:
+        WWW-Authenticate:
+          description: Bearer authentication challenge
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    ForbiddenError:
+      description: The authenticated principal is not permitted to perform this operation
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    ValidationError:
+      description: Request validation or coupon business validation failed
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    NotFoundError:
+      description: Coupon or reservation was not found
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    ConflictError:
+      description: Coupon code or order reservation conflicts with existing data
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

@@ -76,6 +76,48 @@ interceptor requires a nonblank `Authorization` header for this path and even
 for gateway `/actuator/health`. Compose's gateway health check supplies a
 non-secret header; external smoke checks can use `SMOKE_BEARER_TOKEN` below.
 
+Checked-in OpenAPI 3.0.1 contracts live in each business service's
+`src/main/openapi/swagger.yaml`:
+[auth](services/auth-service/src/main/openapi/swagger.yaml),
+[product](services/product-service/src/main/openapi/swagger.yaml),
+[inventory](services/inventory-service/src/main/openapi/swagger.yaml),
+[order](services/order-service/src/main/openapi/swagger.yaml),
+[payment](services/payment-service/src/main/openapi/swagger.yaml),
+[notification](services/notification-service/src/main/openapi/swagger.yaml),
+[cart](services/cart-service/src/main/openapi/swagger.yaml), and
+[coupon](services/coupon-service/src/main/openapi/swagger.yaml).
+The root [swagger.yaml](swagger.yaml) combines these contracts for documentation;
+edit the owning service file rather than the combined copy. The
+`/v3/api-docs` endpoints derive their output from implemented controllers and
+generated interface annotations; payment's endpoint requires authentication.
+Maven generates Spring interfaces and HTTP boundary models at `generate-sources`,
+and separate Java clients at `generate-test-sources`. Both ordinary `./mvnw test`
+and `./mvnw verify` generate and compile the required code. Generated Java stays
+under `target/` and must not be committed. See the
+[code-generation plan](docs/openapi-code-generation-plan.md) for compatibility
+exceptions and verification requirements. Local date-time fields use `local-date-time` to distinguish their
+offset-free JSON representation from RFC3339 `date-time` fields.
+
+After changing a service contract, regenerate the root documentation with a local
+Python environment, then check bundling, drift and strict Spectral linting:
+
+```bash
+python3 -m venv .openapi-venv
+.openapi-venv/bin/python -m pip install -r scripts/requirements-openapi.txt
+.openapi-venv/bin/python scripts/bundle-openapi.py
+.openapi-venv/bin/python scripts/bundle-openapi.py --check
+bash scripts/test-openapi-contracts.sh
+```
+
+The regression script creates and removes its own temporary Python environment.
+It keeps raw lint output and normalized JSON diagnostics in `OPENAPI_REPORT_DIR`
+when that variable is set. Node/npm is required; no global CLI installation or
+standalone generator download is needed. The direct lint command is:
+
+```bash
+npx --yes @stoplight/spectral-cli@6.17.0 lint swagger.yaml 'services/*/src/main/openapi/swagger.yaml' -f json --fail-severity warn
+```
+
 The service Dockerfiles compile their own JARs in multi-stage builds, so a
 clean checkout can build images without host `target/` directories. `make
 build` remains the fast host-side reactor check; Compose builds images when

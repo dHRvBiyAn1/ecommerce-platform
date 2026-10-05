@@ -1,0 +1,7 @@
+openapi: 3.0.1
+info: {title: Path Item Reference, version: '1'}
+paths:
+  /shared:
+    get: {operationId: referencedTarget, responses: {'200': {description: ok}}}
+  /alias:
+    $ref: '#/paths/~1shared'

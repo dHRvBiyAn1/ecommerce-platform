@@ -1,6 +1,7 @@
 package com.project.cart.controller;
 
 import com.project.cart.config.SecurityConfig;
+import com.project.cart.application.mapper.CartApiMapperImpl;
 import com.project.cart.dto.CartResponse;
 import com.project.cart.service.CartService;
 import com.project.common.exception.BusinessException;
@@ -32,7 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.cloud.config.enabled=false",
         "spring.config.import=optional:file:/dev/null"
 })
-@Import({SecurityConfig.class, GlobalExceptionHandler.class})
+@Import({SecurityConfig.class, GlobalExceptionHandler.class, CartApiMapperImpl.class})
 class CartControllerSecurityTest {
 
     private static final UUID CART_OWNER = UUID.fromString("11111111-1111-1111-1111-111111111111");

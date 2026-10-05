@@ -37,6 +37,8 @@
 
     <properties>
         <java.version>21</java.version>
+        <openapi-generator.version>7.25.0</openapi-generator.version>
+        <jackson-databind-nullable.version>0.2.6</jackson-databind-nullable.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <spring-cloud.version>2023.0.3</spring-cloud.version>
@@ -78,6 +80,11 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.openapitools</groupId>
+                <artifactId>jackson-databind-nullable</artifactId>
+                <version>${jackson-databind-nullable.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
@@ -196,6 +203,34 @@
         <pluginManagement>
             <plugins>
                 <plugin>
+                    <groupId>org.openapitools</groupId>
+                    <artifactId>openapi-generator-maven-plugin</artifactId>
+                    <version>${openapi-generator.version}</version>
+                    <configuration>
+                        <inputSpec>${project.basedir}/src/main/openapi/swagger.yaml</inputSpec>
+                        <templateDirectory>${project.basedir}/../common/src/main/openapi/templates</templateDirectory>
+                        <cleanupOutput>true</cleanupOutput>
+                        <skipValidateSpec>false</skipValidateSpec>
+                        <skipIfSpecIsUnchanged>false</skipIfSpecIsUnchanged>
+                        <generateApiTests>false</generateApiTests>
+                        <generateModelTests>false</generateModelTests>
+                        <generateApiDocumentation>false</generateApiDocumentation>
+                        <generateModelDocumentation>false</generateModelDocumentation>
+                        <typeMappings>
+                            <typeMapping>string+local-date-time=LocalDateTime</typeMapping>
+                        </typeMappings>
+                        <importMappings>
+                            <importMapping>LocalDateTime=java.time.LocalDateTime</importMapping>
+                        </importMappings>
+                        <configOptions>
+                            <hideGenerationTimestamp>true</hideGenerationTimestamp>
+                            <dateLibrary>java8</dateLibrary>
+                            <useJakartaEe>true</useJakartaEe>
+                        </configOptions>
+                    </configuration>
+                </plugin>
+
+                <plugin>
                     <groupId>org.sonarsource.scanner.maven</groupId>
                     <artifactId>sonar-maven-plugin</artifactId>
                     <version>${sonar-maven-plugin.version}</version>
@@ -204,6 +239,11 @@
                     <groupId>org.jacoco</groupId>
                     <artifactId>jacoco-maven-plugin</artifactId>
                     <version>${jacoco.version}</version>
+                    <configuration>
+                        <excludes>
+                            <exclude>**/generated/**</exclude>
+                        </excludes>
+                    </configuration>
                     <executions>
                         <execution>
                             <id>prepare-agent</id>

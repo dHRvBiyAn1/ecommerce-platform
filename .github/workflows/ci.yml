@@ -37,6 +37,11 @@ jobs:
           filters: |
             backend:
               - 'pom.xml'
+              - 'swagger.yaml'
+              - '.spectral.yaml'
+              - 'scripts/*openapi*'
+              - 'scripts/normalize-spectral-json.py'
+              - 'scripts/fixtures/openapi/**'
               - 'services/**'
               - 'config-repo/**'
               - 'docker/**'
@@ -106,6 +111,18 @@ jobs:
           java-version: 21
           cache: maven
 
+      - name: Setup Node for contract linting
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+
+      - name: Verify OpenAPI contracts and derived documentation
+        env:
+          OPENAPI_REPORT_DIR: ${{ runner.temp }}/openapi-reports
+        run: |
+          python3 --version
+          bash scripts/test-openapi-contracts.sh
+
       - name: Show versions
         run: |
           java -version
@@ -132,8 +149,28 @@ jobs:
       - name: Verify the whole reactor
         run: ./mvnw -B -ntp -fae clean verify
 
+      - name: Verify generated runtime artifact boundaries
+        run: python3 scripts/check-openapi-artifacts.py
+
       - name: Check backend coverage baseline
         run: bash scripts/check-jacoco-baseline.sh coverage-baseline/backend-modules.json
+
+      - name: Verify explicit Mongo integration suites
+        run: |
+          PRODUCT_MONGO_INTEGRATION=true ./mvnw -B -ntp -pl services/product-service -am verify
+          ./mvnw -B -ntp -pl services/cart-service -am verify -Dcart.mongo.integration=true
+          ./mvnw -B -ntp -pl services/notification-service -am verify -Dnotification.mongo.integration=true
+
+      - name: Upload OpenAPI diagnostics and test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: backend-contract-diagnostics
+          retention-days: 7
+          path: |
+            ${{ runner.temp }}/openapi-reports/*
+            services/*/target/surefire-reports/*
+            services/*/target/failsafe-reports/*
 
       - name: Upload backend JaCoCo reports
         if: always()

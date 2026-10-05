@@ -1,0 +1,1988 @@
+---
+openapi: 3.0.1
+info:
+  title: Authentication and user API
+  version: 1.0.0
+  description: Authentication, user profiles, seller onboarding, role administration,
+    and public signing-key discovery.
+  contact:
+    name: Ecommerce Platform maintainers
+servers:
+- url: http://localhost:8081
+  description: Local auth-service direct access
+paths:
+  "/api/user/profile":
+    get:
+      tags:
+      - User profile
+      operationId: getProfile
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseUserProfileDto"
+        '401':
+          description: "Bearer-token filter rejection: revoked, non-user, or invalid-identity tokens return 401; the body may be empty, and revoked tokens may return plain text. MVC-level authentication failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: "Security denial: anonymous requests receive 403 with an empty body when OAuth2 login is disabled, and callers without permission receive 403. With OAuth2 login enabled and a provider configured, anonymous access may instead redirect to sign-in (302). MVC-level authorization failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '302':
+          description: Conditional sign-in redirect when OAuth2 login is enabled and a provider is configured; otherwise anonymous protected requests receive 403.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: Get my profile
+      description: Returns the authenticated user’s profile.
+      security:
+      - bearerAuth: []
+    put:
+      tags:
+      - User profile
+      operationId: updateProfile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/UserUpdateRequest"
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseUserProfileDto"
+        '400':
+          description: Request validation failed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '401':
+          description: "Bearer-token filter rejection: revoked, non-user, or invalid-identity tokens return 401; the body may be empty, and revoked tokens may return plain text. MVC-level authentication failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: "Security denial: anonymous requests receive 403 with an empty body when OAuth2 login is disabled, and callers without permission receive 403. With OAuth2 login enabled and a provider configured, anonymous access may instead redirect to sign-in (302). MVC-level authorization failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '302':
+          description: Conditional sign-in redirect when OAuth2 login is enabled and a provider is configured; otherwise anonymous protected requests receive 403.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: Update my profile
+      description: Updates the authenticated user’s editable profile fields.
+      security:
+      - bearerAuth: []
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/admin/users/{userId}/roles":
+    put:
+      tags:
+      - Administration
+      operationId: setRoles
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/AssignRolesRequest"
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseUserProfileDto"
+        '400':
+          description: Request validation failed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '401':
+          description: "Bearer-token filter rejection: revoked, non-user, or invalid-identity tokens return 401; the body may be empty, and revoked tokens may return plain text. MVC-level authentication failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: "Security denial: anonymous requests receive 403 with an empty body when OAuth2 login is disabled, and callers without permission receive 403. With OAuth2 login enabled and a provider configured, anonymous access may instead redirect to sign-in (302). MVC-level authorization failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '302':
+          description: Conditional sign-in redirect when OAuth2 login is enabled and a provider is configured; otherwise anonymous protected requests receive 403.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: Assign user roles
+      description: Replaces the roles assigned to the specified user.
+      security:
+      - bearerAuth: []
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/admin/users/{userId}/active":
+    put:
+      tags:
+      - Administration
+      operationId: setActive
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: active
+        in: query
+        required: true
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseUserProfileDto"
+        '401':
+          description: "Bearer-token filter rejection: revoked, non-user, or invalid-identity tokens return 401; the body may be empty, and revoked tokens may return plain text. MVC-level authentication failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: "Security denial: anonymous requests receive 403 with an empty body when OAuth2 login is disabled, and callers without permission receive 403. With OAuth2 login enabled and a provider configured, anonymous access may instead redirect to sign-in (302). MVC-level authorization failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '302':
+          description: Conditional sign-in redirect when OAuth2 login is enabled and a provider is configured; otherwise anonymous protected requests receive 403.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: Set user active status
+      description: Activates or deactivates the specified user account.
+      security:
+      - bearerAuth: []
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/admin/seller-applications/{id}/reject":
+    put:
+      tags:
+      - Administration
+      operationId: reject
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/RejectApplicationRequest"
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseSellerApplicationResponse"
+        '400':
+          description: Request validation failed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '401':
+          description: "Bearer-token filter rejection: revoked, non-user, or invalid-identity tokens return 401; the body may be empty, and revoked tokens may return plain text. MVC-level authentication failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: "Security denial: anonymous requests receive 403 with an empty body when OAuth2 login is disabled, and callers without permission receive 403. With OAuth2 login enabled and a provider configured, anonymous access may instead redirect to sign-in (302). MVC-level authorization failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '302':
+          description: Conditional sign-in redirect when OAuth2 login is enabled and a provider is configured; otherwise anonymous protected requests receive 403.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: Reject seller application
+      description: Rejects the specified seller application with a reason.
+      security:
+      - bearerAuth: []
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/admin/seller-applications/{id}/approve":
+    put:
+      tags:
+      - Administration
+      operationId: approve
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseSellerApplicationResponse"
+        '401':
+          description: "Bearer-token filter rejection: revoked, non-user, or invalid-identity tokens return 401; the body may be empty, and revoked tokens may return plain text. MVC-level authentication failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: "Security denial: anonymous requests receive 403 with an empty body when OAuth2 login is disabled, and callers without permission receive 403. With OAuth2 login enabled and a provider configured, anonymous access may instead redirect to sign-in (302). MVC-level authorization failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '302':
+          description: Conditional sign-in redirect when OAuth2 login is enabled and a provider is configured; otherwise anonymous protected requests receive 403.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: Approve seller application
+      description: Approves the specified seller application.
+      security:
+      - bearerAuth: []
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/admin/roles/{roleId}/permissions":
+    put:
+      tags:
+      - Administration
+      operationId: updateRolePermissions
+      parameters:
+      - name: roleId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/UpdateRolePermissionsRequest"
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseRole"
+        '400':
+          description: Request validation failed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '401':
+          description: "Bearer-token filter rejection: revoked, non-user, or invalid-identity tokens return 401; the body may be empty, and revoked tokens may return plain text. MVC-level authentication failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: "Security denial: anonymous requests receive 403 with an empty body when OAuth2 login is disabled, and callers without permission receive 403. With OAuth2 login enabled and a provider configured, anonymous access may instead redirect to sign-in (302). MVC-level authorization failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '302':
+          description: Conditional sign-in redirect when OAuth2 login is enabled and a provider is configured; otherwise anonymous protected requests receive 403.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: Update role permissions
+      description: Replaces the permissions assigned to the specified role.
+      security:
+      - bearerAuth: []
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/user/seller-application":
+    get:
+      tags:
+      - User profile
+      operationId: getMine
+      responses:
+        '200':
+          description: Current user seller application.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseSellerApplicationResponse"
+        '204':
+          description: No seller application exists.
+        '401':
+          description: "Bearer-token filter rejection: revoked, non-user, or invalid-identity tokens return 401; the body may be empty, and revoked tokens may return plain text. MVC-level authentication failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: "Security denial: anonymous requests receive 403 with an empty body when OAuth2 login is disabled, and callers without permission receive 403. With OAuth2 login enabled and a provider configured, anonymous access may instead redirect to sign-in (302). MVC-level authorization failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '302':
+          description: Conditional sign-in redirect when OAuth2 login is enabled and a provider is configured; otherwise anonymous protected requests receive 403.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: Get my seller application
+      description: Returns the authenticated user’s seller application, if one exists.
+      security:
+      - bearerAuth: []
+    post:
+      tags:
+      - User profile
+      operationId: apply
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/SellerApplicationRequest"
+        required: true
+      responses:
+        '201':
+          description: Seller application submitted.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseSellerApplicationResponse"
+        '400':
+          description: Request validation failed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '401':
+          description: "Bearer-token filter rejection: revoked, non-user, or invalid-identity tokens return 401; the body may be empty, and revoked tokens may return plain text. MVC-level authentication failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: "Security denial: anonymous requests receive 403 with an empty body when OAuth2 login is disabled, and callers without permission receive 403. With OAuth2 login enabled and a provider configured, anonymous access may instead redirect to sign-in (302). MVC-level authorization failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '302':
+          description: Conditional sign-in redirect when OAuth2 login is enabled and a provider is configured; otherwise anonymous protected requests receive 403.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: Submit seller application
+      description: Submits a seller application for the authenticated user.
+      security:
+      - bearerAuth: []
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/auth/token":
+    post:
+      tags:
+      - Authentication
+      summary: Exchange password, refresh cookie, or client credentials for an access
+        token
+      description: Supports password, refresh_token, and client_credentials grants.
+        Request parameters are accepted as query parameters or application/x-www-form-urlencoded
+        fields. Password and refresh_token grants return an ApiResponse envelope and
+        set the rotating HttpOnly, SameSite=Strict refresh_token cookie; Secure follows
+        the service cookie setting; client_credentials returns an OAuth token object
+        directly and does not set a refresh cookie.
+      operationId: token
+      parameters:
+      - name: grant_type
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - password
+          - refresh_token
+          - client_credentials
+      - name: email
+        in: query
+        required: false
+        schema:
+          type: string
+          format: email
+      - name: password
+        in: query
+        required: false
+        schema:
+          type: string
+          format: password
+      - name: client_id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: client_secret
+        in: query
+        required: false
+        schema:
+          type: string
+          format: password
+      - name: scope
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Space-delimited allowed scopes.
+      - name: Cookie
+        in: header
+        required: false
+        description: Required for the refresh_token grant; send the refresh_token
+          cookie set by a previous password or refresh grant.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Access token issued. The body schema depends on grant type.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - "$ref": "#/components/schemas/ApiResponseTokenResponse"
+                - "$ref": "#/components/schemas/ServiceTokenResponse"
+          headers:
+            Set-Cookie:
+              description: Password and refresh_token grants rotate the HttpOnly,
+                SameSite=Strict refresh_token cookie; Secure follows the service cookie
+                setting.
+              schema:
+                type: string
+        '400':
+          description: Missing/unsupported grant or invalid scope.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - "$ref": "#/components/schemas/OAuthError"
+                - "$ref": "#/components/schemas/ErrorResponse"
+        '401':
+          description: Invalid user credentials or client credentials. Password grant
+            authentication failures use the standard ErrorResponse; client credential
+            errors use OAuthError.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - "$ref": "#/components/schemas/OAuthError"
+                - "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Refresh-token grant failed (expired, invalid, or reused refresh
+            token). Password grant authentication failures use the standard ErrorResponse;
+            client credential errors use OAuthError.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      requestBody:
+        required: false
+        description: The same parameters may be submitted in a form body; query parameters
+          are also accepted.
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                grant_type:
+                  type: string
+                  enum:
+                  - password
+                  - refresh_token
+                  - client_credentials
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                client_id:
+                  type: string
+                client_secret:
+                  type: string
+                  format: password
+                  writeOnly: true
+                scope:
+                  type: string
+                  description: Space-delimited scopes.
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/auth/register":
+    post:
+      tags:
+      - Authentication
+      operationId: register
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/RegistrationRequest"
+        required: true
+      responses:
+        '201':
+          description: Customer account created.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseUserProfileDto"
+        '400':
+          description: Request validation failed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '409':
+          description: Email already exists.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: Register a customer account
+      description: Creates a public customer account.
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/auth/logout":
+    post:
+      tags:
+      - Authentication
+      operationId: logout
+      responses:
+        '200':
+          description: Logout completed and refresh cookie cleared.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseVoid"
+          headers:
+            Set-Cookie:
+              description: Expires the refresh-token cookie.
+              schema:
+                type: string
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: Log out
+      description: Revokes the supplied access token and refresh token when present,
+        then clears the refresh cookie.
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+        description: Optional Bearer access token to revoke.
+      - name: Cookie
+        in: header
+        required: false
+        schema:
+          type: string
+        description: Optional refresh-token cookie to revoke.
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/auth/change-password":
+    post:
+      tags:
+      - Authentication
+      operationId: changePassword
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ChangePasswordRequest"
+        required: true
+      responses:
+        '200':
+          description: Password changed; existing refresh tokens are revoked.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseVoid"
+        '400':
+          description: Request validation failed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '401':
+          description: "Bearer-token filter rejection: revoked, non-user, or invalid-identity tokens return 401; the body may be empty, and revoked tokens may return plain text. MVC-level authentication failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: "Security denial: anonymous requests receive 403 with an empty body when OAuth2 login is disabled, and callers without permission receive 403. With OAuth2 login enabled and a provider configured, anonymous access may instead redirect to sign-in (302). MVC-level authorization failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '302':
+          description: Conditional sign-in redirect when OAuth2 login is enabled and a provider is configured; otherwise anonymous protected requests receive 403.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: Change my password
+      description: Changes the authenticated user’s password.
+      security:
+      - bearerAuth: []
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/admin/roles":
+    get:
+      tags:
+      - Administration
+      operationId: listRoles
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseListRole"
+        '401':
+          description: "Bearer-token filter rejection: revoked, non-user, or invalid-identity tokens return 401; the body may be empty, and revoked tokens may return plain text. MVC-level authentication failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: "Security denial: anonymous requests receive 403 with an empty body when OAuth2 login is disabled, and callers without permission receive 403. With OAuth2 login enabled and a provider configured, anonymous access may instead redirect to sign-in (302). MVC-level authorization failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '302':
+          description: Conditional sign-in redirect when OAuth2 login is enabled and a provider is configured; otherwise anonymous protected requests receive 403.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: List roles
+      description: Returns configured roles.
+      security:
+      - bearerAuth: []
+    post:
+      tags:
+      - Administration
+      operationId: createRole
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/CreateRoleRequest"
+        required: true
+      responses:
+        '201':
+          description: Role created.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseRole"
+        '400':
+          description: Invalid role name.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '409':
+          description: Role already exists.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '401':
+          description: "Bearer-token filter rejection: revoked, non-user, or invalid-identity tokens return 401; the body may be empty, and revoked tokens may return plain text. MVC-level authentication failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: "Security denial: anonymous requests receive 403 with an empty body when OAuth2 login is disabled, and callers without permission receive 403. With OAuth2 login enabled and a provider configured, anonymous access may instead redirect to sign-in (302). MVC-level authorization failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '302':
+          description: Conditional sign-in redirect when OAuth2 login is enabled and a provider is configured; otherwise anonymous protected requests receive 403.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: Create a role
+      description: Creates a role with the supplied name.
+      security:
+      - bearerAuth: []
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/auth/providers":
+    get:
+      tags:
+      - Authentication
+      operationId: providers
+      responses:
+        '200':
+          description: Configured sign-in methods and social providers.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProviderDiscovery"
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: List sign-in providers
+      description: Returns password sign-in availability and the configured social
+        providers.
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/admin/users":
+    get:
+      tags:
+      - Administration
+      operationId: listUsers
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+        description: Zero-based page index.
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+        description: Maximum number of results per page.
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+        description: Sort criteria in property,direction form; repeat to add sort
+          keys.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponsePageUserProfileDto"
+        '401':
+          description: "Bearer-token filter rejection: revoked, non-user, or invalid-identity tokens return 401; the body may be empty, and revoked tokens may return plain text. MVC-level authentication failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: "Security denial: anonymous requests receive 403 with an empty body when OAuth2 login is disabled, and callers without permission receive 403. With OAuth2 login enabled and a provider configured, anonymous access may instead redirect to sign-in (302). MVC-level authorization failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '302':
+          description: Conditional sign-in redirect when OAuth2 login is enabled and a provider is configured; otherwise anonymous protected requests receive 403.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: List users
+      description: Returns a paginated list of users.
+      security:
+      - bearerAuth: []
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/admin/users/{userId}":
+    get:
+      tags:
+      - Administration
+      operationId: getUser
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseUserProfileDto"
+        '401':
+          description: "Bearer-token filter rejection: revoked, non-user, or invalid-identity tokens return 401; the body may be empty, and revoked tokens may return plain text. MVC-level authentication failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: "Security denial: anonymous requests receive 403 with an empty body when OAuth2 login is disabled, and callers without permission receive 403. With OAuth2 login enabled and a provider configured, anonymous access may instead redirect to sign-in (302). MVC-level authorization failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '302':
+          description: Conditional sign-in redirect when OAuth2 login is enabled and a provider is configured; otherwise anonymous protected requests receive 403.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: Get user by ID
+      description: Returns the specified user profile.
+      security:
+      - bearerAuth: []
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/admin/seller-applications":
+    get:
+      tags:
+      - Administration
+      operationId: list
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - PENDING
+          - APPROVED
+          - REJECTED
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+        description: Zero-based page index.
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+        description: Maximum number of results per page.
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+        description: Sort criteria in property,direction form; repeat to add sort
+          keys.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponsePageSellerApplicationResponse"
+        '401':
+          description: "Bearer-token filter rejection: revoked, non-user, or invalid-identity tokens return 401; the body may be empty, and revoked tokens may return plain text. MVC-level authentication failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: "Security denial: anonymous requests receive 403 with an empty body when OAuth2 login is disabled, and callers without permission receive 403. With OAuth2 login enabled and a provider configured, anonymous access may instead redirect to sign-in (302). MVC-level authorization failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '302':
+          description: Conditional sign-in redirect when OAuth2 login is enabled and a provider is configured; otherwise anonymous protected requests receive 403.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: List seller applications
+      description: Returns seller applications, optionally filtered by status.
+      security:
+      - bearerAuth: []
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/admin/seller-applications/{id}":
+    get:
+      tags:
+      - Administration
+      operationId: get
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseSellerApplicationResponse"
+        '401':
+          description: "Bearer-token filter rejection: revoked, non-user, or invalid-identity tokens return 401; the body may be empty, and revoked tokens may return plain text. MVC-level authentication failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: "Security denial: anonymous requests receive 403 with an empty body when OAuth2 login is disabled, and callers without permission receive 403. With OAuth2 login enabled and a provider configured, anonymous access may instead redirect to sign-in (302). MVC-level authorization failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '302':
+          description: Conditional sign-in redirect when OAuth2 login is enabled and a provider is configured; otherwise anonymous protected requests receive 403.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: Get seller application
+      description: Returns the specified seller application.
+      security:
+      - bearerAuth: []
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/.well-known/jwks.json":
+    get:
+      tags:
+      - Discovery
+      operationId: jwks
+      responses:
+        '200':
+          description: Public RSA keys used to verify access-token signatures.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/JwkSet"
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: Get signing keys
+      description: Returns public keys used by resource servers to verify JWT signatures.
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/admin/roles/{roleId}":
+    delete:
+      tags:
+      - Administration
+      operationId: deleteRole
+      parameters:
+      - name: roleId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Role deleted.
+        '404':
+          description: Role not found.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '401':
+          description: "Bearer-token filter rejection: revoked, non-user, or invalid-identity tokens return 401; the body may be empty, and revoked tokens may return plain text. MVC-level authentication failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: "Security denial: anonymous requests receive 403 with an empty body when OAuth2 login is disabled, and callers without permission receive 403. With OAuth2 login enabled and a provider configured, anonymous access may instead redirect to sign-in (302). MVC-level authorization failures use a JSON ErrorResponse."
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '302':
+          description: Conditional sign-in redirect when OAuth2 login is enabled and a provider is configured; otherwise anonymous protected requests receive 403.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '503':
+          description: "When a Bearer token is present and the revocation blacklist check fails, JwtAuthFilter rejects the request with an empty response."
+      summary: Delete a role
+      description: Deletes the specified role.
+      security:
+      - bearerAuth: []
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/oauth2/authorization/{registrationId}":
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+    get:
+      tags:
+      - Authentication
+      summary: Start social sign-in
+      description: Redirects the browser to a configured OAuth2 provider. Google and
+        GitHub are available only when configured; otherwise the route is not installed.
+      operationId: startSocialSignIn
+      parameters:
+      - name: registrationId
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - google
+          - github
+      responses:
+        '302':
+          description: Redirect to the configured identity provider.
+          headers:
+            Location:
+              description: Provider authorization URL.
+              schema:
+                type: string
+                format: uri
+        '404':
+          description: Provider is not configured.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+  "/login/oauth2/code/{registrationId}":
+    servers:
+    - url: http://localhost:8081
+      description: Local auth-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+    get:
+      tags:
+      - Authentication
+      summary: Complete social sign-in
+      description: Spring Security handles the OAuth2 authorization-code callback.
+        On success, auth-service issues an access token and refresh token, sets the
+        HttpOnly SameSite=Strict refresh_token cookie (Secure follows service configuration),
+        then redirects to the configured frontend path with the access token in the
+        URL fragment. On authentication failure, Spring Security uses its configured
+        failure handler; this endpoint does not return a JSON error body.
+      operationId: completeSocialSignIn
+      parameters:
+      - name: registrationId
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - google
+          - github
+      - name: code
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: state
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '302':
+          description: Browser redirect after successful login; the Location URL includes
+            the access token in its fragment and Set-Cookie carries the refresh token.
+          headers:
+            Location:
+              description: Configured frontend redirect URL with the access token
+                in the fragment.
+              schema:
+                type: string
+                format: uri
+            Set-Cookie:
+              description: HttpOnly, SameSite=Strict refresh_token cookie; Secure
+                follows service configuration.
+              schema:
+                type: string
+components:
+  schemas:
+    AddressDto:
+      required:
+      - city
+      - country
+      - fullName
+      - phone
+      - state
+      - street
+      - zipCode
+      type: object
+      properties:
+        fullName:
+          maxLength: 120
+          minLength: 1
+          type: string
+        phone:
+          pattern: "^\\+?[0-9 ()-]{6,20}$"
+          type: string
+        street:
+          maxLength: 200
+          minLength: 1
+          type: string
+        city:
+          maxLength: 80
+          minLength: 1
+          type: string
+        state:
+          maxLength: 80
+          minLength: 1
+          type: string
+        zipCode:
+          maxLength: 20
+          minLength: 1
+          type: string
+        country:
+          maxLength: 80
+          minLength: 1
+          type: string
+    UserUpdateRequest:
+      type: object
+      properties:
+        displayName:
+          maxLength: 80
+          minLength: 2
+          type: string
+        imageUrl:
+          type: string
+        phone:
+          pattern: "^\\+?[0-9 ()-]{6,20}$"
+          type: string
+        shippingAddress:
+          "$ref": "#/components/schemas/AddressDto"
+        billingAddress:
+          "$ref": "#/components/schemas/AddressDto"
+    ApiResponseUserProfileDto:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          "$ref": "#/components/schemas/UserProfileDto"
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+      - status
+      - message
+      - data
+      - timestamp
+    UserProfileDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        displayName:
+          type: string
+        imageUrl:
+          type: string
+        phone:
+          type: string
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: local-date-time
+        roles:
+          uniqueItems: true
+          type: array
+          items:
+            type: string
+        permissions:
+          uniqueItems: true
+          type: array
+          items:
+            type: string
+        shippingAddress:
+          "$ref": "#/components/schemas/AddressDto"
+        billingAddress:
+          "$ref": "#/components/schemas/AddressDto"
+        hasPassword:
+          type: boolean
+    AssignRolesRequest:
+      required:
+      - roles
+      type: object
+      properties:
+        roles:
+          type: array
+          items:
+            type: string
+            minLength: 1
+          minItems: 1
+    RejectApplicationRequest:
+      required:
+      - reason
+      type: object
+      properties:
+        reason:
+          maxLength: 4000
+          minLength: 1
+          type: string
+    ApiResponseSellerApplicationResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          "$ref": "#/components/schemas/SellerApplicationResponse"
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+      - status
+      - message
+      - data
+      - timestamp
+    SellerApplicationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        userEmail:
+          type: string
+        userDisplayName:
+          type: string
+        status:
+          type: string
+          enum:
+          - PENDING
+          - APPROVED
+          - REJECTED
+        businessName:
+          type: string
+        gstin:
+          type: string
+        contactPhone:
+          type: string
+        pickupAddress:
+          "$ref": "#/components/schemas/AddressDto"
+        bankAccountLast4:
+          type: string
+        notes:
+          type: string
+        rejectionReason:
+          type: string
+        submittedAt:
+          type: string
+          format: local-date-time
+        reviewedAt:
+          type: string
+          format: local-date-time
+        reviewedBy:
+          type: string
+          format: uuid
+    UpdateRolePermissionsRequest:
+      required:
+      - permissions
+      type: object
+      properties:
+        permissions:
+          type: array
+          items:
+            type: string
+            minLength: 1
+          minItems: 1
+    ApiResponseRole:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          "$ref": "#/components/schemas/Role"
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+      - status
+      - message
+      - data
+      - timestamp
+    Permission:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    Role:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        permissions:
+          uniqueItems: true
+          type: array
+          items:
+            "$ref": "#/components/schemas/Permission"
+    SellerApplicationRequest:
+      required:
+      - businessName
+      - contactPhone
+      - pickupAddress
+      type: object
+      properties:
+        businessName:
+          maxLength: 180
+          minLength: 1
+          type: string
+        gstin:
+          pattern: "^[0-9A-Z]{15}$|^$"
+          type: string
+        contactPhone:
+          pattern: "^\\+?[0-9 ()-]{6,20}$"
+          type: string
+        pickupAddress:
+          "$ref": "#/components/schemas/AddressDto"
+        bankAccountLast4:
+          pattern: "^[0-9]{4}$|^$"
+          type: string
+        notes:
+          maxLength: 4000
+          minLength: 0
+          type: string
+    RegistrationRequest:
+      required:
+      - displayName
+      - email
+      - password
+      type: object
+      properties:
+        email:
+          maxLength: 254
+          minLength: 1
+          type: string
+          format: email
+        password:
+          maxLength: 128
+          minLength: 10
+          type: string
+          pattern: "^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d).+$"
+        displayName:
+          maxLength: 80
+          minLength: 2
+          type: string
+    ApiResponseVoid:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          type: object
+          nullable: true
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+      - status
+      - message
+      - data
+      - timestamp
+    ChangePasswordRequest:
+      required:
+      - newPassword
+      - oldPassword
+      type: object
+      properties:
+        oldPassword:
+          type: string
+          minLength: 1
+        newPassword:
+          maxLength: 100
+          minLength: 6
+          type: string
+    CreateRoleRequest:
+      required:
+      - name
+      type: object
+      properties:
+        name:
+          pattern: "^ROLE_[A-Z_]+$"
+          type: string
+    ApiResponsePageUserProfileDto:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          "$ref": "#/components/schemas/PageUserProfileDto"
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+      - status
+      - message
+      - data
+      - timestamp
+    PageUserProfileDto:
+      type: object
+      properties:
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        content:
+          type: array
+          items:
+            "$ref": "#/components/schemas/UserProfileDto"
+        number:
+          type: integer
+          format: int32
+        sort:
+          type: array
+          items:
+            "$ref": "#/components/schemas/SortObject"
+        pageable:
+          "$ref": "#/components/schemas/PageableObject"
+        numberOfElements:
+          type: integer
+          format: int32
+        first:
+          type: boolean
+        last:
+          type: boolean
+        empty:
+          type: boolean
+    PageableObject:
+      type: object
+      properties:
+        offset:
+          type: integer
+          format: int64
+        sort:
+          type: array
+          items:
+            "$ref": "#/components/schemas/SortObject"
+        paged:
+          type: boolean
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        unpaged:
+          type: boolean
+    SortObject:
+      type: object
+      properties:
+        direction:
+          type: string
+        nullHandling:
+          type: string
+        ascending:
+          type: boolean
+        property:
+          type: string
+        ignoreCase:
+          type: boolean
+    ApiResponsePageSellerApplicationResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          "$ref": "#/components/schemas/PageSellerApplicationResponse"
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+      - status
+      - message
+      - data
+      - timestamp
+    PageSellerApplicationResponse:
+      type: object
+      properties:
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        content:
+          type: array
+          items:
+            "$ref": "#/components/schemas/SellerApplicationResponse"
+        number:
+          type: integer
+          format: int32
+        sort:
+          type: array
+          items:
+            "$ref": "#/components/schemas/SortObject"
+        pageable:
+          "$ref": "#/components/schemas/PageableObject"
+        numberOfElements:
+          type: integer
+          format: int32
+        first:
+          type: boolean
+        last:
+          type: boolean
+        empty:
+          type: boolean
+    ApiResponseListRole:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Role"
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+      - status
+      - message
+      - data
+      - timestamp
+    ErrorResponse:
+      type: object
+      description: Standard error body returned by the shared exception handler.
+      properties:
+        status:
+          type: integer
+          format: int32
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        code:
+          type: string
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: string
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    OAuthError:
+      type: object
+      required:
+      - error
+      - error_description
+      properties:
+        error:
+          type: string
+          description: OAuth-style machine-readable error code.
+        error_description:
+          type: string
+    TokenResponse:
+      type: object
+      required:
+      - accessToken
+      - tokenType
+      properties:
+        accessToken:
+          type: string
+          description: Short-lived signed JWT access token.
+        tokenType:
+          type: string
+          enum:
+          - Bearer
+    ProviderDiscovery:
+      type: object
+      required:
+      - password
+      - oauth2
+      - providers
+      properties:
+        password:
+          type: boolean
+        oauth2:
+          type: boolean
+        providers:
+          type: array
+          items:
+            "$ref": "#/components/schemas/OAuthProvider"
+    OAuthProvider:
+      type: object
+      required:
+      - id
+      - label
+      - authorizationUrl
+      properties:
+        id:
+          type: string
+          enum:
+          - google
+          - github
+        label:
+          type: string
+        authorizationUrl:
+          type: string
+    ApiResponseTokenResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          "$ref": "#/components/schemas/TokenResponse"
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+      - status
+      - message
+      - data
+      - timestamp
+    JwkSet:
+      type: object
+      required:
+      - keys
+      properties:
+        keys:
+          type: array
+          items:
+            "$ref": "#/components/schemas/JsonWebKey"
+    JsonWebKey:
+      type: object
+      required:
+      - kty
+      - use
+      - alg
+      - kid
+      - n
+      - e
+      properties:
+        kty:
+          type: string
+        use:
+          type: string
+        alg:
+          type: string
+        kid:
+          type: string
+        n:
+          type: string
+        e:
+          type: string
+    ServiceTokenResponse:
+      type: object
+      required:
+      - access_token
+      - token_type
+      - expires_in
+      - scope
+      properties:
+        access_token:
+          type: string
+          description: Signed service-client access token.
+        token_type:
+          type: string
+          enum:
+          - Bearer
+        expires_in:
+          type: integer
+          format: int64
+          description: Token lifetime in seconds.
+        scope:
+          type: string
+          description: Granted space-delimited scopes.
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+tags:
+- name: User profile
+  description: User profile operations owned by auth-service.
+- name: Administration
+  description: Administration operations owned by auth-service.
+- name: Authentication
+  description: Authentication operations owned by auth-service.
+- name: Discovery
+  description: Discovery operations owned by auth-service.

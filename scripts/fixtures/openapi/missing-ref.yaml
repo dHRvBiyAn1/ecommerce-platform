@@ -1,0 +1,7 @@
+openapi: 3.0.1
+info: {title: Missing, version: '1'}
+paths:
+  /missing:
+    get:
+      operationId: missing
+      responses: {'200': {description: ok, content: {application/json: {schema: {$ref: '#/components/schemas/Absent'}}}}}

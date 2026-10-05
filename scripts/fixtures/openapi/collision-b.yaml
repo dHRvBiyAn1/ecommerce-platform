@@ -1,0 +1,10 @@
+openapi: 3.0.1
+info: {title: B, version: '1'}
+paths:
+  /other:
+    get:
+      operationId: read
+      responses: {'200': {description: ok, content: {application/json: {schema: {$ref: '#/components/schemas/Record'}}}}}
+components:
+  schemas:
+    Record: {type: string}

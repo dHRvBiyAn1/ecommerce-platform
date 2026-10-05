@@ -1,0 +1,20 @@
+openapi: 3.0.1
+info: {title: Literal payload data, version: '1'}
+paths:
+  /literal:
+    post:
+      operationId: submit
+      tags: [Payload]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              default: {tags: [payload], operationId: keep-me, security: [{Bearer: []}]}
+              enum:
+                - {tags: [payload], operationId: keep-me, security: [{Bearer: []}]}
+              example: {tags: [payload], operationId: keep-me, security: [{Bearer: []}]}
+            examples:
+              sample:
+                value: {tags: [payload], operationId: keep-me, security: [{Bearer: []}]}
+      responses: {'200': {description: ok}}

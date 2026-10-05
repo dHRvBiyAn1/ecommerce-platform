@@ -1,0 +1,9 @@
+openapi: 3.0.1
+info: {title: Components extension, version: '1'}
+paths: {}
+components:
+  schemas:
+    Record: {type: object}
+  x-feature-flag: true
+  x-metadata:
+    operationId: literal-owner-value

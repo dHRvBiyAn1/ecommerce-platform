@@ -1,0 +1,644 @@
+---
+openapi: 3.0.1
+info:
+  title: Payment Service API
+  version: 1.0.0
+  description: Customer payment lifecycle, refunds, and signed payment webhooks.
+  contact:
+    name: Ecommerce Platform maintainers
+servers:
+- url: http://localhost:8085
+  description: Direct service API
+- url: http://localhost:8080
+  description: API gateway
+tags:
+- name: Payments
+  description: Payment initiation, retrieval, processing and refunds
+- name: Webhooks
+  description: Provider-signed payment event callbacks
+paths:
+  "/api/v1/payments":
+    post:
+      operationId: initiatePayment
+      summary: Initiate a customer payment
+      parameters:
+      - name: X-Idempotency-Key
+        in: header
+        required: false
+        description: Optional customer-scoped replay key; blank values are treated
+          as absent. Reuse only for the same logical payment initiation.
+        schema:
+          type: string
+      responses:
+        '201':
+          description: Payment initiated; includes clientSecret only on first successful
+            initiation.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponsePaymentInitiation"
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Customer does not own the order or lacks customer role
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '409':
+          description: Idempotency key conflicts with another order
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+      description: Card-only customer operation. The authenticated customer must own
+        the order. Amount and currency are derived from the authoritative order; client-supplied
+        values are not trusted. The first successful response may contain data.clientSecret
+        for immediate Stripe.js confirmation; idempotency replays omit it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/PaymentRequest"
+      tags:
+      - Payments
+    get:
+      operationId: listMyPayments
+      summary: List the authenticated customer’s payments
+      responses:
+        '200':
+          description: Payments for the current user; responses contain no client
+            secret.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponsePaymentList"
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+      tags:
+      - Payments
+      description: Lists payments belonging to the authenticated user. Returned payment
+        projections do not contain payment client secrets.
+  "/api/v1/payments/{paymentId}":
+    get:
+      operationId: getPaymentById
+      summary: Get a payment by ID
+      parameters:
+      - name: paymentId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Payment status; contains no client secret.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponsePayment"
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Payment does not belong to caller
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '404':
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+      description: Customers can read their own payment; administrators can read any
+        payment.
+      tags:
+      - Payments
+  "/api/v1/payments/reference/{reference}":
+    get:
+      operationId: getPaymentByReference
+      summary: Get a payment by reference
+      parameters:
+      - name: reference
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Payment status; contains no client secret.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponsePayment"
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Payment does not belong to caller
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '404':
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+      description: Customers can read their own payment; administrators can read any
+        payment.
+      tags:
+      - Payments
+  "/api/v1/payments/order/{orderId}":
+    get:
+      operationId: getPaymentByOrderId
+      summary: Get a payment by order ID
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Payment status; contains no client secret.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponsePayment"
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Payment does not belong to caller
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '404':
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+      description: Customers can read their own payment; administrators can read any
+        payment.
+      tags:
+      - Payments
+  "/api/v1/payments/{paymentId}/process":
+    post:
+      operationId: processPayment
+      summary: Process a payment
+      parameters:
+      - name: paymentId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Payment processed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponsePayment"
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Requires payments:process authority
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '404':
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+      description: Requires the payments:process permission.
+      tags:
+      - Payments
+  "/api/v1/payments/{paymentId}/refund":
+    post:
+      operationId: refundPayment
+      summary: Refund a payment
+      parameters:
+      - name: paymentId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-Idempotency-Key
+        in: header
+        required: false
+        description: Optional refund-attempt replay key; blank values are treated
+          as absent. Reuse only to retry the same refund operation.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Refund processed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponsePayment"
+        '400':
+          description: Invalid refund request or payment state
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Requires payments:refund authority
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '404':
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '409':
+          description: Idempotency conflict
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+      description: Requires the payments:refund permission. The optional idempotency
+        key scopes retries to the same refund attempt.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/RefundRequest"
+      tags:
+      - Payments
+  "/api/v1/payments/webhook":
+    post:
+      operationId: receiveInternalPaymentWebhook
+      summary: Receive an internal HMAC-signed webhook
+      parameters:
+      - name: X-Webhook-Signature
+        in: header
+        required: true
+        description: HMAC-SHA256 of <unix-seconds>.<exact raw HTTP body bytes>, formatted
+          t=<unix-seconds>,v1=<hex-hmac>. Verified with PAYMENT_WEBHOOK_SECRET and
+          configured timestamp tolerance.
+        schema:
+          type: string
+          pattern: "^t=[0-9]+,v1=[0-9a-fA-F]+$"
+      responses:
+        '200':
+          description: Verified event accepted; empty body
+        '400':
+          description: Invalid JSON or webhook payload
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '401':
+          description: Signature missing, expired, or invalid.
+        '503':
+          description: Webhook secret is unavailable.
+      description: Public webhook endpoint. The JSON object is parsed as PaymentWebhookRequest,
+        but X-Webhook-Signature is verified against the exact raw UTF-8 body bytes
+        before parsing; do not parse or reserialize the body before signature verification.
+        The HMAC input is <unix-seconds>.<raw-body>. This HMAC signature format is
+        separate from Stripe-Signature.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/PaymentWebhookRequest"
+      tags:
+      - Webhooks
+  "/api/v1/payments/webhook/stripe":
+    post:
+      operationId: receiveStripeWebhook
+      summary: Receive a Stripe webhook
+      parameters:
+      - name: Stripe-Signature
+        in: header
+        required: true
+        description: Stripe-generated signature header verified by the Stripe SDK
+          using the configured webhook signing secret.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Verified supported Stripe event accepted; empty body
+        '400':
+          description: Stripe signature invalid, payload invalid, or event unsupported.
+        '503':
+          description: Stripe webhook secret is unavailable.
+      description: Public Stripe webhook endpoint. Preserve the exact raw request
+        body bytes and forward them unchanged to Stripe signature verification. Only
+        payment_intent.succeeded and payment_intent.payment_failed events with a valid
+        PaymentIntent and paymentReference metadata are accepted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              description: Stripe Event JSON. Preserve and verify the exact raw request
+                body bytes before parsing.
+      tags:
+      - Webhooks
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      required:
+      - status
+      - error
+      - message
+      - path
+      - code
+      - traceId
+      - timestamp
+      properties:
+        status:
+          type: integer
+          format: int32
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        code:
+          type: string
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: string
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    PaymentStatus:
+      type: string
+      enum:
+      - PENDING
+      - PROCESSING
+      - COMPLETED
+      - FAILED
+      - REFUNDED
+      - PARTIALLY_REFUNDED
+      - CANCELLED
+    PaymentRequest:
+      type: object
+      required:
+      - orderId
+      - paymentMethod
+      properties:
+        orderId:
+          type: string
+          maxLength: 100
+        orderNumber:
+          type: string
+          maxLength: 100
+        paymentMethod:
+          type: string
+          maxLength: 50
+        amount:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+        description:
+          type: string
+          maxLength: 500
+    RefundRequest:
+      type: object
+      required:
+      - reason
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        amount:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+    PaymentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        paymentReference:
+          type: string
+        orderId:
+          type: string
+        orderNumber:
+          type: string
+        userId:
+          type: string
+          format: uuid
+        userEmail:
+          type: string
+        status:
+          "$ref": "#/components/schemas/PaymentStatus"
+        paymentMethod:
+          type: string
+        amount:
+          type: number
+        refundedAmount:
+          type: number
+        currency:
+          type: string
+        transactionId:
+          type: string
+        gatewayResponse:
+          type: string
+        failureReason:
+          type: string
+        retryCount:
+          type: integer
+          format: int32
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: local-date-time
+        updatedAt:
+          type: string
+          format: local-date-time
+        completedAt:
+          type: string
+          format: local-date-time
+    PaymentInitiationResponse:
+      type: object
+      required:
+      - payment
+      properties:
+        payment:
+          "$ref": "#/components/schemas/PaymentResponse"
+        clientSecret:
+          type: string
+          description: One-time response value for immediate Stripe.js confirmation.
+            Present only on the first successful initiation; never persisted in PaymentResponse.
+    ApiResponsePayment:
+      type: object
+      required:
+      - status
+      - message
+      - data
+      - timestamp
+      properties:
+        status:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          "$ref": "#/components/schemas/PaymentResponse"
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    ApiResponsePaymentList:
+      type: object
+      required:
+      - status
+      - message
+      - data
+      - timestamp
+      properties:
+        status:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          type: array
+          items:
+            "$ref": "#/components/schemas/PaymentResponse"
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    ApiResponsePaymentInitiation:
+      type: object
+      required:
+      - status
+      - message
+      - data
+      - timestamp
+      properties:
+        status:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          "$ref": "#/components/schemas/PaymentInitiationResponse"
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    PaymentWebhookRequest:
+      type: object
+      required:
+      - paymentReference
+      - status
+      properties:
+        paymentReference:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: ".*\\S.*"
+          description: Must contain at least one non-whitespace character.
+        transactionId:
+          type: string
+          maxLength: 200
+        status:
+          type: string
+          minLength: 1
+          maxLength: 30
+          pattern: ".*\\S.*"
+          description: Must contain at least one non-whitespace character.
+        failureReason:
+          type: string
+          maxLength: 500

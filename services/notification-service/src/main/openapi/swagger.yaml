@@ -1,0 +1,318 @@
+---
+openapi: 3.0.1
+info:
+  title: Notification Service API
+  version: 1.0.0
+  description: User-owned notification history and read state
+  contact:
+    name: Ecommerce Platform maintainers
+servers:
+- url: http://localhost:8086
+  description: Direct service API
+- url: http://localhost:8080
+  description: API gateway
+tags:
+- name: Notifications
+  description: Authenticated user's notification history
+paths:
+  "/api/v1/notifications/{id}/read":
+    post:
+      tags:
+      - Notifications
+      summary: Mark an owned notification as read
+      operationId: mark_read
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/SecurityErrorResponse"
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/SecurityErrorResponse"
+        '404':
+          description: Notification not found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseNotificationResponse"
+      security:
+      - bearerAuth: []
+      description: Marks the notification as read for its owner; administrators may
+        access any notification.
+  "/api/v1/notifications":
+    get:
+      tags:
+      - Notifications
+      summary: List the current user's notifications
+      operationId: list
+      parameters:
+      - name: page
+        in: query
+        required: false
+        description: Zero-based page index (default 0).
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+      - name: size
+        in: query
+        required: false
+        description: Page size (default 20).
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+      - name: sort
+        in: query
+        required: false
+        description: Sort criteria; repeat for multiple fields (property,direction).
+        schema:
+          type: array
+          items:
+            type: string
+      responses:
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/SecurityErrorResponse"
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/SecurityErrorResponse"
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponsePageResponseNotificationResponse"
+      security:
+      - bearerAuth: []
+      description: Lists notifications belonging to the authenticated user. Pagination
+        uses optional page, size and sort query parameters.
+  "/api/v1/notifications/unread/count":
+    get:
+      tags:
+      - Notifications
+      summary: Count unread notifications for the current user
+      operationId: unread_count
+      responses:
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/SecurityErrorResponse"
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/SecurityErrorResponse"
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ApiResponseLong"
+      security:
+      - bearerAuth: []
+      description: Returns the unread notification count for the authenticated user.
+components:
+  schemas:
+    ApiResponseNotificationResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          "$ref": "#/components/schemas/NotificationResponse"
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+      - status
+      - message
+      - data
+      - timestamp
+    NotificationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+          format: uuid
+        recipient:
+          type: string
+        channel:
+          type: string
+        category:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+        status:
+          type: string
+          enum:
+          - PENDING
+          - SENT
+          - FAILED
+          - READ
+        failureReason:
+          type: string
+        retryCount:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: local-date-time
+        updatedAt:
+          type: string
+          format: local-date-time
+        sentAt:
+          type: string
+          format: local-date-time
+        readAt:
+          type: string
+          format: local-date-time
+    ApiResponsePageResponseNotificationResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          "$ref": "#/components/schemas/PageResponseNotificationResponse"
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+      - status
+      - message
+      - data
+      - timestamp
+    PageResponseNotificationResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            "$ref": "#/components/schemas/NotificationResponse"
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+        first:
+          type: boolean
+        last:
+          type: boolean
+    ApiResponseLong:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          type: integer
+          format: int64
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+      - status
+      - message
+      - data
+      - timestamp
+    ErrorResponse:
+      type: object
+      required:
+      - status
+      - error
+      - message
+      - path
+      - code
+      - traceId
+      - timestamp
+      properties:
+        status:
+          type: integer
+          format: int32
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        code:
+          type: string
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: string
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    SecurityErrorResponse:
+      type: object
+      required:
+      - status
+      - code
+      - message
+      properties:
+        status:
+          type: integer
+          format: int32
+        code:
+          type: string
+        message:
+          type: string
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
