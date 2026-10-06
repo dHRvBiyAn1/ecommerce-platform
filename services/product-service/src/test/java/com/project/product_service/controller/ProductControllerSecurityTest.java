@@ -3,6 +3,7 @@ package com.project.product_service.controller;
 import com.project.common.exception.ForbiddenOperationException;
 import com.project.common.exception.GlobalExceptionHandler;
 import com.project.product_service.application.mapper.ProductMapper;
+import com.project.product_service.generated.mapper.ProductApiMapperImpl;
 import com.project.product_service.application.validator.CategoryIntegrityValidator;
 import com.project.product_service.application.validator.ProductAccessValidator;
 import com.project.product_service.config.LayeredCache;
@@ -53,7 +54,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.cloud.config.enabled=false",
         "spring.config.import=optional:file:/dev/null"
 })
-@Import({SecurityConfig.class, GlobalExceptionHandler.class})
+@Import({SecurityConfig.class, GlobalExceptionHandler.class, ProductApiMapperImpl.class})
 class ProductControllerSecurityTest {
 
     private static final UUID SELLER_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
@@ -84,7 +85,7 @@ class ProductControllerSecurityTest {
                 .claim("permissions", List.of(com.project.common.constant.Permissions.PRODUCTS_READ)).build();
         when(jwtDecoder.decode("owner-token")).thenReturn(token);
         when(productService.getProductsBySeller(org.mockito.ArgumentMatchers.eq(SELLER_ID), any()))
-                .thenReturn(Page.empty());
+                .thenReturn(Page.empty(PageRequest.of(0, 20)));
         var session = new org.springframework.mock.web.MockHttpSession();
         session.setAttribute(org.springframework.security.web.context.HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
                 new org.springframework.security.core.context.SecurityContextImpl(

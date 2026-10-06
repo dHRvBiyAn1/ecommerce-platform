@@ -70,7 +70,7 @@ class CartOpenApiContractTest {
     @SpringBootConfiguration
     @EnableAutoConfiguration
     @EnableConfigurationProperties(SpringDocConfigProperties.class)
-    @Import({CartController.class, com.project.cart.application.mapper.CartApiMapperImpl.class})
+    @Import({CartController.class, com.project.cart.generated.mapper.CartApiMapperImpl.class})
     static class OpenApiTestApplication {
     }
 }

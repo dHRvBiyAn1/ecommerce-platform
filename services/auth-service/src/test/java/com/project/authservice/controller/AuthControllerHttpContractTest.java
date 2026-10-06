@@ -14,6 +14,7 @@ import com.project.authservice.service.AuthService;
 import com.project.authservice.service.ClientCredentialsService;
 import com.project.authservice.service.TokenBlacklistService;
 import com.project.authservice.security.AuthenticatedUserValidator;
+import com.project.authservice.generated.mapper.AuthApiMapperImpl;
 import com.project.common.constant.ErrorCode;
 import com.project.common.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.Test;
@@ -43,7 +44,7 @@ import static org.hamcrest.Matchers.nullValue;
         "spring.config.import=optional:file:/dev/null"
 })
 @AutoConfigureMockMvc(addFilters = false)
-@Import(GlobalExceptionHandler.class)
+@Import({GlobalExceptionHandler.class, AuthApiMapperImpl.class})
 class AuthControllerHttpContractTest {
 
     @Autowired
@@ -88,6 +89,10 @@ class AuthControllerHttpContractTest {
                 .andExpect(jsonPath("$.status").value(201))
                 .andExpect(jsonPath("$.message").value("Created"))
                 .andExpect(jsonPath("$.data.email").value("customer@example.com"))
+                .andExpect(jsonPath("$.data.imageUrl").value(nullValue()))
+                .andExpect(jsonPath("$.data.phone").value(nullValue()))
+                .andExpect(jsonPath("$.data.shippingAddress").value(nullValue()))
+                .andExpect(jsonPath("$.data.billingAddress").value(nullValue()))
                 .andExpect(jsonPath("$.traceId").exists())
                 .andExpect(jsonPath("$.timestamp").exists());
     }
@@ -114,6 +119,36 @@ class AuthControllerHttpContractTest {
                 .andExpect(jsonPath("$.code").value(ErrorCode.DUPLICATE_RESOURCE.value()))
                 .andExpect(jsonPath("$.traceId").exists())
                 .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
+    void registrationRejectsWhitespaceOnlyEmail() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "   ",
+                                  "password": "ValidPass123",
+                                  "displayName": "Customer One"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.email").exists());
+    }
+
+    @Test
+    void registrationUsesLegacyEmailFormatMessageForNonblankInvalidEmail() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "not-an-email",
+                                  "password": "ValidPass123",
+                                  "displayName": "Customer One"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.email").value("Email must be valid"));
     }
 
     @Test

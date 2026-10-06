@@ -2,10 +2,18 @@
 """Check that packaged services contain generated server code, never test clients."""
 from pathlib import Path
 from zipfile import ZipFile
+import re
 
 root = Path(__file__).resolve().parents[1]
-services = ("auth", "product", "inventory", "order", "payment", "notification", "cart", "coupon")
-for service in services:
+server_operations = {"auth": 21, "product": 22, "inventory": 12, "order": 7,
+                     "payment": 7, "notification": 3, "cart": 7, "coupon": 10}
+for service, expected in server_operations.items():
+    module = root / "services" / f"{service}-service"
+    generated_apis = module / "target/generated-sources/openapi/src/main/java"
+    actual = sum(len(re.findall(r"@RequestMapping\s*\(", source.read_text()))
+                 for source in generated_apis.rglob("*Api.java"))
+    if actual != expected:
+        raise SystemExit(f"{service}: expected {expected} generated MVC operations, found {actual}")
     jars = list((root / "services" / f"{service}-service" / "target").glob("*-SNAPSHOT.jar"))
     if len(jars) != 1:
         raise SystemExit(f"{service}: expected one packaged Spring Boot jar, found {len(jars)}")
@@ -17,4 +25,4 @@ for service in services:
         raise SystemExit(f"{service}: generated test client leaked into runtime artifact")
     if any("jackson-databind-nullable" in name for name in names):
         raise SystemExit(f"{service}: test-only nullable dependency leaked into runtime artifact")
-    print(f"PASS {service}: generated server present; test client and nullable dependency absent")
+    print(f"PASS {service}: {actual} generated MVC operations; server present; test client and nullable dependency absent")

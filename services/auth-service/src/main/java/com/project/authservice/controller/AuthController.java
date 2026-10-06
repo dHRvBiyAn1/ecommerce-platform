@@ -1,14 +1,17 @@
 package com.project.authservice.controller;
 
-import com.project.authservice.dto.request.ChangePasswordRequest;
-import com.project.authservice.dto.request.RegistrationRequest;
 import com.project.authservice.dto.TokenResponse;
-import com.project.authservice.dto.response.UserProfileDto;
 import com.project.authservice.dto.request.ClientCredentialsRequest;
 import com.project.authservice.dto.response.ServiceTokenResponse;
 import com.project.authservice.exception.InvalidScopeException;
 import com.project.authservice.exception.AuthException;
 import com.project.authservice.security.AuthenticatedUserValidator;
+import com.project.authservice.generated.api.AuthenticationApi;
+import com.project.authservice.generated.model.ApiResponseUserProfileDto;
+import com.project.authservice.generated.model.ApiResponseVoid;
+import com.project.authservice.generated.model.ProviderDiscovery;
+import com.project.authservice.generated.model.OAuthProvider;
+import com.project.authservice.mapper.AuthApiMapper;
 import com.project.common.dto.ApiResponse;
 import com.project.authservice.service.AuthService;
 import com.project.authservice.service.ClientCredentialsService;
@@ -21,27 +24,41 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/auth")
 @RequiredArgsConstructor
-public class AuthController {
+public class AuthController implements AuthenticationApi {
 
     private final AuthService authService;
     private final ClientCredentialsService clientCredentialsService;
     private final AuthenticatedUserValidator authenticatedUserValidator;
+    private final AuthApiMapper apiMapper;
+
+    @Autowired
+    private ObjectProvider<com.project.authservice.security.OAuth2ClientConfig.OAuth2EnabledFlag> oauth2Flag;
+
+    @Value("${oauth2.google.client-id:}")
+    private String googleId;
+
+    @Value("${oauth2.github.client-id:}")
+    private String githubId;
 
     @Value("${jwt.refresh-token-expiration:2592000000}")
     private long refreshTokenDurationMs;
@@ -49,10 +66,11 @@ public class AuthController {
     @Value("${security.cookies.secure:true}")
     private boolean secureCookie;
 
-    @PostMapping("/register")
-    public ResponseEntity<ApiResponse<UserProfileDto>> register(
-            @Valid @RequestBody RegistrationRequest request) {
-        return new ResponseEntity<>(ApiResponse.created(authService.register(request)), HttpStatus.CREATED);
+    @Override
+    public ResponseEntity<ApiResponseUserProfileDto> register(
+            com.project.authservice.generated.model.RegistrationRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(apiMapper.toApiUserProfile(
+                ApiResponse.created(authService.register(apiMapper.toDomain(request)))));
     }
 
     /**
@@ -61,7 +79,7 @@ public class AuthController {
      * grants. The refresh token is delivered as an HttpOnly Secure SameSite=Strict cookie;
      * only the access token is returned in the body.
      */
-    @PostMapping("/token")
+    @PostMapping("/api/auth/token")
     @Operation(summary = "Issue an access token", description = "Supports password, refresh_token, and client_credentials grants")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Token issued"),
@@ -113,29 +131,51 @@ public class AuthController {
                 new TokenResponse(result.getAccessToken())));
     }
 
-    @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request, HttpServletResponse response) {
+    @Override
+    public ResponseEntity<ApiResponseVoid> logout(String authorization, String cookie) {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
+        HttpServletRequest request = attributes.getRequest();
+        HttpServletResponse response = attributes.getResponse();
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         String accessToken = (authHeader != null && authHeader.startsWith("Bearer ")) ? authHeader.substring(7) : null;
         String refreshTokenValue = CookieUtils.getCookieValue(request, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
         authService.logout(accessToken, refreshTokenValue);
         CookieUtils.deleteCookie(request, response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
-        return ResponseEntity.ok(ApiResponse.success(null));
+        return ResponseEntity.ok(apiMapper.toApiVoid(ApiResponse.success(null)));
     }
 
     /**
      * Authenticated user changes their own password. Replaces previous {@code permitAll}
      * version that NPE'd on {@code authentication.getName()}.
      */
-    @PostMapping("/change-password")
+    @Override
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<Void>> changePassword(
-            @Valid @RequestBody ChangePasswordRequest request,
-            Authentication authentication) {
+    public ResponseEntity<ApiResponseVoid> changePassword(
+            com.project.authservice.generated.model.ChangePasswordRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         java.util.UUID userId = authenticatedUserValidator.requireUserId(authentication);
-        authService.changePasswordByUserId(userId, request.oldPassword(),
-                request.newPassword());
-        return ResponseEntity.ok(ApiResponse.success(null));
+        var domainRequest = apiMapper.toDomain(request);
+        authService.changePasswordByUserId(userId, domainRequest.oldPassword(), domainRequest.newPassword());
+        return ResponseEntity.ok(apiMapper.toApiVoid(ApiResponse.success(null)));
+    }
+
+    @Override
+    public ResponseEntity<ProviderDiscovery> providers() {
+        List<OAuthProvider> providers = new ArrayList<>();
+        if (!googleId.isBlank()) {
+            providers.add(provider("google", "Google"));
+        }
+        if (!githubId.isBlank()) {
+            providers.add(provider("github", "GitHub"));
+        }
+        var enabled = oauth2Flag.getIfAvailable(
+                () -> new com.project.authservice.security.OAuth2ClientConfig.OAuth2EnabledFlag(false));
+        return ResponseEntity.ok(new ProviderDiscovery().password(true).oauth2(enabled.enabled()).providers(providers));
+    }
+
+    private static OAuthProvider provider(String id, String label) {
+        return new OAuthProvider().id(OAuthProvider.IdEnum.fromValue(id)).label(label)
+                .authorizationUrl("/oauth2/authorization/" + id);
     }
 
     private static String clientIp(HttpServletRequest req) {

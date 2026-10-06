@@ -1,8 +1,11 @@
 package com.project.authservice.controller;
 
 import com.project.authservice.dto.response.UserProfileDto;
+import com.project.authservice.dto.AddressDto;
 import com.project.authservice.entity.User;
 import com.project.authservice.security.AuthenticatedUserValidator;
+import com.project.authservice.generated.mapper.AuthApiMapperImpl;
+import com.project.authservice.service.SellerApplicationService;
 import com.project.authservice.service.UserProfileService;
 import com.project.authservice.security.CustomOAuth2SuccessHandler;
 import com.project.authservice.security.KeyManager;
@@ -33,6 +36,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.time.Duration;
 import java.util.Date;
+import java.time.LocalDateTime;
 
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -48,6 +52,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.config.import=optional:file:/dev/null"
 })
 @Import({SecurityConfig.class, JwtAuthFilter.class, GlobalExceptionHandler.class, AuthenticatedUserValidator.class,
+        AuthApiMapperImpl.class,
         UserControllerSecurityHttpTest.JwtTestConfig.class})
 @ExtendWith(OutputCaptureExtension.class)
 class UserControllerSecurityHttpTest {
@@ -60,6 +65,9 @@ class UserControllerSecurityHttpTest {
 
     @MockBean
     private UserProfileService userProfileService;
+
+    @MockBean
+    private SellerApplicationService sellerApplicationService;
 
     @MockBean
     private CustomOAuth2SuccessHandler oAuth2SuccessHandler;
@@ -136,8 +144,11 @@ class UserControllerSecurityHttpTest {
         user.setId(userId);
         user.setEmail("customer@example.com");
         String token = jwtService.generateToken(user);
-        UserProfileDto profile = new UserProfileDto(userId, "customer@example.com", null, null, null, false,
-                null, Set.of(), Set.of(), null, null, false);
+        UserProfileDto profile = new UserProfileDto(userId, "customer@example.com", "Customer One",
+                "https://example.com/customer.png", "+1 555 0100", true,
+                LocalDateTime.parse("2026-10-01T09:30:00"), Set.of("ROLE_CUSTOMER"), Set.of("orders:read"),
+                new AddressDto("Customer One", "+1 555 0100", "1 Main Street", "Springfield", "IL", "62701", "US"),
+                null, true);
 
         when(blacklist.isBlacklisted(token)).thenReturn(false);
         when(userProfileService.getProfile(userId)).thenReturn(profile);
@@ -145,7 +156,20 @@ class UserControllerSecurityHttpTest {
         mockMvc.perform(get("/api/user/profile")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.email").value("customer@example.com"));
+                .andExpect(jsonPath("$.data.id").value(userId.toString()))
+                .andExpect(jsonPath("$.data.email").value("customer@example.com"))
+                .andExpect(jsonPath("$.data.displayName").value("Customer One"))
+                .andExpect(jsonPath("$.data.imageUrl").value("https://example.com/customer.png"))
+                .andExpect(jsonPath("$.data.phone").value("+1 555 0100"))
+                .andExpect(jsonPath("$.data.active").value(true))
+                .andExpect(jsonPath("$.data.createdAt").value("2026-10-01T09:30:00"))
+                .andExpect(jsonPath("$.data.roles[0]").value("ROLE_CUSTOMER"))
+                .andExpect(jsonPath("$.data.permissions[0]").value("orders:read"))
+                .andExpect(jsonPath("$.data.shippingAddress.fullName").value("Customer One"))
+                .andExpect(jsonPath("$.data.shippingAddress.street").value("1 Main Street"))
+                .andExpect(jsonPath("$.data.shippingAddress.country").value("US"))
+                .andExpect(jsonPath("$.data.billingAddress").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.hasPassword").value(true));
     }
 
     @Test

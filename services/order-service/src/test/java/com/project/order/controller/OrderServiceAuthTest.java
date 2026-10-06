@@ -33,7 +33,7 @@ class OrderServiceAuthTest {
     private static final String OTHER = "00000000-0000-0000-0000-000000000002";
 
     @Configuration
-    @EnableMethodSecurity
+    @EnableMethodSecurity(proxyTargetClass = true)
     static class Config {
         @Bean OrderController controller() {
             OrderService service = mock(OrderService.class);
@@ -42,7 +42,8 @@ class OrderServiceAuthTest {
                     null, null, null, null, null, null);
             when(service.getOrder("order-1")).thenReturn(order);
             when(service.getOrderByNumber("ORD-1")).thenReturn(order);
-            return new OrderController(service, new OrderAccessValidator());
+            return new OrderController(service, new OrderAccessValidator(),
+                    new com.project.order.generated.mapper.OrderApiMapperImpl());
         }
     }
 
@@ -80,7 +81,7 @@ class OrderServiceAuthTest {
         org.assertj.core.api.ThrowableAssert.ThrowingCallable call = () -> {
             var response = endpoint.equals("id") ? controller.getOrder("order-1") : controller.getOrderByNumber("ORD-1");
             assertThat(response.getStatusCode().value()).isEqualTo(200);
-            assertThat(response.getBody().getData().id()).isEqualTo("order-1");
+            assertThat(response.getBody().getData().getId()).isEqualTo("order-1");
         };
         if (allowed) assertThatCode(call).doesNotThrowAnyException();
         else assertThatThrownBy(call).isInstanceOfAny(AccessDeniedException.class,

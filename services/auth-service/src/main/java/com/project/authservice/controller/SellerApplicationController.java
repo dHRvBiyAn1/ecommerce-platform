@@ -36,8 +36,6 @@ import java.util.UUID;
  * <p>auth-service authenticates with its own JwtAuthFilter (not the common
  * resource-server flow), so the dedicated validator handles the UUID subject.
  */
-@RestController
-@RequestMapping("/api/user/seller-application")
 @RequiredArgsConstructor
 public class SellerApplicationController {
 
@@ -65,8 +63,6 @@ public class SellerApplicationController {
     }
 }
 
-@RestController
-@RequestMapping("/api/admin/seller-applications")
 @RequiredArgsConstructor
 class AdminSellerApplicationController {
 

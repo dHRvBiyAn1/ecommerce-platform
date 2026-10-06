@@ -67,6 +67,7 @@ paths:
       tags:
       - Orders
       operationId: get_orders
+      x-spring-paginated: true
       parameters:
       - name: page
         in: query
@@ -265,20 +266,13 @@ paths:
       tags:
       - Orders
       operationId: get_orders_by_status
+      x-spring-paginated: true
       parameters:
       - name: status
         in: path
         required: true
         schema:
-          type: string
-          enum:
-          - PENDING
-          - CONFIRMED
-          - PROCESSING
-          - SHIPPED
-          - DELIVERED
-          - CANCELLED
-          - REFUNDED
+          "$ref": "#/components/schemas/OrderStatus"
       - name: page
         in: query
         required: false
@@ -381,6 +375,16 @@ paths:
         service clients with orders.read may read orders for internal workflows.
 components:
   schemas:
+    OrderStatus:
+      type: string
+      enum:
+      - PENDING
+      - CONFIRMED
+      - PROCESSING
+      - SHIPPED
+      - DELIVERED
+      - CANCELLED
+      - REFUNDED
     OrderStatusUpdateRequest:
       required:
       - status
@@ -388,6 +392,7 @@ components:
       properties:
         status:
           type: string
+          x-not-null-message: Status is required
           enum:
           - PENDING
           - CONFIRMED
@@ -441,18 +446,30 @@ components:
       properties:
         fullName:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Full name is required")'
+          x-not-null-message: Full name is required
         phone:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Phone is required")'
+          x-not-null-message: Phone is required
         street:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Street is required")'
+          x-not-null-message: Street is required
         city:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "City is required")'
+          x-not-null-message: City is required
         state:
           type: string
         zipCode:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Zip code is required")'
+          x-not-null-message: Zip code is required
         country:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Country is required")'
+          x-not-null-message: Country is required
     OrderItemRequest:
       required:
       - productId
@@ -461,13 +478,14 @@ components:
       properties:
         productId:
           type: string
-          minLength: 1
-          pattern: ".*\\S.*"
-          description: Must contain at least one non-whitespace character.
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Product ID is required")'
+          x-not-null-message: Product ID is required
         quantity:
           minimum: 1
           type: integer
           format: int32
+          x-not-null-message: Quantity must be at least 1
+          x-minimum-message: Quantity must be at least 1
     OrderRequest:
       required:
       - items
@@ -479,6 +497,8 @@ components:
           items:
             "$ref": "#/components/schemas/OrderItemRequest"
           minItems: 1
+          x-not-null-message: Order must contain at least one item
+          x-size-message: Order must contain at least one item
         couponCode:
           type: string
         shippingAddress:
@@ -489,9 +509,8 @@ components:
           type: string
         paymentMethod:
           type: string
-          minLength: 1
-          pattern: ".*\\S.*"
-          description: Must contain at least one non-whitespace character.
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Payment method is required")'
+          x-not-null-message: Payment method is required
     ShippingAddressRequest:
       required:
       - city
@@ -504,18 +523,30 @@ components:
       properties:
         fullName:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Full name is required")'
+          x-not-null-message: Full name is required
         phone:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Phone is required")'
+          x-not-null-message: Phone is required
         street:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Street is required")'
+          x-not-null-message: Street is required
         city:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "City is required")'
+          x-not-null-message: City is required
         state:
           type: string
         zipCode:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Zip code is required")'
+          x-not-null-message: Zip code is required
         country:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Country is required")'
+          x-not-null-message: Country is required
     ApiResponseOrderResponse:
       type: object
       properties:
@@ -525,7 +556,10 @@ components:
         message:
           type: string
         data:
-          "$ref": "#/components/schemas/OrderResponse"
+          allOf:
+          - "$ref": "#/components/schemas/OrderResponse"
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -541,52 +575,90 @@ components:
       properties:
         fullName:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         phone:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         street:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         city:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         state:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         zipCode:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         country:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
     OrderItemResponse:
       type: object
       properties:
         productId:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         sku:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         productName:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         imageUrl:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         quantity:
           type: integer
           format: int32
+          x-jackson-json-include-policy: ALWAYS
         unitPrice:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         discountAmount:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         totalPrice:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
     OrderResponse:
       type: object
       properties:
         id:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         orderNumber:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         userId:
           type: string
           format: uuid
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         userEmail:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         status:
           type: string
+          nullable: true
           enum:
           - PENDING
           - CONFIRMED
@@ -595,77 +667,134 @@ components:
           - DELIVERED
           - CANCELLED
           - REFUNDED
+          x-jackson-json-include-policy: ALWAYS
         items:
           type: array
+          nullable: true
           items:
             "$ref": "#/components/schemas/OrderItemResponse"
+          x-jackson-json-include-policy: ALWAYS
         subtotal:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         taxAmount:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         shippingCost:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         discountAmount:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         totalAmount:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         currency:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         shippingAddress:
-          "$ref": "#/components/schemas/ShippingAddressResponse"
+          allOf:
+          - "$ref": "#/components/schemas/ShippingAddressResponse"
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         billingAddress:
-          "$ref": "#/components/schemas/BillingAddressResponse"
+          allOf:
+          - "$ref": "#/components/schemas/BillingAddressResponse"
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         paymentId:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         paymentMethod:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         paymentStatus:
           type: string
+          nullable: true
           enum:
           - PENDING
           - COMPLETED
           - FAILED
           - REFUNDED
           - PARTIALLY_REFUNDED
+          x-jackson-json-include-policy: ALWAYS
         couponCode:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         notes:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         createdAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         updatedAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         paidAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         shippedAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         deliveredAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         cancelledAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
     ShippingAddressResponse:
       type: object
       properties:
         fullName:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         phone:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         street:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         city:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         state:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         zipCode:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         country:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
     ApiResponsePageOrderResponse:
       type: object
       required:
@@ -681,6 +810,7 @@ components:
           type: string
         data:
           type: object
+          nullable: true
           properties:
             content:
               type: array
@@ -711,6 +841,7 @@ components:
               type: boolean
             empty:
               type: boolean
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:

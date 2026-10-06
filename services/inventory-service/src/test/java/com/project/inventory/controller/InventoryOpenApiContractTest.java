@@ -1,6 +1,7 @@
 package com.project.inventory.controller;
 
 import com.project.inventory.service.InventoryService;
+import com.project.inventory.generated.mapper.InventoryApiMapperImpl;
 import com.project.inventory.config.InventoryOpenApiConfiguration;
 import com.project.inventory.application.validator.InventoryValidator;
 import org.springdoc.core.configuration.SpringDocConfiguration;
@@ -13,7 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.test.context.TestComponent;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -51,16 +53,17 @@ class InventoryOpenApiContractTest {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paths['/api/v1/inventory']").exists())
-                .andExpect(jsonPath("$.paths['/api/v1/inventory/{productId}']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/inventory/{id}']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/inventory/{productId}/reserve']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/inventory/{productId}/commit']").exists())
                 .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.type").value("http"))
                 .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
                 .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.bearerFormat").value("JWT"))
-                .andExpect(jsonPath("$.paths['/api/v1/inventory'].post.responses.400.$ref")
-                        .value("#/components/responses/ValidationError"))
-                .andExpect(jsonPath("$.paths['/api/v1/inventory/{productId}'].get.responses.404.$ref")
-                        .value("#/components/responses/NotFoundError"))
+                .andExpect(jsonPath("$.paths['/api/v1/inventory'].post.security[0].bearerAuth").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/inventory'].post.responses.400.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath("$.paths['/api/v1/inventory/{id}'].get.responses.404.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/ErrorResponse"))
                 .andExpect(jsonPath("$.components.responses.ValidationError").exists())
                 .andExpect(jsonPath("$.components.responses.NotFoundError").exists())
                 .andExpect(jsonPath("$.paths['/internal/inventory/{productId}/reserve']").doesNotExist());
@@ -143,9 +146,11 @@ class InventoryOpenApiContractTest {
         }
     }
 
-    @SpringBootConfiguration
+    @Configuration(proxyBeanMethods = false)
+    @TestComponent
     @EnableAutoConfiguration
-    @Import({InventoryController.class, InventoryOpenApiConfiguration.class, OpenApiTestConfiguration.class})
+    @Import({InventoryController.class, InventoryOpenApiConfiguration.class, OpenApiTestConfiguration.class,
+            InventoryApiMapperImpl.class})
     static class OpenApiTestApplication {
     }
 }

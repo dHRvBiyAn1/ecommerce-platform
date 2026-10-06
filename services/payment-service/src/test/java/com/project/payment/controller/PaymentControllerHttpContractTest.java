@@ -42,7 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Import({
         com.project.payment.config.SecurityConfig.class,
-        GlobalExceptionHandler.class
+        GlobalExceptionHandler.class, com.project.payment.application.mapper.PaymentMapper.class
 })
 class PaymentControllerHttpContractTest {
 

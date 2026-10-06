@@ -470,22 +470,32 @@ components:
         orderId:
           type: string
           maxLength: 100
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Order ID is required")'
+          x-not-null-message: Order ID is required
+          x-size-message: Order ID must not exceed 100 characters
         orderNumber:
           type: string
           maxLength: 100
+          x-size-message: Order number must not exceed 100 characters
         paymentMethod:
           type: string
           maxLength: 50
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Payment method is required")'
+          x-not-null-message: Payment method is required
+          x-size-message: Payment method must not exceed 50 characters
         amount:
           type: number
           minimum: 0
           exclusiveMinimum: true
+          x-minimum-message: Amount must be positive
         currency:
           type: string
           pattern: "^[A-Z]{3}$"
+          x-pattern-message: Currency must be a three-letter uppercase code
         description:
           type: string
           maxLength: 500
+          x-size-message: Description must not exceed 500 characters
     RefundRequest:
       type: object
       required:
@@ -493,67 +503,113 @@ components:
       properties:
         reason:
           type: string
-          minLength: 1
           maxLength: 500
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Refund reason is required")'
+          x-not-null-message: Refund reason is required
+          x-size-message: Refund reason must not exceed 500 characters
         amount:
           type: number
           minimum: 0
           exclusiveMinimum: true
+          x-minimum-message: Refund amount must be positive
     PaymentResponse:
       type: object
       properties:
         id:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         paymentReference:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         orderId:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         orderNumber:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         userId:
           type: string
           format: uuid
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         userEmail:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         status:
-          "$ref": "#/components/schemas/PaymentStatus"
+          allOf:
+          - "$ref": "#/components/schemas/PaymentStatus"
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         paymentMethod:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         amount:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         refundedAmount:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         currency:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         transactionId:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         gatewayResponse:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         failureReason:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         retryCount:
           type: integer
           format: int32
+          x-jackson-json-include-policy: ALWAYS
         description:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         createdAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         updatedAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         completedAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
     PaymentInitiationResponse:
       type: object
       required:
       - payment
       properties:
         payment:
-          "$ref": "#/components/schemas/PaymentResponse"
+          allOf:
+          - "$ref": "#/components/schemas/PaymentResponse"
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         clientSecret:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
           description: One-time response value for immediate Stripe.js confirmation.
             Present only on the first successful initiation; never persisted in PaymentResponse.
     ApiResponsePayment:
@@ -570,7 +626,10 @@ components:
         message:
           type: string
         data:
-          "$ref": "#/components/schemas/PaymentResponse"
+          allOf:
+          - "$ref": "#/components/schemas/PaymentResponse"
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -591,8 +650,10 @@ components:
           type: string
         data:
           type: array
+          nullable: true
           items:
             "$ref": "#/components/schemas/PaymentResponse"
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -612,7 +673,10 @@ components:
         message:
           type: string
         data:
-          "$ref": "#/components/schemas/PaymentInitiationResponse"
+          allOf:
+          - "$ref": "#/components/schemas/PaymentInitiationResponse"
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -628,8 +692,8 @@ components:
           type: string
           minLength: 1
           maxLength: 100
-          pattern: ".*\\S.*"
-          description: Must contain at least one non-whitespace character.
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Payment reference is required")'
+          x-not-null-message: Payment reference is required
         transactionId:
           type: string
           maxLength: 200
@@ -637,8 +701,8 @@ components:
           type: string
           minLength: 1
           maxLength: 30
-          pattern: ".*\\S.*"
-          description: Must contain at least one non-whitespace character.
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Status is required")'
+          x-not-null-message: Status is required
         failureReason:
           type: string
           maxLength: 500

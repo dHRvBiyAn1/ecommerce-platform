@@ -11,13 +11,14 @@ import org.springdoc.core.configuration.SpringDocSortConfiguration;
 import org.springdoc.core.properties.SpringDocConfigProperties;
 import org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.test.context.TestComponent;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
@@ -33,7 +34,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc(addFilters = false)
 @ContextConfiguration(classes = CouponOpenApiContractTest.OpenApiTestApplication.class)
 @Import({SpringDocConfiguration.class, SpringDocWebMvcConfiguration.class, SpringDocSecurityConfiguration.class,
-        SpringDocPageableConfiguration.class, SpringDocSortConfiguration.class, CouponOpenApiConfiguration.class})
+        SpringDocPageableConfiguration.class, SpringDocSortConfiguration.class, CouponOpenApiConfiguration.class,
+        com.project.coupon.generated.mapper.CouponApiMapperImpl.class})
 class CouponOpenApiContractTest {
 
     @Autowired
@@ -61,37 +63,38 @@ class CouponOpenApiContractTest {
                 .andExpect(jsonPath("$.components.responses.ForbiddenError.content['application/json'].schema.$ref")
                         .value("#/components/schemas/ErrorResponse"))
                 .andExpect(jsonPath("$.paths['/api/v1/coupons'].post.security[0].bearerAuth").exists())
-                .andExpect(jsonPath("$.paths['/api/v1/coupons'].post.responses['401'].$ref")
-                        .value("#/components/responses/UnauthorizedError"))
-                .andExpect(jsonPath("$.paths['/api/v1/coupons'].post.responses['403'].$ref")
-                        .value("#/components/responses/ForbiddenError"))
-                .andExpect(jsonPath("$.paths['/api/v1/coupons/{id}'].put.responses['403'].$ref")
-                        .value("#/components/responses/ForbiddenError"))
-                .andExpect(jsonPath("$.paths['/api/v1/coupons/{id}'].delete.responses['403'].$ref")
-                        .value("#/components/responses/ForbiddenError"))
+                .andExpect(jsonPath("$.paths['/api/v1/coupons'].post.responses['401'].content['application/json'].schema.$ref")
+                        .value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath("$.paths['/api/v1/coupons'].post.responses['403'].content['application/json'].schema.$ref")
+                        .value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath("$.paths['/api/v1/coupons/{id}'].put.responses['403'].content['application/json'].schema.$ref")
+                        .value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath("$.paths['/api/v1/coupons/{id}'].delete.responses['403'].content['application/json'].schema.$ref")
+                        .value("#/components/schemas/ErrorResponse"))
                 .andExpect(jsonPath("$.paths['/api/v1/coupons/validate'].post.security[0].bearerAuth").exists())
-                .andExpect(jsonPath("$.paths['/api/v1/coupons/validate'].post.responses['401'].$ref")
-                        .value("#/components/responses/UnauthorizedError"))
-                .andExpect(jsonPath("$.paths['/api/v1/coupons/validate'].post.responses['403'].$ref")
-                        .value("#/components/responses/ForbiddenError"))
+                .andExpect(jsonPath("$.paths['/api/v1/coupons/validate'].post.responses['401'].content['application/json'].schema.$ref")
+                        .value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath("$.paths['/api/v1/coupons/validate'].post.responses['403'].content['application/json'].schema.$ref")
+                        .value("#/components/schemas/ErrorResponse"))
                 .andExpect(jsonPath("$.paths['/api/v1/coupons/reserve'].post.security[0].bearerAuth").exists())
-                .andExpect(jsonPath("$.paths['/api/v1/coupons/reserve'].post.responses['401'].$ref")
-                        .value("#/components/responses/UnauthorizedError"))
-                .andExpect(jsonPath("$.paths['/api/v1/coupons/reserve'].post.responses['403'].$ref")
-                        .value("#/components/responses/ForbiddenError"))
+                .andExpect(jsonPath("$.paths['/api/v1/coupons/reserve'].post.responses['401'].content['application/json'].schema.$ref")
+                        .value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath("$.paths['/api/v1/coupons/reserve'].post.responses['403'].content['application/json'].schema.$ref")
+                        .value("#/components/schemas/ErrorResponse"))
                 .andExpect(jsonPath("$.paths['/api/v1/coupons/release'].post.security[0].bearerAuth").exists())
-                .andExpect(jsonPath("$.paths['/api/v1/coupons/release'].post.responses['401'].$ref")
-                        .value("#/components/responses/UnauthorizedError"))
-                .andExpect(jsonPath("$.paths['/api/v1/coupons/release'].post.responses['403'].$ref")
-                        .value("#/components/responses/ForbiddenError"))
+                .andExpect(jsonPath("$.paths['/api/v1/coupons/release'].post.responses['401'].content['application/json'].schema.$ref")
+                        .value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath("$.paths['/api/v1/coupons/release'].post.responses['403'].content['application/json'].schema.$ref")
+                        .value("#/components/schemas/ErrorResponse"))
                 .andExpect(jsonPath("$.paths['/api/v1/coupons/redeem'].post.security[0].bearerAuth").exists())
-                .andExpect(jsonPath("$.paths['/api/v1/coupons/redeem'].post.responses['403'].$ref")
-                        .value("#/components/responses/ForbiddenError"))
-                .andExpect(jsonPath("$.paths['/api/v1/coupons/commit'].post.responses['403'].$ref")
-                        .value("#/components/responses/ForbiddenError"));
+                .andExpect(jsonPath("$.paths['/api/v1/coupons/redeem'].post.responses['403'].content['application/json'].schema.$ref")
+                        .value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath("$.paths['/api/v1/coupons/commit'].post.responses['403'].content['application/json'].schema.$ref")
+                        .value("#/components/schemas/ErrorResponse"));
     }
 
-    @SpringBootConfiguration
+    @Configuration(proxyBeanMethods = false)
+    @TestComponent
     @EnableAutoConfiguration
     @EnableConfigurationProperties(SpringDocConfigProperties.class)
     @Import(CouponController.class)

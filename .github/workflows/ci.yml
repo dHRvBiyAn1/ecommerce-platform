@@ -146,6 +146,9 @@ jobs:
       - name: Verify Sonar integration contract
         run: bash scripts/test-sonar-integration.sh
 
+      - name: Verify environment and release smoke checks
+        run: bash scripts/smoke-release.test.sh
+
       - name: Verify the whole reactor
         run: ./mvnw -B -ntp -fae clean verify
 

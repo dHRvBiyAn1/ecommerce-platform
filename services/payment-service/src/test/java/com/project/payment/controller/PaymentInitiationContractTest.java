@@ -26,7 +26,6 @@ import com.project.payment.repository.WebhookReceiptRepository;
 import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -56,16 +55,29 @@ class PaymentInitiationContractTest {
     }
 
     @Test
-    void genericPaymentEndpointsReturnOnlySecretFreePaymentResponses() {
-        Stream.of("getMyPayments", "getPayment", "getByReference", "getByOrderId",
-                        "processPayment", "refundPayment")
-                .map(name -> java.util.Arrays.stream(PaymentController.class.getDeclaredMethods())
-                        .filter(method -> method.getName().equals(name))
-                        .findFirst()
-                        .orElseThrow())
-                .forEach(method -> assertThat(method.getGenericReturnType().getTypeName())
-                        .contains("PaymentResponse")
-                        .doesNotContain("PaymentInitiationResponse", "clientSecret"));
+    void generatedPaymentOperationsKeepInitiationAsTheOnlySecretBearingResponse() {
+        assertThat(com.project.payment.generated.api.PaymentsApi.class.isAssignableFrom(PaymentController.class)).isTrue();
+        String initiationType = java.util.Arrays.stream(com.project.payment.generated.api.PaymentsApi.class.getMethods())
+                .filter(method -> method.getName().equals("initiatePayment"))
+                .findFirst().orElseThrow().getGenericReturnType().getTypeName();
+        assertThat(initiationType).contains("ApiResponsePaymentInitiation");
+
+        java.util.Map.of(
+                "getPaymentById", "ApiResponsePayment",
+                "getPaymentByOrderId", "ApiResponsePayment",
+                "getPaymentByReference", "ApiResponsePayment",
+                "listMyPayments", "ApiResponsePaymentList",
+                "processPayment", "ApiResponsePayment",
+                "refundPayment", "ApiResponsePayment")
+                .forEach((name, generatedBody) -> {
+                    var method = java.util.Arrays.stream(com.project.payment.generated.api.PaymentsApi.class.getMethods())
+                            .filter(candidate -> candidate.getName().equals(name))
+                            .findFirst()
+                            .orElseThrow();
+                    String returnType = method.getGenericReturnType().getTypeName();
+                    assertThat(returnType).contains(generatedBody)
+                            .doesNotContain("ApiResponsePaymentInitiation", "clientSecret");
+                });
     }
 
     @Test

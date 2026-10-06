@@ -62,6 +62,7 @@ paths:
       - Notifications
       summary: List the current user's notifications
       operationId: list
+      x-spring-paginated: true
       parameters:
       - name: page
         in: query
@@ -149,7 +150,10 @@ components:
         message:
           type: string
         data:
-          "$ref": "#/components/schemas/NotificationResponse"
+          allOf:
+          - "$ref": "#/components/schemas/NotificationResponse"
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -165,19 +169,33 @@ components:
       properties:
         id:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         userId:
           type: string
           format: uuid
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         recipient:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         channel:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         category:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         subject:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         body:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         status:
           type: string
           enum:
@@ -185,23 +203,36 @@ components:
           - SENT
           - FAILED
           - READ
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         failureReason:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         retryCount:
           type: integer
           format: int32
+          x-jackson-json-include-policy: ALWAYS
         createdAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         updatedAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         sentAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         readAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
     ApiResponsePageResponseNotificationResponse:
       type: object
       properties:
@@ -211,7 +242,10 @@ components:
         message:
           type: string
         data:
-          "$ref": "#/components/schemas/PageResponseNotificationResponse"
+          allOf:
+          - "$ref": "#/components/schemas/PageResponseNotificationResponse"
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -256,6 +290,8 @@ components:
         data:
           type: integer
           format: int64
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:

@@ -18,6 +18,7 @@ paths:
   "/api/v1/coupons":
     get:
       operationId: listCoupons
+      x-spring-paginated: true
       summary: List coupons
       tags:
       - Coupons
@@ -391,6 +392,10 @@ components:
           minLength: 1
           maxLength: 64
           pattern: "^[A-Z0-9_-]+$"
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-size-message: size must be between 0 and 64
+          x-pattern-message: Code must be uppercase alphanumeric, dashes, or underscores
           description: Unique coupon code. Create/update accepts uppercase letters,
             digits, underscores, and hyphens.
         description:
@@ -405,6 +410,7 @@ components:
         discountValue:
           type: number
           minimum: 0.01
+          x-not-null-message: must not be null
           description: For PERCENT coupons, the value cannot exceed 100.
         maxDiscountAmount:
           type: number
@@ -425,20 +431,25 @@ components:
         validFrom:
           type: string
           format: local-date-time
+          x-not-null-message: must not be null
         validUntil:
           type: string
           format: local-date-time
+          x-not-null-message: must not be null
+          x-field-extra-annotation: '@jakarta.validation.constraints.Future'
           description: Must be later than validFrom and in the future.
         usageLimit:
           type: integer
           nullable: true
           format: int32
           minimum: 1
+          x-minimum-message: must be greater than 0
         perUserLimit:
           type: integer
           nullable: true
           format: int32
           minimum: 1
+          x-minimum-message: must be greater than 0
         active:
           type: boolean
           nullable: true
@@ -456,6 +467,10 @@ components:
           minLength: 1
           maxLength: 64
           pattern: "^[A-Za-z0-9_-]+$"
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-size-message: size must be between 0 and 64
+          x-pattern-message: Coupon code contains unsupported characters
         userId:
           type: string
           format: uuid
@@ -481,6 +496,10 @@ components:
           minLength: 1
           maxLength: 64
           pattern: "^[A-Za-z0-9_-]+$"
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-size-message: size must be between 0 and 64
+          x-pattern-message: Coupon code contains unsupported characters
         userId:
           type: string
           format: uuid
@@ -489,6 +508,10 @@ components:
           minLength: 1
           maxLength: 64
           pattern: "^[A-Za-z0-9_-]+$"
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-size-message: size must be between 0 and 64
+          x-pattern-message: Order ID contains unsupported characters
         subtotal:
           type: number
           exclusiveMinimum: true
@@ -498,6 +521,8 @@ components:
           minLength: 3
           maxLength: 3
           pattern: "^[A-Za-z]{3}$"
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
       required:
       - code
       - userId
@@ -512,6 +537,10 @@ components:
           minLength: 1
           maxLength: 64
           pattern: "^[A-Za-z0-9_-]+$"
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-size-message: size must be between 0 and 64
+          x-pattern-message: Coupon code contains unsupported characters
         userId:
           type: string
           format: uuid
@@ -520,6 +549,10 @@ components:
           minLength: 1
           maxLength: 64
           pattern: "^[A-Za-z0-9_-]+$"
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-size-message: size must be between 0 and 64
+          x-pattern-message: Order ID contains unsupported characters
       required:
       - code
       - userId
@@ -532,6 +565,10 @@ components:
           minLength: 1
           maxLength: 64
           pattern: "^[A-Za-z0-9_-]+$"
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-size-message: size must be between 0 and 64
+          x-pattern-message: Coupon code contains unsupported characters
         userId:
           type: string
           format: uuid
@@ -540,6 +577,10 @@ components:
           minLength: 1
           maxLength: 64
           pattern: "^[A-Za-z0-9_-]+$"
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-size-message: size must be between 0 and 64
+          x-pattern-message: Order ID contains unsupported characters
         discountAmount:
           type: number
           exclusiveMinimum: true
@@ -604,6 +645,7 @@ components:
         updatedAt:
           type: string
           format: local-date-time
+          x-jackson-json-include-policy: ALWAYS
       required:
       - id
       - code
@@ -683,20 +725,14 @@ components:
           type: integer
           format: int32
         sort:
-          type: array
-          items:
-            type: object
-            properties:
-              direction:
-                type: string
-              nullHandling:
-                type: string
-              ascending:
-                type: boolean
-              property:
-                type: string
-              ignoreCase:
-                type: boolean
+          type: object
+          properties:
+            empty:
+              type: boolean
+            sorted:
+              type: boolean
+            unsorted:
+              type: boolean
         pageable:
           type: object
           properties:
@@ -704,20 +740,14 @@ components:
               type: integer
               format: int64
             sort:
-              type: array
-              items:
-                type: object
-                properties:
-                  direction:
-                    type: string
-                  nullHandling:
-                    type: string
-                  ascending:
-                    type: boolean
-                  property:
-                    type: string
-                  ignoreCase:
-                    type: boolean
+              type: object
+              properties:
+                empty:
+                  type: boolean
+                sorted:
+                  type: boolean
+                unsorted:
+                  type: boolean
             paged:
               type: boolean
             pageNumber:

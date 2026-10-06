@@ -29,10 +29,11 @@ import static org.mockito.Mockito.mock;
 @SpringJUnitConfig(InventoryServiceAuthTest.Config.class)
 class InventoryServiceAuthTest {
     @Configuration
-    @EnableMethodSecurity
+    @EnableMethodSecurity(proxyTargetClass = true)
     static class Config {
         @Bean InventoryController controller() {
-            return new InventoryController(mock(InventoryService.class), new InventoryValidator());
+            return new InventoryController(mock(InventoryService.class), new InventoryValidator(),
+                    new com.project.inventory.generated.mapper.InventoryApiMapperImpl());
         }
     }
 
@@ -62,7 +63,8 @@ class InventoryServiceAuthTest {
                     Arrays.stream(authorities.split(" ")).filter(s -> !s.isBlank())
                             .map(SimpleGrantedAuthority::new).toList()));
         }
-        var request = new StockReservationRequest(1, "order-1");
+        var request = new com.project.inventory.generated.model.StockReservationRequest()
+                .quantity(1).orderId("order-1");
         org.assertj.core.api.ThrowableAssert.ThrowingCallable call = () -> {
             var response = switch (endpoint) {
                 case "reserve" -> controller.reserveStock("product-1", request);

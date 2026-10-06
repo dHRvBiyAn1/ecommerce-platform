@@ -242,6 +242,8 @@
                     <configuration>
                         <excludes>
                             <exclude>**/generated/**</exclude>
+                            <!-- Supporting configuration emitted by the Spring generator. -->
+                            <exclude>org/openapitools/configuration/**</exclude>
                         </excludes>
                     </configuration>
                     <executions>

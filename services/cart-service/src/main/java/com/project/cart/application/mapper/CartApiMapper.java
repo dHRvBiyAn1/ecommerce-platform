@@ -3,7 +3,7 @@ package com.project.cart.application.mapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", implementationPackage = "com.project.cart.generated.mapper")
 public interface CartApiMapper {
 
     com.project.cart.dto.AddCartItemRequest toDomain(

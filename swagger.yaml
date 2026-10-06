@@ -283,16 +283,13 @@ paths:
       tags:
       - 'auth: Administration'
       operationId: auth_list
+      x-spring-paginated: true
       parameters:
       - name: status
         in: query
         required: false
         schema:
-          type: string
-          enum:
-          - PENDING
-          - APPROVED
-          - REJECTED
+          $ref: '#/components/schemas/auth_SellerApplicationStatus'
       - name: page
         in: query
         required: false
@@ -530,6 +527,7 @@ paths:
       tags:
       - 'auth: Administration'
       operationId: auth_listUsers
+      x-spring-paginated: true
       parameters:
       - name: page
         in: query
@@ -1629,6 +1627,7 @@ paths:
       tags:
       - 'product: Products'
       operationId: product_getProductsByCategory_1
+      x-spring-paginated: true
       parameters:
       - name: id
         in: path
@@ -1676,6 +1675,7 @@ paths:
   /api/v1/coupons:
     get:
       operationId: coupon_listCoupons
+      x-spring-paginated: true
       summary: List coupons
       tags:
       - 'coupon: Coupons'
@@ -2041,6 +2041,7 @@ paths:
   /api/v1/inventory:
     get:
       operationId: inventory_listInventory
+      x-spring-paginated: true
       summary: List inventory
       tags:
       - 'inventory: Inventory'
@@ -2553,6 +2554,7 @@ paths:
       - 'notification: Notifications'
       summary: List the current user's notifications
       operationId: notification_list
+      x-spring-paginated: true
       parameters:
       - name: page
         in: query
@@ -2688,6 +2690,7 @@ paths:
       tags:
       - 'order: Orders'
       operationId: order_get_orders
+      x-spring-paginated: true
       parameters:
       - name: page
         in: query
@@ -2849,20 +2852,13 @@ paths:
       tags:
       - 'order: Orders'
       operationId: order_get_orders_by_status
+      x-spring-paginated: true
       parameters:
       - name: status
         in: path
         required: true
         schema:
-          type: string
-          enum:
-          - PENDING
-          - CONFIRMED
-          - PROCESSING
-          - SHIPPED
-          - DELIVERED
-          - CANCELLED
-          - REFUNDED
+          $ref: '#/components/schemas/order_OrderStatus'
       - name: page
         in: query
         required: false
@@ -3486,6 +3482,7 @@ paths:
       tags:
       - 'product: Products'
       operationId: product_getAllActiveProducts
+      x-spring-paginated: true
       parameters:
       - name: page
         in: query
@@ -3570,16 +3567,13 @@ paths:
       - 'product: Products'
       summary: List products by moderation status
       operationId: product_listByApprovalStatus
+      x-spring-paginated: true
       parameters:
       - name: status
         in: query
         required: true
         schema:
-          type: string
-          enum:
-          - PENDING
-          - APPROVED
-          - REJECTED
+          $ref: '#/components/schemas/product_ProductApprovalStatus'
       - name: page
         in: query
         required: false
@@ -3636,6 +3630,7 @@ paths:
       tags:
       - 'product: Products'
       operationId: product_getProductsByCategory
+      x-spring-paginated: true
       parameters:
       - name: categoryId
         in: path
@@ -3685,6 +3680,7 @@ paths:
       tags:
       - 'product: Products'
       operationId: product_filterByPrice
+      x-spring-paginated: true
       parameters:
       - name: minPrice
         in: query
@@ -3739,6 +3735,7 @@ paths:
       tags:
       - 'product: Products'
       operationId: product_filterByAttribute
+      x-spring-paginated: true
       parameters:
       - name: key
         in: query
@@ -3793,6 +3790,7 @@ paths:
       tags:
       - 'product: Products'
       operationId: product_searchProducts
+      x-spring-paginated: true
       parameters:
       - name: keyword
         in: query
@@ -3843,6 +3841,7 @@ paths:
       - 'product: Products'
       summary: Get the current seller's catalog
       operationId: product_getMyProducts
+      x-spring-paginated: true
       parameters:
       - name: page
         in: query
@@ -3901,6 +3900,7 @@ paths:
       - 'product: Products'
       summary: Get one seller's private catalog
       operationId: product_getProductsBySeller
+      x-spring-paginated: true
       parameters:
       - name: sellerId
         in: path
@@ -4373,31 +4373,53 @@ components:
       properties:
         fullName:
           maxLength: 120
-          minLength: 1
           type: string
+          x-not-null-message: Full name is required
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Full name is required")'
+          x-size-message: Full name must not exceed 120 characters
+          x-jackson-json-include-policy: ALWAYS
         phone:
           pattern: ^\+?[0-9 ()-]{6,20}$
           type: string
+          x-not-null-message: Phone number is required
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Phone number is required")'
+          x-pattern-message: Invalid phone number
+          x-jackson-json-include-policy: ALWAYS
         street:
           maxLength: 200
-          minLength: 1
           type: string
+          x-not-null-message: Street address is required
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Street address is required")'
+          x-size-message: Street address must not exceed 200 characters
+          x-jackson-json-include-policy: ALWAYS
         city:
           maxLength: 80
-          minLength: 1
           type: string
+          x-not-null-message: City is required
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "City is required")'
+          x-size-message: City must not exceed 80 characters
+          x-jackson-json-include-policy: ALWAYS
         state:
           maxLength: 80
-          minLength: 1
           type: string
+          x-not-null-message: State/Province is required
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "State/Province is required")'
+          x-size-message: State must not exceed 80 characters
+          x-jackson-json-include-policy: ALWAYS
         zipCode:
           maxLength: 20
-          minLength: 1
           type: string
+          x-not-null-message: Zip/Postal code is required
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Zip/Postal code is required")'
+          x-size-message: Zip code must not exceed 20 characters
+          x-jackson-json-include-policy: ALWAYS
         country:
           maxLength: 80
-          minLength: 1
           type: string
+          x-not-null-message: Country is required
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Country is required")'
+          x-size-message: Country must not exceed 80 characters
+          x-jackson-json-include-policy: ALWAYS
     auth_ApiResponseListRole:
       type: object
       properties:
@@ -4410,6 +4432,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/auth_Role'
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -4429,7 +4453,10 @@ components:
         message:
           type: string
         data:
-          $ref: '#/components/schemas/auth_PageSellerApplicationResponse'
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/auth_PageSellerApplicationResponse'
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -4449,7 +4476,10 @@ components:
         message:
           type: string
         data:
-          $ref: '#/components/schemas/auth_PageUserProfileDto'
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/auth_PageUserProfileDto'
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -4469,7 +4499,10 @@ components:
         message:
           type: string
         data:
-          $ref: '#/components/schemas/auth_Role'
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/auth_Role'
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -4489,7 +4522,10 @@ components:
         message:
           type: string
         data:
-          $ref: '#/components/schemas/auth_SellerApplicationResponse'
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/auth_SellerApplicationResponse'
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -4509,7 +4545,10 @@ components:
         message:
           type: string
         data:
-          $ref: '#/components/schemas/auth_TokenResponse'
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/auth_TokenResponse'
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -4529,7 +4568,10 @@ components:
         message:
           type: string
         data:
-          $ref: '#/components/schemas/auth_UserProfileDto'
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/auth_UserProfileDto'
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -4568,10 +4610,12 @@ components:
       properties:
         roles:
           type: array
+          x-not-null-message: must not be empty
+          x-not-blank-items: true
           items:
             type: string
-            minLength: 1
           minItems: 1
+          x-size-message: must not be empty
     auth_ChangePasswordRequest:
       required:
       - newPassword
@@ -4580,11 +4624,14 @@ components:
       properties:
         oldPassword:
           type: string
-          minLength: 1
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
         newPassword:
           maxLength: 100
           minLength: 6
           type: string
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
     auth_CreateRoleRequest:
       required:
       - name
@@ -4593,6 +4640,9 @@ components:
         name:
           pattern: ^ROLE_[A-Z_]+$
           type: string
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-pattern-message: Role name must match ROLE_[A-Z_]+
     auth_ErrorResponse:
       type: object
       description: Standard error body returned by the shared exception handler.
@@ -4695,9 +4745,7 @@ components:
           type: integer
           format: int32
         sort:
-          type: array
-          items:
-            $ref: '#/components/schemas/auth_SortObject'
+          $ref: '#/components/schemas/auth_SortObject'
         pageable:
           $ref: '#/components/schemas/auth_PageableObject'
         numberOfElements:
@@ -4729,9 +4777,7 @@ components:
           type: integer
           format: int32
         sort:
-          type: array
-          items:
-            $ref: '#/components/schemas/auth_SortObject'
+          $ref: '#/components/schemas/auth_SortObject'
         pageable:
           $ref: '#/components/schemas/auth_PageableObject'
         numberOfElements:
@@ -4750,9 +4796,7 @@ components:
           type: integer
           format: int64
         sort:
-          type: array
-          items:
-            $ref: '#/components/schemas/auth_SortObject'
+          $ref: '#/components/schemas/auth_SortObject'
         paged:
           type: boolean
         pageNumber:
@@ -4795,18 +4839,24 @@ components:
       properties:
         email:
           maxLength: 254
-          minLength: 1
           type: string
           format: email
+          x-not-null-message: Email is required
+          x-email-message: Email must be valid
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Email is required")'
         password:
           maxLength: 128
           minLength: 10
           type: string
-          pattern: ^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).+$
+          x-not-null-message: Password is required
+          x-size-message: Password must be 10-128 characters
+          x-field-extra-annotation: "@jakarta.validation.constraints.NotBlank(message = \"Password is required\")\n@jakarta.validation.constraints.Pattern.List({\n    @jakarta.validation.constraints.Pattern(regexp = \".*[A-Z].*\", message = \"Password must contain an uppercase letter\"),\n    @jakarta.validation.constraints.Pattern(regexp = \".*[a-z].*\", message = \"Password must contain a lowercase letter\"),\n    @jakarta.validation.constraints.Pattern(regexp = \".*\\\\d.*\", message = \"Password must contain a digit\")\n})\n"
         displayName:
           maxLength: 80
           minLength: 2
           type: string
+          x-not-null-message: Display name is required
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Display name is required")'
     auth_RejectApplicationRequest:
       required:
       - reason
@@ -4814,8 +4864,9 @@ components:
       properties:
         reason:
           maxLength: 4000
-          minLength: 1
           type: string
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
     auth_Role:
       type: object
       properties:
@@ -4838,14 +4889,18 @@ components:
       properties:
         businessName:
           maxLength: 180
-          minLength: 1
           type: string
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
         gstin:
           pattern: ^[0-9A-Z]{15}$|^$
           type: string
         contactPhone:
           pattern: ^\+?[0-9 ()-]{6,20}$
           type: string
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-pattern-message: Invalid phone number
         pickupAddress:
           $ref: '#/components/schemas/auth_AddressDto'
         bankAccountLast4:
@@ -4861,42 +4916,65 @@ components:
         id:
           type: string
           format: uuid
+          x-jackson-json-include-policy: ALWAYS
         userId:
           type: string
           format: uuid
+          x-jackson-json-include-policy: ALWAYS
         userEmail:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         userDisplayName:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         status:
           type: string
           enum:
           - PENDING
           - APPROVED
           - REJECTED
+          x-jackson-json-include-policy: ALWAYS
         businessName:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         gstin:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         contactPhone:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         pickupAddress:
-          $ref: '#/components/schemas/auth_AddressDto'
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/auth_AddressDto'
+          x-jackson-json-include-policy: ALWAYS
         bankAccountLast4:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         notes:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         rejectionReason:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         submittedAt:
           type: string
           format: local-date-time
+          x-jackson-json-include-policy: ALWAYS
         reviewedAt:
           type: string
           format: local-date-time
+          x-jackson-json-include-policy: ALWAYS
         reviewedBy:
           type: string
           format: uuid
+          x-jackson-json-include-policy: ALWAYS
+    auth_SellerApplicationStatus:
+      type: string
+      enum:
+      - PENDING
+      - APPROVED
+      - REJECTED
     auth_ServiceTokenResponse:
       type: object
       required:
@@ -4922,15 +5000,11 @@ components:
     auth_SortObject:
       type: object
       properties:
-        direction:
-          type: string
-        nullHandling:
-          type: string
-        ascending:
+        empty:
           type: boolean
-        property:
-          type: string
-        ignoreCase:
+        sorted:
+          type: boolean
+        unsorted:
           type: boolean
     auth_TokenResponse:
       type: object
@@ -4952,45 +5026,63 @@ components:
       properties:
         permissions:
           type: array
+          x-not-null-message: must not be empty
+          x-not-blank-items: true
           items:
             type: string
-            minLength: 1
           minItems: 1
+          x-size-message: must not be empty
     auth_UserProfileDto:
       type: object
       properties:
         id:
           type: string
           format: uuid
+          x-jackson-json-include-policy: ALWAYS
         email:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         displayName:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         imageUrl:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         phone:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         active:
           type: boolean
+          x-jackson-json-include-policy: ALWAYS
         createdAt:
           type: string
           format: local-date-time
+          x-jackson-json-include-policy: ALWAYS
         roles:
           uniqueItems: true
           type: array
           items:
             type: string
+          x-jackson-json-include-policy: ALWAYS
         permissions:
           uniqueItems: true
           type: array
           items:
             type: string
+          x-jackson-json-include-policy: ALWAYS
         shippingAddress:
-          $ref: '#/components/schemas/auth_AddressDto'
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/auth_AddressDto'
+          x-jackson-json-include-policy: ALWAYS
         billingAddress:
-          $ref: '#/components/schemas/auth_AddressDto'
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/auth_AddressDto'
+          x-jackson-json-include-policy: ALWAYS
         hasPassword:
           type: boolean
+          x-jackson-json-include-policy: ALWAYS
     auth_UserUpdateRequest:
       type: object
       properties:
@@ -5003,6 +5095,7 @@ components:
         phone:
           pattern: ^\+?[0-9 ()-]{6,20}$
           type: string
+          x-pattern-message: Invalid phone number
         shippingAddress:
           $ref: '#/components/schemas/auth_AddressDto'
         billingAddress:
@@ -5013,10 +5106,9 @@ components:
         productId:
           type: string
           minLength: 1
-          pattern: .*\S.*
           x-not-null-message: must not be blank
-          x-pattern-message: must not be blank
           x-size-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
           description: Product identifier.
         quantity:
           type: integer
@@ -5033,10 +5125,9 @@ components:
         code:
           type: string
           minLength: 1
-          pattern: .*\S.*
           x-not-null-message: must not be blank
-          x-pattern-message: must not be blank
           x-size-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
           description: Coupon code.
       required:
       - code
@@ -5151,6 +5242,10 @@ components:
           minLength: 1
           maxLength: 64
           pattern: ^[A-Z0-9_-]+$
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-size-message: size must be between 0 and 64
+          x-pattern-message: Code must be uppercase alphanumeric, dashes, or underscores
           description: Unique coupon code. Create/update accepts uppercase letters, digits, underscores, and hyphens.
         description:
           type: string
@@ -5164,6 +5259,7 @@ components:
         discountValue:
           type: number
           minimum: 0.01
+          x-not-null-message: must not be null
           description: For PERCENT coupons, the value cannot exceed 100.
         maxDiscountAmount:
           type: number
@@ -5184,20 +5280,25 @@ components:
         validFrom:
           type: string
           format: local-date-time
+          x-not-null-message: must not be null
         validUntil:
           type: string
           format: local-date-time
+          x-not-null-message: must not be null
+          x-field-extra-annotation: '@jakarta.validation.constraints.Future'
           description: Must be later than validFrom and in the future.
         usageLimit:
           type: integer
           nullable: true
           format: int32
           minimum: 1
+          x-minimum-message: must be greater than 0
         perUserLimit:
           type: integer
           nullable: true
           format: int32
           minimum: 1
+          x-minimum-message: must be greater than 0
         active:
           type: boolean
           nullable: true
@@ -5215,6 +5316,10 @@ components:
           minLength: 1
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-size-message: size must be between 0 and 64
+          x-pattern-message: Coupon code contains unsupported characters
         userId:
           type: string
           format: uuid
@@ -5223,6 +5328,10 @@ components:
           minLength: 1
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-size-message: size must be between 0 and 64
+          x-pattern-message: Order ID contains unsupported characters
         subtotal:
           type: number
           exclusiveMinimum: true
@@ -5232,6 +5341,8 @@ components:
           minLength: 3
           maxLength: 3
           pattern: ^[A-Za-z]{3}$
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
       required:
       - code
       - userId
@@ -5321,6 +5432,7 @@ components:
         updatedAt:
           type: string
           format: local-date-time
+          x-jackson-json-include-policy: ALWAYS
       required:
       - id
       - code
@@ -5341,6 +5453,10 @@ components:
           minLength: 1
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-size-message: size must be between 0 and 64
+          x-pattern-message: Coupon code contains unsupported characters
         userId:
           type: string
           format: uuid
@@ -5349,6 +5465,10 @@ components:
           minLength: 1
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-size-message: size must be between 0 and 64
+          x-pattern-message: Order ID contains unsupported characters
       required:
       - code
       - userId
@@ -5399,20 +5519,14 @@ components:
           type: integer
           format: int32
         sort:
-          type: array
-          items:
-            type: object
-            properties:
-              direction:
-                type: string
-              nullHandling:
-                type: string
-              ascending:
-                type: boolean
-              property:
-                type: string
-              ignoreCase:
-                type: boolean
+          type: object
+          properties:
+            empty:
+              type: boolean
+            sorted:
+              type: boolean
+            unsorted:
+              type: boolean
         pageable:
           type: object
           properties:
@@ -5420,20 +5534,14 @@ components:
               type: integer
               format: int64
             sort:
-              type: array
-              items:
-                type: object
-                properties:
-                  direction:
-                    type: string
-                  nullHandling:
-                    type: string
-                  ascending:
-                    type: boolean
-                  property:
-                    type: string
-                  ignoreCase:
-                    type: boolean
+              type: object
+              properties:
+                empty:
+                  type: boolean
+                sorted:
+                  type: boolean
+                unsorted:
+                  type: boolean
             paged:
               type: boolean
             pageNumber:
@@ -5461,6 +5569,10 @@ components:
           minLength: 1
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-size-message: size must be between 0 and 64
+          x-pattern-message: Coupon code contains unsupported characters
         userId:
           type: string
           format: uuid
@@ -5469,6 +5581,10 @@ components:
           minLength: 1
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-size-message: size must be between 0 and 64
+          x-pattern-message: Order ID contains unsupported characters
         discountAmount:
           type: number
           exclusiveMinimum: true
@@ -5486,6 +5602,10 @@ components:
           minLength: 1
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-size-message: size must be between 0 and 64
+          x-pattern-message: Coupon code contains unsupported characters
         userId:
           type: string
           format: uuid
@@ -5559,27 +5679,38 @@ components:
           minLength: 1
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
+          x-not-null-message: Product ID is required
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Product ID is required")'
+          x-size-message: Product ID must not exceed 64 characters
+          x-pattern-message: Product ID contains unsupported characters
           description: Product identifier.
         sku:
           type: string
           minLength: 1
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
+          x-not-null-message: SKU is required
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "SKU is required")'
+          x-size-message: SKU must not exceed 64 characters
+          x-pattern-message: SKU contains unsupported characters
           description: Stock keeping unit.
         quantity:
           type: integer
           format: int32
           minimum: 0
+          x-minimum-message: Quantity must be zero or positive
           description: On-hand quantity.
         lowStockThreshold:
           type: integer
           format: int32
           minimum: 0
+          x-minimum-message: Low stock threshold must be zero or positive
           description: Threshold used by the low-stock listing.
         location:
           type: string
           nullable: true
           maxLength: 128
+          x-size-message: Location must not exceed 128 characters
       required:
       - productId
       - sku
@@ -5651,20 +5782,14 @@ components:
           type: integer
           format: int32
         sort:
-          type: array
-          items:
-            type: object
-            properties:
-              direction:
-                type: string
-              nullHandling:
-                type: string
-              ascending:
-                type: boolean
-              property:
-                type: string
-              ignoreCase:
-                type: boolean
+          type: object
+          properties:
+            empty:
+              type: boolean
+            sorted:
+              type: boolean
+            unsorted:
+              type: boolean
         pageable:
           type: object
           properties:
@@ -5672,20 +5797,14 @@ components:
               type: integer
               format: int64
             sort:
-              type: array
-              items:
-                type: object
-                properties:
-                  direction:
-                    type: string
-                  nullHandling:
-                    type: string
-                  ascending:
-                    type: boolean
-                  property:
-                    type: string
-                  ignoreCase:
-                    type: boolean
+              type: object
+              properties:
+                empty:
+                  type: boolean
+                sorted:
+                  type: boolean
+                unsorted:
+                  type: boolean
             paged:
               type: boolean
             pageNumber:
@@ -5712,12 +5831,18 @@ components:
           type: integer
           format: int32
           minimum: 1
+          x-not-null-message: Quantity must be positive
+          x-minimum-message: Quantity must be positive
           description: Number of units to reserve, commit, or release.
         orderId:
           type: string
           minLength: 1
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
+          x-not-null-message: Order ID is required
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Order ID is required")'
+          x-size-message: Order ID must not exceed 64 characters
+          x-pattern-message: Order ID contains unsupported characters
           description: Order owning the reservation.
       required:
       - quantity
@@ -5733,6 +5858,8 @@ components:
         data:
           type: integer
           format: int64
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -5752,7 +5879,10 @@ components:
         message:
           type: string
         data:
-          $ref: '#/components/schemas/notification_NotificationResponse'
+          allOf:
+          - $ref: '#/components/schemas/notification_NotificationResponse'
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -5772,7 +5902,10 @@ components:
         message:
           type: string
         data:
-          $ref: '#/components/schemas/notification_PageResponseNotificationResponse'
+          allOf:
+          - $ref: '#/components/schemas/notification_PageResponseNotificationResponse'
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -5819,19 +5952,33 @@ components:
       properties:
         id:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         userId:
           type: string
           format: uuid
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         recipient:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         channel:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         category:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         subject:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         body:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         status:
           type: string
           enum:
@@ -5839,23 +5986,36 @@ components:
           - SENT
           - FAILED
           - READ
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         failureReason:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         retryCount:
           type: integer
           format: int32
+          x-jackson-json-include-policy: ALWAYS
         createdAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         updatedAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         sentAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         readAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
     notification_PageResponseNotificationResponse:
       type: object
       properties:
@@ -5902,7 +6062,10 @@ components:
         message:
           type: string
         data:
-          $ref: '#/components/schemas/order_OrderResponse'
+          allOf:
+          - $ref: '#/components/schemas/order_OrderResponse'
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -5928,6 +6091,7 @@ components:
           type: string
         data:
           type: object
+          nullable: true
           properties:
             content:
               type: array
@@ -5958,6 +6122,7 @@ components:
               type: boolean
             empty:
               type: boolean
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -5975,35 +6140,61 @@ components:
       properties:
         fullName:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Full name is required")'
+          x-not-null-message: Full name is required
         phone:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Phone is required")'
+          x-not-null-message: Phone is required
         street:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Street is required")'
+          x-not-null-message: Street is required
         city:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "City is required")'
+          x-not-null-message: City is required
         state:
           type: string
         zipCode:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Zip code is required")'
+          x-not-null-message: Zip code is required
         country:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Country is required")'
+          x-not-null-message: Country is required
     order_BillingAddressResponse:
       type: object
       properties:
         fullName:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         phone:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         street:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         city:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         state:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         zipCode:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         country:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
     order_ErrorResponse:
       type: object
       required:
@@ -6043,33 +6234,49 @@ components:
       properties:
         productId:
           type: string
-          minLength: 1
-          pattern: .*\S.*
-          description: Must contain at least one non-whitespace character.
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Product ID is required")'
+          x-not-null-message: Product ID is required
         quantity:
           minimum: 1
           type: integer
           format: int32
+          x-not-null-message: Quantity must be at least 1
+          x-minimum-message: Quantity must be at least 1
     order_OrderItemResponse:
       type: object
       properties:
         productId:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         sku:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         productName:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         imageUrl:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         quantity:
           type: integer
           format: int32
+          x-jackson-json-include-policy: ALWAYS
         unitPrice:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         discountAmount:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         totalPrice:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
     order_OrderRequest:
       required:
       - items
@@ -6081,6 +6288,8 @@ components:
           items:
             $ref: '#/components/schemas/order_OrderItemRequest'
           minItems: 1
+          x-not-null-message: Order must contain at least one item
+          x-size-message: Order must contain at least one item
         couponCode:
           type: string
         shippingAddress:
@@ -6091,23 +6300,31 @@ components:
           type: string
         paymentMethod:
           type: string
-          minLength: 1
-          pattern: .*\S.*
-          description: Must contain at least one non-whitespace character.
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Payment method is required")'
+          x-not-null-message: Payment method is required
     order_OrderResponse:
       type: object
       properties:
         id:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         orderNumber:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         userId:
           type: string
           format: uuid
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         userEmail:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         status:
           type: string
+          nullable: true
           enum:
           - PENDING
           - CONFIRMED
@@ -6116,60 +6333,113 @@ components:
           - DELIVERED
           - CANCELLED
           - REFUNDED
+          x-jackson-json-include-policy: ALWAYS
         items:
           type: array
+          nullable: true
           items:
             $ref: '#/components/schemas/order_OrderItemResponse'
+          x-jackson-json-include-policy: ALWAYS
         subtotal:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         taxAmount:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         shippingCost:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         discountAmount:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         totalAmount:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         currency:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         shippingAddress:
-          $ref: '#/components/schemas/order_ShippingAddressResponse'
+          allOf:
+          - $ref: '#/components/schemas/order_ShippingAddressResponse'
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         billingAddress:
-          $ref: '#/components/schemas/order_BillingAddressResponse'
+          allOf:
+          - $ref: '#/components/schemas/order_BillingAddressResponse'
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         paymentId:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         paymentMethod:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         paymentStatus:
           type: string
+          nullable: true
           enum:
           - PENDING
           - COMPLETED
           - FAILED
           - REFUNDED
           - PARTIALLY_REFUNDED
+          x-jackson-json-include-policy: ALWAYS
         couponCode:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         notes:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         createdAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         updatedAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         paidAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         shippedAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         deliveredAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         cancelledAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
+    order_OrderStatus:
+      type: string
+      enum:
+      - PENDING
+      - CONFIRMED
+      - PROCESSING
+      - SHIPPED
+      - DELIVERED
+      - CANCELLED
+      - REFUNDED
     order_OrderStatusUpdateRequest:
       required:
       - status
@@ -6177,6 +6447,7 @@ components:
       properties:
         status:
           type: string
+          x-not-null-message: Status is required
           enum:
           - PENDING
           - CONFIRMED
@@ -6199,35 +6470,61 @@ components:
       properties:
         fullName:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Full name is required")'
+          x-not-null-message: Full name is required
         phone:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Phone is required")'
+          x-not-null-message: Phone is required
         street:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Street is required")'
+          x-not-null-message: Street is required
         city:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "City is required")'
+          x-not-null-message: City is required
         state:
           type: string
         zipCode:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Zip code is required")'
+          x-not-null-message: Zip code is required
         country:
           type: string
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Country is required")'
+          x-not-null-message: Country is required
     order_ShippingAddressResponse:
       type: object
       properties:
         fullName:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         phone:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         street:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         city:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         state:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         zipCode:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         country:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
     payment_ApiResponsePayment:
       type: object
       required:
@@ -6242,7 +6539,10 @@ components:
         message:
           type: string
         data:
-          $ref: '#/components/schemas/payment_PaymentResponse'
+          allOf:
+          - $ref: '#/components/schemas/payment_PaymentResponse'
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -6262,7 +6562,10 @@ components:
         message:
           type: string
         data:
-          $ref: '#/components/schemas/payment_PaymentInitiationResponse'
+          allOf:
+          - $ref: '#/components/schemas/payment_PaymentInitiationResponse'
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -6283,8 +6586,10 @@ components:
           type: string
         data:
           type: array
+          nullable: true
           items:
             $ref: '#/components/schemas/payment_PaymentResponse'
+          x-jackson-json-include-policy: ALWAYS
         traceId:
           type: string
         timestamp:
@@ -6327,9 +6632,14 @@ components:
       - payment
       properties:
         payment:
-          $ref: '#/components/schemas/payment_PaymentResponse'
+          allOf:
+          - $ref: '#/components/schemas/payment_PaymentResponse'
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         clientSecret:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
           description: One-time response value for immediate Stripe.js confirmation. Present only on the first successful initiation; never persisted in PaymentResponse.
     payment_PaymentRequest:
       type: object
@@ -6340,68 +6650,116 @@ components:
         orderId:
           type: string
           maxLength: 100
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Order ID is required")'
+          x-not-null-message: Order ID is required
+          x-size-message: Order ID must not exceed 100 characters
         orderNumber:
           type: string
           maxLength: 100
+          x-size-message: Order number must not exceed 100 characters
         paymentMethod:
           type: string
           maxLength: 50
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Payment method is required")'
+          x-not-null-message: Payment method is required
+          x-size-message: Payment method must not exceed 50 characters
         amount:
           type: number
           minimum: 0
           exclusiveMinimum: true
+          x-minimum-message: Amount must be positive
         currency:
           type: string
           pattern: ^[A-Z]{3}$
+          x-pattern-message: Currency must be a three-letter uppercase code
         description:
           type: string
           maxLength: 500
+          x-size-message: Description must not exceed 500 characters
     payment_PaymentResponse:
       type: object
       properties:
         id:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         paymentReference:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         orderId:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         orderNumber:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         userId:
           type: string
           format: uuid
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         userEmail:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         status:
-          $ref: '#/components/schemas/payment_PaymentStatus'
+          allOf:
+          - $ref: '#/components/schemas/payment_PaymentStatus'
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         paymentMethod:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         amount:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         refundedAmount:
           type: number
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         currency:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         transactionId:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         gatewayResponse:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         failureReason:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         retryCount:
           type: integer
           format: int32
+          x-jackson-json-include-policy: ALWAYS
         description:
           type: string
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         createdAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         updatedAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
         completedAt:
           type: string
           format: local-date-time
+          nullable: true
+          x-jackson-json-include-policy: ALWAYS
     payment_PaymentStatus:
       type: string
       enum:
@@ -6422,8 +6780,8 @@ components:
           type: string
           minLength: 1
           maxLength: 100
-          pattern: .*\S.*
-          description: Must contain at least one non-whitespace character.
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Payment reference is required")'
+          x-not-null-message: Payment reference is required
         transactionId:
           type: string
           maxLength: 200
@@ -6431,8 +6789,8 @@ components:
           type: string
           minLength: 1
           maxLength: 30
-          pattern: .*\S.*
-          description: Must contain at least one non-whitespace character.
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Status is required")'
+          x-not-null-message: Status is required
         failureReason:
           type: string
           maxLength: 500
@@ -6443,12 +6801,15 @@ components:
       properties:
         reason:
           type: string
-          minLength: 1
           maxLength: 500
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Refund reason is required")'
+          x-not-null-message: Refund reason is required
+          x-size-message: Refund reason must not exceed 500 characters
         amount:
           type: number
           minimum: 0
           exclusiveMinimum: true
+          x-minimum-message: Refund amount must be positive
     product_CategoryRequest:
       required:
       - name
@@ -6456,7 +6817,8 @@ components:
       properties:
         name:
           type: string
-          minLength: 1
+          x-not-null-message: Category name is required
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Category name is required")'
         description:
           type: string
         parentCategoryId:
@@ -6468,22 +6830,30 @@ components:
       properties:
         id:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         name:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         description:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         parentCategoryId:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         imageUrl:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         active:
           type: boolean
+          x-jackson-json-include-policy: ALWAYS
         createdAt:
           type: string
           format: local-date-time
+          x-jackson-json-include-policy: ALWAYS
         updatedAt:
           type: string
           format: local-date-time
+          x-jackson-json-include-policy: ALWAYS
     product_ErrorResponse:
       type: object
       description: Standard error body returned by shared exception handler.
@@ -6528,9 +6898,7 @@ components:
           type: integer
           format: int32
         sort:
-          type: array
-          items:
-            $ref: '#/components/schemas/product_SortObject'
+          $ref: '#/components/schemas/product_SortObject'
         pageable:
           $ref: '#/components/schemas/product_PageableObject'
         numberOfElements:
@@ -6549,9 +6917,7 @@ components:
           type: integer
           format: int64
         sort:
-          type: array
-          items:
-            $ref: '#/components/schemas/product_SortObject'
+          $ref: '#/components/schemas/product_SortObject'
         paged:
           type: boolean
         pageNumber:
@@ -6579,15 +6945,18 @@ components:
       properties:
         sku:
           type: string
-          minLength: 1
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
         name:
           type: string
-          minLength: 1
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
         description:
           type: string
         categoryId:
           type: string
-          minLength: 1
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
         price:
           type: number
           minimum: 0
@@ -6612,55 +6981,69 @@ components:
       properties:
         id:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         sku:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         name:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         description:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         categoryId:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         categoryName:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         price:
           type: number
+          x-jackson-json-include-policy: ALWAYS
         stockQuantity:
           type: integer
           format: int32
+          x-jackson-json-include-policy: ALWAYS
         imageUrls:
           type: array
           items:
             type: string
+          x-jackson-json-include-policy: ALWAYS
         sellerId:
           type: string
           format: uuid
+          x-jackson-json-include-policy: ALWAYS
         active:
           type: boolean
+          x-jackson-json-include-policy: ALWAYS
         approvalStatus:
-          $ref: '#/components/schemas/product_ProductApprovalStatus'
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/product_ProductApprovalStatus'
+          x-jackson-json-include-policy: ALWAYS
         rejectionReason:
           type: string
+          x-jackson-json-include-policy: ALWAYS
         attributes:
           type: object
           additionalProperties: {}
+          x-jackson-json-include-policy: ALWAYS
         createdAt:
           type: string
           format: local-date-time
+          x-jackson-json-include-policy: ALWAYS
         updatedAt:
           type: string
           format: local-date-time
+          x-jackson-json-include-policy: ALWAYS
     product_SortObject:
       type: object
       properties:
-        direction:
-          type: string
-        nullHandling:
-          type: string
-        ascending:
+        empty:
           type: boolean
-        property:
-          type: string
-        ignoreCase:
+        sorted:
+          type: boolean
+        unsorted:
           type: boolean
     product_StockUpdateRequest:
       required:

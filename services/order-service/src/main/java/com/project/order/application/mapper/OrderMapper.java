@@ -16,4 +16,5 @@ public interface OrderMapper {
     OrderResponse.ShippingAddressResponse toResponse(ShippingAddress address);
 
     OrderResponse.BillingAddressResponse toResponse(BillingAddress address);
+
 }

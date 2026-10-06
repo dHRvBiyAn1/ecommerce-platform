@@ -18,6 +18,7 @@ paths:
   "/api/v1/inventory":
     get:
       operationId: listInventory
+      x-spring-paginated: true
       summary: List inventory
       tags:
       - Inventory
@@ -520,27 +521,38 @@ components:
           minLength: 1
           maxLength: 64
           pattern: "^[A-Za-z0-9_-]+$"
+          x-not-null-message: Product ID is required
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Product ID is required")'
+          x-size-message: Product ID must not exceed 64 characters
+          x-pattern-message: Product ID contains unsupported characters
           description: Product identifier.
         sku:
           type: string
           minLength: 1
           maxLength: 64
           pattern: "^[A-Za-z0-9_-]+$"
+          x-not-null-message: SKU is required
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "SKU is required")'
+          x-size-message: SKU must not exceed 64 characters
+          x-pattern-message: SKU contains unsupported characters
           description: Stock keeping unit.
         quantity:
           type: integer
           format: int32
           minimum: 0
+          x-minimum-message: Quantity must be zero or positive
           description: On-hand quantity.
         lowStockThreshold:
           type: integer
           format: int32
           minimum: 0
+          x-minimum-message: Low stock threshold must be zero or positive
           description: Threshold used by the low-stock listing.
         location:
           type: string
           nullable: true
           maxLength: 128
+          x-size-message: Location must not exceed 128 characters
       required:
       - productId
       - sku
@@ -551,12 +563,18 @@ components:
           type: integer
           format: int32
           minimum: 1
+          x-not-null-message: Quantity must be positive
+          x-minimum-message: Quantity must be positive
           description: Number of units to reserve, commit, or release.
         orderId:
           type: string
           minLength: 1
           maxLength: 64
           pattern: "^[A-Za-z0-9_-]+$"
+          x-not-null-message: Order ID is required
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Order ID is required")'
+          x-size-message: Order ID must not exceed 64 characters
+          x-pattern-message: Order ID contains unsupported characters
           description: Order owning the reservation.
       required:
       - quantity
@@ -625,20 +643,14 @@ components:
           type: integer
           format: int32
         sort:
-          type: array
-          items:
-            type: object
-            properties:
-              direction:
-                type: string
-              nullHandling:
-                type: string
-              ascending:
-                type: boolean
-              property:
-                type: string
-              ignoreCase:
-                type: boolean
+          type: object
+          properties:
+            empty:
+              type: boolean
+            sorted:
+              type: boolean
+            unsorted:
+              type: boolean
         pageable:
           type: object
           properties:
@@ -646,20 +658,14 @@ components:
               type: integer
               format: int64
             sort:
-              type: array
-              items:
-                type: object
-                properties:
-                  direction:
-                    type: string
-                  nullHandling:
-                    type: string
-                  ascending:
-                    type: boolean
-                  property:
-                    type: string
-                  ignoreCase:
-                    type: boolean
+              type: object
+              properties:
+                empty:
+                  type: boolean
+                sorted:
+                  type: boolean
+                unsorted:
+                  type: boolean
             paged:
               type: boolean
             pageNumber:

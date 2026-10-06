@@ -45,7 +45,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 @AutoConfigureMockMvc
 @Import({SecurityConfig.class, ResourceServerSecurityConfig.class, GlobalExceptionHandler.class,
-        CouponRequestValidator.class})
+        CouponRequestValidator.class, com.project.coupon.generated.mapper.CouponApiMapperImpl.class})
 class CouponControllerSecurityTest {
 
     private static final UUID CUSTOMER_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");

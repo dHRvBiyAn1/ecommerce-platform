@@ -1,6 +1,6 @@
 package com.project.cart.controller;
 
-import com.project.cart.application.mapper.CartApiMapperImpl;
+import com.project.cart.generated.mapper.CartApiMapperImpl;
 import com.project.cart.config.SecurityConfig;
 import com.project.cart.dto.CartResponse;
 import com.project.cart.service.CartService;
@@ -174,6 +174,28 @@ class CartGeneratedClientHttpTest {
                 () -> api.applyCartCoupon(new ApplyCouponRequest().code(" ")),
                 ApiException.class);
         assertThat(invalidCoupon.getCode()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+        assertThat(invalidCoupon.getResponseBody()).contains("\"code\":\"must not be blank\"");
+    }
+
+    @Test
+    void notBlankValidationPreservesMultilineValuesAndRejectsTrimmedControlCharacters() throws Exception {
+        CartResponse empty = new CartResponse(null, USER_ID, List.of(), null,
+                null, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0, null);
+        when(cartService.addItem(eq(USER_ID), any())).thenReturn(empty);
+        when(cartService.applyCoupon(eq(USER_ID), any())).thenReturn(empty);
+
+        api.addCartItem(new AddCartItemRequest().productId("sku\nid").quantity(1));
+        api.applyCartCoupon(new ApplyCouponRequest().code("SAVE\n10"));
+        verify(cartService).addItem(USER_ID, new com.project.cart.dto.AddCartItemRequest("sku\nid", 1));
+        verify(cartService).applyCoupon(USER_ID, new com.project.cart.dto.ApplyCouponRequest("SAVE\n10"));
+
+        ApiException invalidItem = catchThrowableOfType(
+                () -> api.addCartItem(new AddCartItemRequest().productId("\0").quantity(1)), ApiException.class);
+        assertThat(invalidItem.getCode()).isEqualTo(400);
+        assertThat(invalidItem.getResponseBody()).contains("\"productId\":\"must not be blank\"");
+        ApiException invalidCoupon = catchThrowableOfType(
+                () -> api.applyCartCoupon(new ApplyCouponRequest().code("\0")), ApiException.class);
+        assertThat(invalidCoupon.getCode()).isEqualTo(400);
         assertThat(invalidCoupon.getResponseBody()).contains("\"code\":\"must not be blank\"");
     }
 

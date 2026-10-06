@@ -43,7 +43,8 @@ class CouponControllerTest {
 
     @Test
     void reservePassesThroughValidationBeforeCallingService() {
-        CouponController controller = new CouponController(couponService, validator);
+        CouponController controller = new CouponController(couponService, validator,
+                new com.project.coupon.generated.mapper.CouponApiMapperImpl());
         UUID userId = UUID.randomUUID();
         Jwt jwt = Jwt.withTokenValue("token")
                 .header("alg", "none")
@@ -52,25 +53,29 @@ class CouponControllerTest {
                 .build();
         SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(
                 jwt, List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"))));
-        CouponReservationRequest request = new CouponReservationRequest(
+        var request = new com.project.coupon.generated.model.CouponReservationRequest()
+                .code("SAVE10").userId(userId).orderId("order-1").subtotal(new BigDecimal("500.00")).currency("INR");
+        CouponReservationRequest domainRequest = new CouponReservationRequest(
                 "SAVE10", userId, "order-1", new BigDecimal("500.00"), "INR");
         CouponReservationResponse response = new CouponReservationResponse(
                 UUID.randomUUID(), "SAVE10", userId, "order-1", new BigDecimal("50.00"),
                 RedemptionStatus.RESERVED);
-        when(couponService.reserve(request)).thenReturn(response);
+        when(couponService.reserve(domainRequest)).thenReturn(response);
 
-        var entity = controller.reserve(request);
+        var entity = controller.reserveCoupon(request);
 
-        assertThat(entity.getBody()).isEqualTo(response);
+        assertThat(entity.getBody().getStatus().getValue()).isEqualTo("RESERVED");
+        assertThat(entity.getBody().getDiscountAmount()).isEqualByComparingTo("50.00");
         InOrder calls = inOrder(validator, couponService);
-        calls.verify(validator).validateReservation(request);
+        calls.verify(validator).validateReservation(domainRequest);
         calls.verify(validator).validateActor(userId, userId, false);
-        calls.verify(couponService).reserve(request);
+        calls.verify(couponService).reserve(domainRequest);
     }
 
     @Test
     void serviceClientWithCouponWriteScopeDoesNotRequireUuidUserSubject() {
-        CouponController controller = new CouponController(couponService, validator);
+        CouponController controller = new CouponController(couponService, validator,
+                new com.project.coupon.generated.mapper.CouponApiMapperImpl());
         UUID userId = UUID.randomUUID();
         Jwt jwt = Jwt.withTokenValue("token")
                 .header("alg", "none")
@@ -80,33 +85,37 @@ class CouponControllerTest {
                 .build();
         SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(
                 jwt, List.of(new SimpleGrantedAuthority("SCOPE_coupons.write"))));
-        CouponReservationRequest request = new CouponReservationRequest(
+        var request = new com.project.coupon.generated.model.CouponReservationRequest()
+                .code("SAVE10").userId(userId).orderId("order-1").subtotal(new BigDecimal("500.00")).currency("INR");
+        CouponReservationRequest domainRequest = new CouponReservationRequest(
                 "SAVE10", userId, "order-1", new BigDecimal("500.00"), "INR");
         CouponReservationResponse response = new CouponReservationResponse(
                 UUID.randomUUID(), "SAVE10", userId, "order-1", new BigDecimal("50.00"),
                 RedemptionStatus.RESERVED);
-        when(couponService.reserve(request)).thenReturn(response);
+        when(couponService.reserve(domainRequest)).thenReturn(response);
 
-        var entity = controller.reserve(request);
+        var entity = controller.reserveCoupon(request);
 
-        assertThat(entity.getBody()).isEqualTo(response);
+        assertThat(entity.getBody().getStatus().getValue()).isEqualTo("RESERVED");
         verify(validator, never()).validateActor(userId, userId, false);
-        verify(couponService).reserve(request);
+        verify(couponService).reserve(domainRequest);
     }
 
     @Test
     void serviceClientWithoutCouponScopeCannotActForCustomer() {
-        CouponController controller = new CouponController(couponService, validator);
+        CouponController controller = new CouponController(couponService, validator,
+                new com.project.coupon.generated.mapper.CouponApiMapperImpl());
         Jwt jwt = Jwt.withTokenValue("token")
                 .header("alg", "none")
                 .subject("untrusted-service")
                 .claim("token_type", "service")
                 .build();
         SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt));
-        CouponReservationRequest request = new CouponReservationRequest(
-                "SAVE10", UUID.randomUUID(), "order-1", new BigDecimal("500.00"), "INR");
+        var request = new com.project.coupon.generated.model.CouponReservationRequest()
+                .code("SAVE10").userId(UUID.randomUUID()).orderId("order-1")
+                .subtotal(new BigDecimal("500.00")).currency("INR");
 
-        assertThatThrownBy(() -> controller.reserve(request))
+        assertThatThrownBy(() -> controller.reserveCoupon(request))
                 .isInstanceOf(ForbiddenOperationException.class);
     }
 }

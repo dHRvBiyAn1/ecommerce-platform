@@ -38,6 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "springdoc.api-docs.enabled=true"
 })
 @Import({SecurityConfig.class, NotificationOpenApiConfiguration.class, GlobalExceptionHandler.class,
+        com.project.notification.application.mapper.NotificationMapper.class,
         SpringDocConfiguration.class, SpringDocWebMvcConfiguration.class, SpringDocSecurityConfiguration.class,
         SpringDocPageableConfiguration.class, SpringDocSortConfiguration.class})
 @EnableConfigurationProperties(SpringDocConfigProperties.class)

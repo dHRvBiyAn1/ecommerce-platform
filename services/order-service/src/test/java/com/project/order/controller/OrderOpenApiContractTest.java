@@ -28,7 +28,8 @@ import static org.hamcrest.Matchers.hasItem;
 @WebMvcTest(value = OrderController.class, properties = "spring.cloud.config.enabled=false")
 @AutoConfigureMockMvc(addFilters = false)
 @ContextConfiguration(classes = OrderOpenApiContractTest.OpenApiTestApplication.class)
-@Import({SpringDocConfiguration.class, SpringDocWebMvcConfiguration.class, SpringDocSecurityConfiguration.class,
+@Import({com.project.order.generated.mapper.OrderApiMapperImpl.class, SpringDocConfiguration.class,
+        SpringDocWebMvcConfiguration.class, SpringDocSecurityConfiguration.class,
         SpringDocPageableConfiguration.class, SpringDocSortConfiguration.class})
 class OrderOpenApiContractTest {
 

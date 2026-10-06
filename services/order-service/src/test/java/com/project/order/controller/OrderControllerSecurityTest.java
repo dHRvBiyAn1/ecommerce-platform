@@ -39,7 +39,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.config.import=optional:file:/dev/null"
 })
 @ContextConfiguration(classes = OrderServiceApplication.class)
-@Import({SecurityConfig.class, GlobalExceptionHandler.class, OrderAccessValidator.class})
+@Import({SecurityConfig.class, GlobalExceptionHandler.class, OrderAccessValidator.class,
+        com.project.order.generated.mapper.OrderApiMapperImpl.class})
 class OrderControllerSecurityTest {
 
     private static final UUID OWNER = UUID.fromString("11111111-1111-1111-1111-111111111111");

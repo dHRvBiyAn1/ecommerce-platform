@@ -164,6 +164,36 @@
                 <artifactId>openapi-generator-maven-plugin</artifactId>
                 <executions>
                     <execution>
+                        <id>generate-openapi-server</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <generatorName>spring</generatorName>
+                            <library>spring-boot</library>
+                            <output>${project.build.directory}/generated-sources/openapi</output>
+                            <apiPackage>com.project.authservice.generated.api</apiPackage>
+                            <modelPackage>com.project.authservice.generated.model</modelPackage>
+                            <openapiNormalizer>FILTER=operationId:getProfile|updateProfile|setRoles|setActive|reject|approve|updateRolePermissions|getMine|apply|register|logout|changePassword|listRoles|createRole|providers|listUsers|getUser|list|get|jwks|deleteRole</openapiNormalizer>
+                            <!-- Auth filters also document text/plain errors; MVC responses remain JSON. -->
+                            <additionalProperties>
+                                <additionalProperty>jsonOnlyControllerResponses=true</additionalProperty>
+                            </additionalProperties>
+                            <configOptions>
+                                <interfaceOnly>true</interfaceOnly>
+                                <useSpringBoot3>true</useSpringBoot3>
+                                <useTags>true</useTags>
+                                <skipDefaultInterface>true</skipDefaultInterface>
+                                <useBeanValidation>true</useBeanValidation>
+                                <openApiNullable>false</openApiNullable>
+                                <generateJsonIncludeAnnotations>true</generateJsonIncludeAnnotations>
+                                <optionalNonNullPropertyJsonInclude>NON_NULL</optionalNonNullPropertyJsonInclude>
+                                <generateJsonSetterNullsAnnotations>false</generateJsonSetterNullsAnnotations>
+                            </configOptions>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>generate-openapi-test-client</id>
                         <phase>generate-test-sources</phase>
                         <goals>
@@ -183,6 +213,7 @@
                                 <serializationLibrary>jackson</serializationLibrary>
                                 <dateLibrary>java8</dateLibrary>
                                 <useJakartaEe>true</useJakartaEe>
+                                <openApiNullable>true</openApiNullable>
                             </configOptions>
                         </configuration>
                     </execution>

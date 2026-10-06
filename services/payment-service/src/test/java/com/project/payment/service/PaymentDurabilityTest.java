@@ -592,7 +592,8 @@ class PaymentDurabilityTest {
     void stripeWebhookRejectsInvalidSignaturePayloadTypeAndMissingReference() throws Exception {
         PaymentService paymentService = mock(PaymentService.class);
         PaymentController controller = new PaymentController(
-                paymentService, mock(com.project.payment.application.validator.PaymentAccessValidator.class));
+                paymentService, mock(com.project.payment.application.validator.PaymentAccessValidator.class),
+                new com.project.payment.application.mapper.PaymentMapper());
         ReflectionTestUtils.setField(controller, "stripeWebhookSecret", "whsec_test");
 
         assertThat(controller.handleStripeWebhook("bad", "{}").getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -613,7 +614,8 @@ class PaymentDurabilityTest {
     void stripeWebhookDispatchesSignedSuccessAndFailureEvents() throws Exception {
         com.project.payment.service.PaymentService paymentService = mock(com.project.payment.service.PaymentService.class);
         PaymentController controller = new PaymentController(
-                paymentService, mock(com.project.payment.application.validator.PaymentAccessValidator.class));
+                paymentService, mock(com.project.payment.application.validator.PaymentAccessValidator.class),
+                new com.project.payment.application.mapper.PaymentMapper());
         ReflectionTestUtils.setField(controller, "stripeWebhookSecret", "whsec_test");
         String succeeded = stripeEvent("evt-ok", "payment_intent.succeeded", "PAY-1", "pi-1");
         String failed = stripeEvent("evt-failed", "payment_intent.payment_failed", "PAY-2", "pi-2");
@@ -634,7 +636,8 @@ class PaymentDurabilityTest {
     void internalWebhookRequiresAValidSignatureAndDispatchesOnlyParsedPayloads() throws Exception {
         com.project.payment.service.PaymentService paymentService = mock(com.project.payment.service.PaymentService.class);
         PaymentController controller = new PaymentController(
-                paymentService, mock(com.project.payment.application.validator.PaymentAccessValidator.class));
+                paymentService, mock(com.project.payment.application.validator.PaymentAccessValidator.class),
+                new com.project.payment.application.mapper.PaymentMapper());
         org.springframework.mock.web.MockHttpServletRequest request = new org.springframework.mock.web.MockHttpServletRequest();
         String payload = "{\"paymentReference\":\"PAY-1\",\"transactionId\":\"pi-1\",\"status\":\"COMPLETED\"}";
 

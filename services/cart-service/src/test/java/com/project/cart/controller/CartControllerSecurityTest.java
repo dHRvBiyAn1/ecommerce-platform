@@ -1,7 +1,7 @@
 package com.project.cart.controller;
 
 import com.project.cart.config.SecurityConfig;
-import com.project.cart.application.mapper.CartApiMapperImpl;
+import com.project.cart.generated.mapper.CartApiMapperImpl;
 import com.project.cart.dto.CartResponse;
 import com.project.cart.service.CartService;
 import com.project.common.exception.BusinessException;
