@@ -1,7 +1,7 @@
 package com.project.order.client;
 
-import com.project.order.client.dto.InventoryReservationResult;
-import com.project.order.client.dto.StockReservationCommand;
+import com.project.order.generated.integration.inventory.model.InventoryResponse;
+import com.project.order.generated.integration.inventory.model.StockReservationRequest;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,14 +17,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 public interface InventoryClient {
 
     @PostMapping("/{productId}/reserve")
-    InventoryReservationResult reserve(@PathVariable("productId") String productId,
-                                       @RequestBody StockReservationCommand command);
+    InventoryResponse reserve(@PathVariable("productId") String productId,
+                              @RequestBody StockReservationRequest command);
 
     @PostMapping("/{productId}/commit")
-    InventoryReservationResult commit(@PathVariable("productId") String productId,
-                                      @RequestBody StockReservationCommand command);
+    InventoryResponse commit(@PathVariable("productId") String productId,
+                             @RequestBody StockReservationRequest command);
 
     @PostMapping("/{productId}/release")
-    InventoryReservationResult release(@PathVariable("productId") String productId,
-                                       @RequestBody StockReservationCommand command);
+    InventoryResponse release(@PathVariable("productId") String productId,
+                              @RequestBody StockReservationRequest command);
 }

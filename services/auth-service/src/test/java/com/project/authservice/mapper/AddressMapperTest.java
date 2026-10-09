@@ -1,6 +1,6 @@
 package com.project.authservice.mapper;
 
-import com.project.authservice.dto.AddressDto;
+import com.project.authservice.generated.model.AddressDto;
 import com.project.authservice.entity.Address;
 import org.junit.jupiter.api.Test;
 

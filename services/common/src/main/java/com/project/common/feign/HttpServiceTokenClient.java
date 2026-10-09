@@ -1,5 +1,6 @@
 package com.project.common.feign;
 
+import com.project.common.generated.token.ServiceTokenResponse;
 import org.springframework.http.MediaType;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.web.client.RestClient;

@@ -1,6 +1,6 @@
 package com.project.authservice.mapper;
 
-import com.project.authservice.dto.response.UserProfileDto;
+import com.project.authservice.generated.model.UserProfileDto;
 import com.project.authservice.entity.Permission;
 import com.project.authservice.entity.Role;
 import com.project.authservice.entity.User;
@@ -28,12 +28,12 @@ class UserMapperTest {
 
         UserProfileDto profile = mapper.toDto(user, true);
 
-        assertThat(profile.hasPassword()).isTrue();
-        assertThat(profile.roles()).containsExactly("ROLE_CUSTOMER");
-        assertThat(profile.permissions()).containsExactly("users:read");
-        assertThatThrownBy(() -> profile.roles().add("ROLE_ADMIN"))
+        assertThat(profile.getHasPassword()).isTrue();
+        assertThat(profile.getRoles()).containsExactly("ROLE_CUSTOMER");
+        assertThat(profile.getPermissions()).containsExactly("users:read");
+        assertThatThrownBy(() -> profile.getRoles().add("ROLE_ADMIN"))
                 .isInstanceOf(UnsupportedOperationException.class);
-        assertThatThrownBy(() -> profile.permissions().add("users:write"))
+        assertThatThrownBy(() -> profile.getPermissions().add("users:write"))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 }

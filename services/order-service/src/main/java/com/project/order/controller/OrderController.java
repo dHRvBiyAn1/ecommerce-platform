@@ -2,12 +2,11 @@ package com.project.order.controller;
 
 import com.project.common.constant.Permissions;
 import com.project.common.constant.ServiceScopes;
-import com.project.common.dto.ApiResponse;
-import com.project.common.dto.ErrorResponse;
+import com.project.common.generated.model.ErrorResponse;
+import com.project.common.generated.model.ResponseEnvelope;
+import com.project.common.web.Responses;
 import com.project.common.security.CurrentUser;
-import com.project.order.dto.OrderRequest;
-import com.project.order.dto.OrderResponse;
-import com.project.order.dto.OrderStatusUpdateRequest;
+import com.project.order.generated.model.OrderResponse;
 import com.project.order.application.mapper.OrderApiMapper;
 import com.project.order.generated.api.OrdersApi;
 import com.project.order.model.OrderStatus;
@@ -62,8 +61,8 @@ public class OrderController implements OrdersApi {
             com.project.order.generated.model.OrderRequest request, String idempotencyKey) {
         UUID userId = CurrentUser.requireId();
         String email = CurrentUser.email().orElse(null);
-        OrderResponse response = orderService.createOrder(orderApiMapper.toDomain(request), userId, email, idempotencyKey);
-        return new ResponseEntity<>(envelope(ApiResponse.created(response)), HttpStatus.CREATED);
+        OrderResponse response = orderService.createOrder(request, userId, email, idempotencyKey);
+        return new ResponseEntity<>(envelope(Responses.created(response)), HttpStatus.CREATED);
     }
 
     /**
@@ -76,7 +75,7 @@ public class OrderController implements OrdersApi {
         Page<OrderResponse> page = CurrentUser.isAdmin()
                 ? orderService.getAllOrders(pageable)
                 : orderService.getUserOrders(CurrentUser.requireId(), pageable);
-        return ResponseEntity.ok(envelopePage(ApiResponse.success(page)));
+        return ResponseEntity.ok(envelopePage(Responses.success(page)));
     }
 
     @Override
@@ -86,16 +85,16 @@ public class OrderController implements OrdersApi {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     public ResponseEntity<com.project.order.generated.model.ApiResponseOrderResponse> getOrder(String orderId) {
         OrderResponse order = orderService.getOrder(orderId);
-        orderAccessValidator.validateRead(order.userId());
-        return ResponseEntity.ok(envelope(ApiResponse.success(order)));
+        orderAccessValidator.validateRead(order.getUserId());
+        return ResponseEntity.ok(envelope(Responses.success(order)));
     }
 
     @Override
     @PreAuthorize("T(com.project.common.security.CurrentUser).isService() ? hasAuthority('" + ServiceScopes.AUTHORITY_ORDERS_READ + "') : hasAuthority('" + Permissions.ORDERS_READ + "')")
     public ResponseEntity<com.project.order.generated.model.ApiResponseOrderResponse> getOrderByNumber(String orderNumber) {
         OrderResponse order = orderService.getOrderByNumber(orderNumber);
-        orderAccessValidator.validateRead(order.userId());
-        return ResponseEntity.ok(envelope(ApiResponse.success(order)));
+        orderAccessValidator.validateRead(order.getUserId());
+        return ResponseEntity.ok(envelope(Responses.success(order)));
     }
 
     /** Order status updates (shipped/delivered) are admin-only. */
@@ -104,14 +103,14 @@ public class OrderController implements OrdersApi {
     @Operation(summary = "Transition an order status as an administrator")
     public ResponseEntity<com.project.order.generated.model.ApiResponseOrderResponse> updateOrderStatus(
             String orderId, com.project.order.generated.model.OrderStatusUpdateRequest request) {
-        return ResponseEntity.ok(envelope(ApiResponse.success(orderService.updateOrderStatus(
-                orderId, orderApiMapper.toDomain(request)))));
+        return ResponseEntity.ok(envelope(Responses.success(orderService.updateOrderStatus(
+                orderId, request))));
     }
 
     @Override
     @PreAuthorize("hasAuthority('" + Permissions.ORDERS_CANCEL + "')")
     public ResponseEntity<com.project.order.generated.model.ApiResponseOrderResponse> cancelOrder(String orderId) {
-        return ResponseEntity.ok(envelope(ApiResponse.success(
+        return ResponseEntity.ok(envelope(Responses.success(
                 orderService.cancelOrder(orderId, CurrentUser.requireId(), CurrentUser.isAdmin()))));
     }
 
@@ -120,19 +119,19 @@ public class OrderController implements OrdersApi {
     public ResponseEntity<com.project.order.generated.model.ApiResponsePageOrderResponse> getOrdersByStatus(
             com.project.order.generated.model.OrderStatus status, Pageable pageable) {
         OrderStatus orderStatus = OrderStatus.valueOf(status.getValue());
-        return ResponseEntity.ok(envelopePage(ApiResponse.success(orderService.getOrdersByStatus(
+        return ResponseEntity.ok(envelopePage(Responses.success(orderService.getOrdersByStatus(
                 orderStatus, pageable))));
     }
 
-    private com.project.order.generated.model.ApiResponseOrderResponse envelope(ApiResponse<OrderResponse> response) {
+    private com.project.order.generated.model.ApiResponseOrderResponse envelope(ResponseEnvelope<OrderResponse> response) {
         return new com.project.order.generated.model.ApiResponseOrderResponse()
                 .status(response.getStatus()).message(response.getMessage()).traceId(response.getTraceId())
                 .timestamp(OffsetDateTime.ofInstant(response.getTimestamp(), ZoneOffset.UTC))
-                .data(orderApiMapper.toApi(response.getData()));
+                .data(response.getData());
     }
 
     private com.project.order.generated.model.ApiResponsePageOrderResponse envelopePage(
-            ApiResponse<Page<OrderResponse>> response) {
+            ResponseEnvelope<Page<OrderResponse>> response) {
         return new com.project.order.generated.model.ApiResponsePageOrderResponse()
                 .status(response.getStatus()).message(response.getMessage()).traceId(response.getTraceId())
                 .timestamp(OffsetDateTime.ofInstant(response.getTimestamp(), ZoneOffset.UTC))

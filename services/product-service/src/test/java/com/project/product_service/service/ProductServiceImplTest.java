@@ -8,9 +8,9 @@ import com.project.product_service.application.mapper.CategoryMapper;
 import com.project.product_service.application.mapper.ProductMapper;
 import com.project.product_service.application.validator.CategoryIntegrityValidator;
 import com.project.product_service.application.validator.ProductAccessValidator;
-import com.project.product_service.dto.ProductRequest;
-import com.project.product_service.dto.CategoryResponse;
-import com.project.product_service.dto.ProductResponse;
+import com.project.product_service.generated.model.ProductRequest;
+import com.project.product_service.generated.model.CategoryResponse;
+import com.project.product_service.generated.model.ProductResponse;
 import com.project.product_service.model.Category;
 import com.project.product_service.model.Product;
 import com.project.product_service.model.ProductApprovalStatus;
@@ -48,9 +48,9 @@ import static org.mockito.Mockito.when;
 class ProductServiceImplTest {
 
     @Test
-    void responseBoundariesAreImmutableRecords() {
-        assertTrue(ProductResponse.class.isRecord());
-        assertTrue(CategoryResponse.class.isRecord());
+    void serviceBoundariesReturnGeneratedModelsInsteadOfPersistenceEntities() throws Exception {
+        assertEquals(ProductResponse.class, ProductService.class.getMethod("getProduct", String.class).getReturnType());
+        assertEquals(CategoryResponse.class, CategoryService.class.getMethod("getCategory", String.class).getReturnType());
     }
 
     @Test
@@ -62,9 +62,9 @@ class ProductServiceImplTest {
 
         ProductResponse response = Mappers.getMapper(ProductMapper.class).toResponse(product);
 
-        assertEquals("product-1", response.id());
-        assertEquals("SKU-1", response.sku());
-        assertEquals("Desk", response.name());
+        assertEquals("product-1", response.getId());
+        assertEquals("SKU-1", response.getSku());
+        assertEquals("Desk", response.getName());
     }
 
     @Test
@@ -75,8 +75,8 @@ class ProductServiceImplTest {
 
         CategoryResponse response = Mappers.getMapper(CategoryMapper.class).toResponse(category);
 
-        assertEquals("category-1", response.id());
-        assertEquals("Furniture", response.name());
+        assertEquals("category-1", response.getId());
+        assertEquals("Furniture", response.getName());
     }
 
     @Test
@@ -162,8 +162,8 @@ class ProductServiceImplTest {
 
         ProductResponse response = service.getProduct("product-1");
 
-        assertEquals("product-1", response.id());
-        assertEquals("SKU-1", response.sku());
+        assertEquals("product-1", response.getId());
+        assertEquals("SKU-1", response.getSku());
     }
 
     @Test
@@ -196,7 +196,7 @@ class ProductServiceImplTest {
         ArgumentCaptor<Product> saved = ArgumentCaptor.forClass(Product.class);
         verify(products).save(saved.capture());
         Product product = saved.getValue();
-        assertEquals("SKU-NEW", response.sku());
+        assertEquals("SKU-NEW", response.getSku());
         assertTrue(product.isActive());
         assertEquals(ProductApprovalStatus.PENDING, product.getApprovalStatus());
         assertEquals(Map.of(), product.getAttributes());
@@ -211,7 +211,7 @@ class ProductServiceImplTest {
 
         ProductResponse response = service.createProduct(request("SKU-COMPAT", UUID.randomUUID(), null));
 
-        assertEquals("SKU-COMPAT", response.sku());
+        assertEquals("SKU-COMPAT", response.getSku());
         ArgumentCaptor<Product> saved = ArgumentCaptor.forClass(Product.class);
         verify(products).save(saved.capture());
         assertEquals(ProductApprovalStatus.PENDING, saved.getValue().getApprovalStatus());
@@ -287,6 +287,39 @@ class ProductServiceImplTest {
         assertEquals(Map.of("color", "red"), product.getAttributes());
         verify(events).publishUpdated(product);
         verify(events, never()).publishPriceChanged(product);
+    }
+
+    @Test
+    void deserializedProductEditsPreserveOmittedAttributesAndAllowExplicitClearing() throws Exception {
+        ProductRepository products = savingRepository();
+        ProductServiceImpl service = serviceWithRealMapper(products, mock(ProductEventPublisher.class), activeCategories());
+        UUID sellerId = UUID.randomUUID();
+        Product product = product("product-1", sellerId);
+        product.setAttributes(Map.of("color", "red", "size", "M"));
+        when(products.findById("product-1")).thenReturn(Optional.of(product));
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules();
+        String body = """
+                {"sku":"SKU-1","name":"Edited desk","categoryId":"category-1",
+                 "price":19.99,"stockQuantity":7}
+                """;
+
+        ProductRequest omitted = mapper.readValue(body, ProductRequest.class);
+        omitted.setSellerId(sellerId);
+        ProductResponse preserved = service.updateProduct("product-1", omitted, false);
+
+        assertEquals(Map.of("color", "red", "size", "M"), product.getAttributes());
+        assertEquals(product.getAttributes(), preserved.getAttributes());
+        assertEquals("Edited desk", product.getName());
+
+        var explicitEmptyBody = mapper.readTree(body);
+        ((com.fasterxml.jackson.databind.node.ObjectNode) explicitEmptyBody).putObject("attributes");
+        ProductRequest clear = mapper.treeToValue(explicitEmptyBody, ProductRequest.class);
+        clear.setSellerId(sellerId);
+        ProductResponse cleared = service.updateProduct("product-1", clear, false);
+
+        assertEquals(Map.of(), product.getAttributes());
+        assertEquals(Map.of(), cleared.getAttributes());
+        verify(products, org.mockito.Mockito.times(2)).save(product);
     }
 
     @Test

@@ -1,14 +1,14 @@
 package com.project.payment.controller;
 
+import com.project.common.web.Responses;
 import com.project.common.constant.Permissions;
-import com.project.common.dto.ApiResponse;
+import com.project.common.generated.model.ResponseEnvelope;
 import com.project.common.security.CurrentUser;
 import com.project.common.security.HmacSignatureVerifier;
 import com.project.payment.application.validator.PaymentAccessValidator;
-import com.project.payment.api.dto.request.PaymentWebhookRequest;
-import com.project.payment.api.dto.response.PaymentResponse;
-import com.project.payment.api.dto.response.PaymentInitiationResponse;
-import com.project.payment.application.mapper.PaymentMapper;
+import com.project.payment.generated.model.PaymentWebhookRequest;
+import com.project.payment.generated.model.PaymentResponse;
+import com.project.payment.generated.model.PaymentInitiationResponse;
 import com.project.payment.generated.api.PaymentsApi;
 import com.project.payment.exception.PaymentException;
 import com.project.payment.service.PaymentService;
@@ -50,7 +50,6 @@ public class PaymentController implements PaymentsApi {
 
     private final PaymentService paymentService;
     private final PaymentAccessValidator accessValidator;
-    private final PaymentMapper paymentMapper;
 
     @Value("${payment.webhook.secret:}")
     private String webhookSecret;
@@ -77,16 +76,16 @@ public class PaymentController implements PaymentsApi {
         UUID userId = CurrentUser.requireId();
         String email = CurrentUser.email().orElse(null);
         return ResponseEntity.status(HttpStatus.CREATED).body(
-                initiationEnvelope(ApiResponse.created(paymentService.createPayment(
-                        paymentMapper.toDomain(request), userId, email, idempotencyKey))));
+                initiationEnvelope(Responses.created(paymentService.createPayment(
+                        request, userId, email, idempotencyKey))));
     }
 
     @Override
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<com.project.payment.generated.model.ApiResponsePaymentList> listMyPayments() {
         List<com.project.payment.generated.model.PaymentResponse> payments = paymentService
-                .getUserPayments(CurrentUser.requireId()).stream().map(paymentMapper::toApi).toList();
-        ApiResponse<List<com.project.payment.generated.model.PaymentResponse>> response = ApiResponse.success(payments);
+                .getUserPayments(CurrentUser.requireId());
+        ResponseEnvelope<List<com.project.payment.generated.model.PaymentResponse>> response = Responses.success(payments);
         return ResponseEntity.ok(new com.project.payment.generated.model.ApiResponsePaymentList()
                 .status(response.getStatus()).message(response.getMessage()).traceId(response.getTraceId())
                 .timestamp(OffsetDateTime.ofInstant(response.getTimestamp(), ZoneOffset.UTC)).data(response.getData()));
@@ -115,16 +114,15 @@ public class PaymentController implements PaymentsApi {
     @Override
     @PreAuthorize("hasAuthority('" + Permissions.PAYMENTS_PROCESS + "')")
     public ResponseEntity<com.project.payment.generated.model.ApiResponsePayment> processPayment(String paymentId) {
-        return ResponseEntity.ok(paymentEnvelope(ApiResponse.success(paymentService.processPayment(paymentId))));
+        return ResponseEntity.ok(paymentEnvelope(Responses.success(paymentService.processPayment(paymentId))));
     }
 
     @Override
     @PreAuthorize("hasAuthority('" + Permissions.PAYMENTS_REFUND + "')")
     public ResponseEntity<com.project.payment.generated.model.ApiResponsePayment> refundPayment(
             String paymentId, com.project.payment.generated.model.RefundRequest request, String idempotencyKey) {
-        var domainRequest = paymentMapper.toDomain(request);
-        ApiResponse<PaymentResponse> response = ApiResponse.success(paymentService.refundPayment(
-                paymentId, domainRequest.reason(), domainRequest.amount(), idempotencyKey));
+        ResponseEnvelope<PaymentResponse> response = Responses.success(paymentService.refundPayment(
+                paymentId, request.getReason(), request.getAmount(), idempotencyKey));
         return ResponseEntity.ok(paymentEnvelope(response));
     }
 
@@ -171,7 +169,7 @@ public class PaymentController implements PaymentsApi {
             throw new PaymentException("Invalid webhook payload");
         }
         String eventId = UUID.nameUUIDFromBytes(rawBody.getBytes(StandardCharsets.UTF_8)).toString();
-        paymentService.handleVerifiedWebhook("internal", eventId, payload.status(), payload.paymentReference(), payload);
+        paymentService.handleVerifiedWebhook("internal", eventId, payload.getStatus(), payload.getPaymentReference(), payload);
         return ResponseEntity.ok().build();
     }
 
@@ -228,21 +226,21 @@ public class PaymentController implements PaymentsApi {
 
     private ResponseEntity<com.project.payment.generated.model.ApiResponsePayment> accessible(PaymentResponse payment) {
         accessValidator.validateAccess(payment, CurrentUser.requireId(), CurrentUser.isAdmin());
-        return ResponseEntity.ok(paymentEnvelope(ApiResponse.success(payment)));
+        return ResponseEntity.ok(paymentEnvelope(Responses.success(payment)));
     }
 
-    private com.project.payment.generated.model.ApiResponsePayment paymentEnvelope(ApiResponse<PaymentResponse> response) {
+    private com.project.payment.generated.model.ApiResponsePayment paymentEnvelope(ResponseEnvelope<PaymentResponse> response) {
         return new com.project.payment.generated.model.ApiResponsePayment()
                 .status(response.getStatus()).message(response.getMessage()).traceId(response.getTraceId())
                 .timestamp(OffsetDateTime.ofInstant(response.getTimestamp(), ZoneOffset.UTC))
-                .data(paymentMapper.toApi(response.getData()));
+                .data(response.getData());
     }
 
     private com.project.payment.generated.model.ApiResponsePaymentInitiation initiationEnvelope(
-            ApiResponse<PaymentInitiationResponse> response) {
+            ResponseEnvelope<PaymentInitiationResponse> response) {
         return new com.project.payment.generated.model.ApiResponsePaymentInitiation()
                 .status(response.getStatus()).message(response.getMessage()).traceId(response.getTraceId())
                 .timestamp(OffsetDateTime.ofInstant(response.getTimestamp(), ZoneOffset.UTC))
-                .data(paymentMapper.toApi(response.getData()));
+                .data(response.getData());
     }
 }

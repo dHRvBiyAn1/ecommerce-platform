@@ -2,9 +2,8 @@ package com.project.coupon.service;
 
 import com.project.common.exception.DuplicateResourceException;
 import com.project.common.exception.ValidationException;
-import com.project.coupon.dto.CouponRequest;
-import com.project.coupon.dto.CouponReservationRequest;
-import com.project.coupon.entity.DiscountType;
+import com.project.coupon.generated.model.CouponRequest;
+import com.project.coupon.generated.model.CouponReservationRequest;
 import com.project.coupon.entity.RedemptionStatus;
 import com.project.coupon.exception.CouponUnavailableException;
 import com.project.coupon.repository.CouponRedemptionRepository;
@@ -141,8 +140,8 @@ class CouponLifecycleConcurrencyTest {
     void reservationCanBeCommittedOrReleasedExactlyOnce() {
         UUID id = insertCoupon("LIFE", 2);
         UUID user = UUID.randomUUID();
-        couponService.reserve(new CouponReservationRequest("life", user, "order-life", new BigDecimal("100"), "INR"));
-        couponService.commit(new com.project.coupon.dto.CouponTransitionRequest("LIFE", user, "order-life"));
+        couponService.reserve(reservation("life", user, "order-life"));
+        couponService.commit(transition("LIFE", user, "order-life"));
 
         assertThat(redemptionRepository.findByOrderId("order-life")).get().extracting(r -> r.getStatus())
                 .isEqualTo(RedemptionStatus.COMMITTED);
@@ -153,12 +152,14 @@ class CouponLifecycleConcurrencyTest {
     void releaseIsIdempotentAndTerminalTransitionsUseSharedConflict() {
         UUID id = insertCoupon("RELEASE", 2);
         UUID user = UUID.randomUUID();
-        var request = new CouponReservationRequest("release", user, "order-release", new BigDecimal("100"), "INR");
+        var request = reservation("release", user, "order-release");
         couponService.reserve(request);
-        var transition = new com.project.coupon.dto.CouponTransitionRequest("RELEASE", user, "order-release");
+        var transition = transition("RELEASE", user, "order-release");
 
-        assertThat(couponService.release(transition).status()).isEqualTo(RedemptionStatus.RELEASED);
-        assertThat(couponService.release(transition).status()).isEqualTo(RedemptionStatus.RELEASED);
+        assertThat(couponService.release(transition).getStatus())
+                .isEqualTo(com.project.coupon.generated.model.CouponReservationResponse.StatusEnum.RELEASED);
+        assertThat(couponService.release(transition).getStatus())
+                .isEqualTo(com.project.coupon.generated.model.CouponReservationResponse.StatusEnum.RELEASED);
         assertThatThrownBy(() -> couponService.commit(transition))
                 .isInstanceOf(DuplicateResourceException.class)
                 .extracting(e -> ((DuplicateResourceException) e).getStatus())
@@ -170,17 +171,14 @@ class CouponLifecycleConcurrencyTest {
     void redeemCommitsReservationAndRejectsReleasedReservation() {
         insertCoupon("REDEEM", 2);
         UUID user = UUID.randomUUID();
-        couponService.reserve(new CouponReservationRequest("redeem", user, "order-redeem", new BigDecimal("100"), "INR"));
-        assertThat(couponService.redeem(new com.project.coupon.dto.RedeemCouponRequest(
-                " REDEEM ", user, "order-redeem", new BigDecimal("10"))).valid()).isTrue();
-        assertThat(couponService.redeem(new com.project.coupon.dto.RedeemCouponRequest(
-                "redeem", user, "order-redeem", new BigDecimal("10"))).valid()).isTrue();
+        couponService.reserve(reservation("redeem", user, "order-redeem"));
+        assertThat(couponService.redeem(redeem(" REDEEM ", user, "order-redeem")).getValid()).isTrue();
+        assertThat(couponService.redeem(redeem("redeem", user, "order-redeem")).getValid()).isTrue();
 
         UUID releaseUser = UUID.randomUUID();
-        couponService.reserve(new CouponReservationRequest("REDEEM", releaseUser, "order-released", new BigDecimal("100"), "INR"));
-        couponService.release(new com.project.coupon.dto.CouponTransitionRequest("REDEEM", releaseUser, "order-released"));
-        assertThatThrownBy(() -> couponService.redeem(new com.project.coupon.dto.RedeemCouponRequest(
-                "REDEEM", releaseUser, "order-released", new BigDecimal("10"))))
+        couponService.reserve(reservation("REDEEM", releaseUser, "order-released"));
+        couponService.release(transition("REDEEM", releaseUser, "order-released"));
+        assertThatThrownBy(() -> couponService.redeem(redeem("REDEEM", releaseUser, "order-released")))
                 .isInstanceOf(DuplicateResourceException.class);
     }
 
@@ -205,7 +203,7 @@ class CouponLifecycleConcurrencyTest {
     @Test
     void invalidCouponInputUsesCommonValidationTypeAndStatus() {
         assertThatThrownBy(() -> new com.project.coupon.validation.CouponRequestValidator()
-                .validateValidation(new com.project.coupon.dto.ValidateCouponRequest("bad code", UUID.randomUUID(), null, null)))
+                .validateValidation(new com.project.coupon.generated.model.ValidateCouponRequest().code("bad code").userId(UUID.randomUUID())))
                 .isInstanceOf(ValidationException.class)
                 .extracting(e -> ((ValidationException) e).getStatus())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
@@ -213,7 +211,7 @@ class CouponLifecycleConcurrencyTest {
 
     private Throwable reserve(String orderId, UUID userId) {
         try {
-            couponService.reserve(new CouponReservationRequest(" flash ", userId, orderId, new BigDecimal("100"), "INR"));
+            couponService.reserve(reservation(" flash ", userId, orderId));
             return null;
         } catch (Throwable exception) {
             return exception;
@@ -237,6 +235,20 @@ class CouponLifecycleConcurrencyTest {
         }
     }
 
+    private com.project.coupon.generated.model.CouponReservationRequest reservation(String code, UUID user, String order) {
+        return new com.project.coupon.generated.model.CouponReservationRequest().code(code).userId(user)
+                .orderId(order).subtotal(new BigDecimal("100")).currency("INR");
+    }
+
+    private com.project.coupon.generated.model.CouponTransitionRequest transition(String code, UUID user, String order) {
+        return new com.project.coupon.generated.model.CouponTransitionRequest().code(code).userId(user).orderId(order);
+    }
+
+    private com.project.coupon.generated.model.RedeemCouponRequest redeem(String code, UUID user, String order) {
+        return new com.project.coupon.generated.model.RedeemCouponRequest().code(code).userId(user).orderId(order)
+                .discountAmount(new BigDecimal("10"));
+    }
+
     private UUID insertCoupon(String code, int usageLimit) {
         UUID id = UUID.randomUUID();
         jdbcTemplate.update("INSERT INTO coupons (id, code, discount_type, discount_value, valid_from, valid_until, usage_limit) VALUES (?, ?, 'PERCENT', 10, ?, ?, ?)", id, code, LocalDateTime.now().minusHours(1), LocalDateTime.now().plusHours(1), usageLimit);
@@ -244,7 +256,9 @@ class CouponLifecycleConcurrencyTest {
     }
 
     private CouponRequest request(String code, Boolean active) {
-        return new CouponRequest(code, "test", DiscountType.PERCENT, new BigDecimal("10"), null, null,
-                "INR", LocalDateTime.now().minusHours(1), LocalDateTime.now().plusHours(1), 2, null, active);
+        return new CouponRequest().code(code).description("test")
+                .discountType(CouponRequest.DiscountTypeEnum.PERCENT).discountValue(new BigDecimal("10"))
+                .currency("INR").validFrom(LocalDateTime.now().minusHours(1))
+                .validUntil(LocalDateTime.now().plusHours(1)).usageLimit(2).active(active);
     }
 }

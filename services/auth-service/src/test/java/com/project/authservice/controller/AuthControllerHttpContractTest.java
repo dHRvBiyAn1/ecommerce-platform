@@ -1,10 +1,9 @@
 package com.project.authservice.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.project.authservice.dto.response.UserProfileDto;
-import com.project.authservice.dto.request.ClientCredentialsRequest;
-import com.project.authservice.dto.request.RegistrationRequest;
-import com.project.authservice.dto.response.ServiceTokenResponse;
+import com.project.authservice.generated.model.UserProfileDto;
+import com.project.authservice.generated.model.RegistrationRequest;
+import com.project.authservice.generated.model.ServiceTokenResponse;
 import com.project.authservice.exception.AuthException;
 import com.project.authservice.exception.InvalidScopeException;
 import com.project.authservice.exception.TokenRefreshException;
@@ -14,7 +13,7 @@ import com.project.authservice.service.AuthService;
 import com.project.authservice.service.ClientCredentialsService;
 import com.project.authservice.service.TokenBlacklistService;
 import com.project.authservice.security.AuthenticatedUserValidator;
-import com.project.authservice.generated.mapper.AuthApiMapperImpl;
+import com.project.authservice.mapper.AuthApiMapper;
 import com.project.common.constant.ErrorCode;
 import com.project.common.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.Test;
@@ -44,7 +43,7 @@ import static org.hamcrest.Matchers.nullValue;
         "spring.config.import=optional:file:/dev/null"
 })
 @AutoConfigureMockMvc(addFilters = false)
-@Import({GlobalExceptionHandler.class, AuthApiMapperImpl.class})
+@Import({GlobalExceptionHandler.class, AuthApiMapper.class})
 class AuthControllerHttpContractTest {
 
     @Autowired
@@ -227,9 +226,8 @@ class AuthControllerHttpContractTest {
 
     @Test
     void clientCredentialsGrantReturnsRawOAuthJsonWithoutRefreshCookie() throws Exception {
-        when(clientCredentialsService.issue(new ClientCredentialsRequest(
-                "order-service", "correct-secret", "inventory.write"))).thenReturn(
-                new ServiceTokenResponse("signed-service-token", "Bearer", 300L, "inventory.write"));
+        when(clientCredentialsService.issue("order-service", "correct-secret", "inventory.write")).thenReturn(
+                new ServiceTokenResponse().accessToken("signed-service-token").tokenType(ServiceTokenResponse.TokenTypeEnum.BEARER).expiresIn(300L).scope("inventory.write"));
 
         mockMvc.perform(post("/api/auth/token")
                         .param("grant_type", "client_credentials")
@@ -274,8 +272,7 @@ class AuthControllerHttpContractTest {
 
     @Test
     void clientCredentialsInvalidClientReturnsOAuthInvalidClient() throws Exception {
-        when(clientCredentialsService.issue(new ClientCredentialsRequest(
-                "order-service", "wrong-secret", "inventory.write")))
+        when(clientCredentialsService.issue("order-service", "wrong-secret", "inventory.write"))
                 .thenThrow(new AuthException("Invalid client credentials"));
 
         mockMvc.perform(post("/api/auth/token")
@@ -291,8 +288,7 @@ class AuthControllerHttpContractTest {
 
     @Test
     void clientCredentialsInvalidScopeReturnsOAuthInvalidScope() throws Exception {
-        when(clientCredentialsService.issue(new ClientCredentialsRequest(
-                "order-service", "correct-secret", "inventory.delete")))
+        when(clientCredentialsService.issue("order-service", "correct-secret", "inventory.delete"))
                 .thenThrow(new InvalidScopeException("Scope wording intentionally changed"));
 
         mockMvc.perform(post("/api/auth/token")
@@ -307,16 +303,13 @@ class AuthControllerHttpContractTest {
     }
 
     @Test
-    void registerBindsJsonToNormalizedRecordRequest() throws Exception {
+    void registerBindsJsonIntoRegistrationFlow() throws Exception {
         UserProfileDto profile = new UserProfileDto(UUID.fromString("11111111-1111-1111-1111-111111111111"),
                 "customer@example.com", "Customer One", null, null, false, null, java.util.Set.of(),
                 java.util.Set.of(), null, null, false);
 
         when(authService.register(any(RegistrationRequest.class))).thenAnswer(invocation -> {
             Object request = invocation.getArgument(0);
-            assertThat(request.getClass().getName())
-                    .isEqualTo("com.project.authservice.dto.request.RegistrationRequest");
-            assertThat(request.getClass().isRecord()).isTrue();
             assertThat(objectMapper.convertValue(request, Map.class))
                     .containsEntry("email", "customer@example.com")
                     .containsEntry("password", "ValidPass123")

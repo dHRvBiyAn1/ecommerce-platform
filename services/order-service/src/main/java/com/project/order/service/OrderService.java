@@ -1,8 +1,8 @@
 package com.project.order.service;
 
-import com.project.order.dto.OrderRequest;
-import com.project.order.dto.OrderResponse;
-import com.project.order.dto.OrderStatusUpdateRequest;
+import com.project.order.generated.model.OrderRequest;
+import com.project.order.generated.model.OrderResponse;
+import com.project.order.generated.model.OrderStatusUpdateRequest;
 import com.project.order.model.OrderStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

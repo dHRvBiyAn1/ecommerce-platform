@@ -1,7 +1,7 @@
 package com.project.common.exception;
 
 import com.project.common.constant.ErrorCode;
-import com.project.common.dto.ErrorResponse;
+import com.project.common.generated.model.ErrorResponse;
 import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -22,7 +22,7 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody())
-                .extracting(ErrorResponse::code, ErrorResponse::message, ErrorResponse::path)
+                .extracting(ErrorResponse::getCode, ErrorResponse::getMessage, ErrorResponse::getPath)
                 .containsExactly(ErrorCode.VALIDATION_FAILED.value(), "Validation failed", "/api/v1/orders");
     }
 }

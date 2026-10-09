@@ -1,16 +1,28 @@
 package com.project.authservice.mapper;
 
-import com.project.authservice.dto.response.seller.SellerApplicationResponse;
 import com.project.authservice.entity.SellerApplication;
 import com.project.authservice.entity.User;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
+import com.project.authservice.generated.model.SellerApplicationResponse;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = "spring", uses = AddressMapper.class)
-public interface SellerApplicationMapper {
+@Component
+public class SellerApplicationMapper {
+    private final AddressMapper addressMapper;
 
-    @Mapping(target = "id", source = "application.id")
-    @Mapping(target = "userEmail", source = "user.email")
-    @Mapping(target = "userDisplayName", source = "user.displayName")
-    SellerApplicationResponse toResponse(SellerApplication application, User user);
+    public SellerApplicationMapper(AddressMapper addressMapper) {
+        this.addressMapper = addressMapper;
+    }
+
+    public SellerApplicationResponse toResponse(SellerApplication application, User user) {
+        return new SellerApplicationResponse().id(application.getId()).userId(application.getUserId())
+                .userEmail(user == null ? null : user.getEmail())
+                .userDisplayName(user == null ? null : user.getDisplayName())
+                .status(SellerApplicationResponse.StatusEnum.fromValue(application.getStatus().name()))
+                .businessName(application.getBusinessName()).gstin(application.getGstin())
+                .contactPhone(application.getContactPhone())
+                .pickupAddress(addressMapper.toDto(application.getPickupAddress()))
+                .bankAccountLast4(application.getBankAccountLast4()).notes(application.getNotes())
+                .rejectionReason(application.getRejectionReason()).submittedAt(application.getSubmittedAt())
+                .reviewedAt(application.getReviewedAt()).reviewedBy(application.getReviewedBy());
+    }
 }

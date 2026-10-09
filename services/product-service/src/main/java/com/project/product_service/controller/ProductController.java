@@ -27,78 +27,75 @@ import java.util.UUID;
 public class ProductController implements ProductsApi {
 
     private final ProductService productService;
-    private final ProductApiMapper apiMapper;
 
     @Override
     public ResponseEntity<PageProductResponse> getAllActiveProducts(
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(apiMapper.toApi(productService.getAllActiveProducts(
+        return ResponseEntity.ok(ProductApiMapper.toApi(productService.getAllActiveProducts(
                 pageable)));
     }
 
     @Override
     public ResponseEntity<PageProductResponse> searchProducts(String keyword,
             @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(apiMapper.toApi(productService.searchProducts(
+        return ResponseEntity.ok(ProductApiMapper.toApi(productService.searchProducts(
                 keyword, pageable)));
     }
 
     @Override
     public ResponseEntity<PageProductResponse> getProductsByCategory(
             String categoryId, @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(apiMapper.toApi(productService.getProductsByCategory(
+        return ResponseEntity.ok(ProductApiMapper.toApi(productService.getProductsByCategory(
                 categoryId, pageable)));
     }
 
     @Override
     public ResponseEntity<ProductResponse> getProduct(String id) {
-        return ResponseEntity.ok(apiMapper.toApi(productService.getProduct(id)));
+        return ResponseEntity.ok(productService.getProduct(id));
     }
 
     @Override
     @PreAuthorize("hasRole('ADMIN') or #sellerId.toString() == authentication.name")
     public ResponseEntity<PageProductResponse> getProductsBySeller(
             UUID sellerId, @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(apiMapper.toApi(productService.getProductsBySeller(
+        return ResponseEntity.ok(ProductApiMapper.toApi(productService.getProductsBySeller(
                 sellerId, pageable)));
     }
 
     @Override
     public ResponseEntity<PageProductResponse> filterByPrice(
             BigDecimal minPrice, BigDecimal maxPrice, @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(apiMapper.toApi(productService.getProductsByPriceRange(
+        return ResponseEntity.ok(ProductApiMapper.toApi(productService.getProductsByPriceRange(
                 minPrice, maxPrice, pageable)));
     }
 
     @Override
     public ResponseEntity<PageProductResponse> filterByAttribute(
             String key, String value, @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(apiMapper.toApi(productService.filterByAttribute(
+        return ResponseEntity.ok(ProductApiMapper.toApi(productService.filterByAttribute(
                 key, value, pageable)));
     }
 
     @Override
     @PreAuthorize("hasRole('SELLER') or hasRole('ADMIN')")
     public ResponseEntity<PageProductResponse> getMyProducts(@PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(apiMapper.toApi(productService.getProductsBySeller(
+        return ResponseEntity.ok(ProductApiMapper.toApi(productService.getProductsBySeller(
                 CurrentUser.requireId(), pageable)));
     }
 
     @Override
     @PreAuthorize("hasAuthority('" + Permissions.PRODUCTS_CREATE + "')")
     public ResponseEntity<ProductResponse> createProduct(ProductRequest productRequest) {
-        com.project.product_service.dto.ProductRequest request = apiMapper.toDomain(productRequest);
-        request.setSellerId(CurrentUser.requireId());
+        productRequest.setSellerId(CurrentUser.requireId());
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(apiMapper.toApi(productService.createProduct(request, CurrentUser.isAdmin())));
+                .body(productService.createProduct(productRequest, CurrentUser.isAdmin()));
     }
 
     @Override
     @PreAuthorize("hasAuthority('" + Permissions.PRODUCTS_UPDATE + "')")
     public ResponseEntity<ProductResponse> updateProduct(String id, ProductRequest productRequest) {
-        com.project.product_service.dto.ProductRequest request = apiMapper.toDomain(productRequest);
-        request.setSellerId(CurrentUser.requireId());
-        return ResponseEntity.ok(apiMapper.toApi(productService.updateProduct(id, request, CurrentUser.isAdmin())));
+        productRequest.setSellerId(CurrentUser.requireId());
+        return ResponseEntity.ok(productService.updateProduct(id, productRequest, CurrentUser.isAdmin()));
     }
 
     @Override
@@ -111,30 +108,30 @@ public class ProductController implements ProductsApi {
     @Override
     @PreAuthorize("hasAuthority('" + Permissions.PRODUCTS_UPDATE + "')")
     public ResponseEntity<ProductResponse> updateStock(String id, StockUpdateRequest stockUpdateRequest) {
-        return ResponseEntity.ok(apiMapper.toApi(productService.updateStock(
-                id, stockUpdateRequest.getStockQuantity(), CurrentUser.requireId(), CurrentUser.isAdmin())));
+        return ResponseEntity.ok(productService.updateStock(
+                id, stockUpdateRequest.getStockQuantity(), CurrentUser.requireId(), CurrentUser.isAdmin()));
     }
 
     @Override
     @PreAuthorize("hasAuthority('" + Permissions.PRODUCTS_UPDATE + "')")
     public ResponseEntity<ProductResponse> toggleProductActive(String id, Boolean active) {
-        return ResponseEntity.ok(apiMapper.toApi(productService.setProductActiveStatus(
-                id, active, CurrentUser.requireId(), CurrentUser.isAdmin())));
+        return ResponseEntity.ok(productService.setProductActiveStatus(
+                id, active, CurrentUser.requireId(), CurrentUser.isAdmin()));
     }
 
     @Override
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductResponse> approveProduct(String id) {
-        return ResponseEntity.ok(apiMapper.toApi(productService.setApprovalStatus(
-                id, com.project.product_service.model.ProductApprovalStatus.APPROVED, CurrentUser.requireId(), null)));
+        return ResponseEntity.ok(productService.setApprovalStatus(
+                id, com.project.product_service.model.ProductApprovalStatus.APPROVED, CurrentUser.requireId(), null));
     }
 
     @Override
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductResponse> rejectProduct(String id, String reason) {
-        return ResponseEntity.ok(apiMapper.toApi(productService.setApprovalStatus(
+        return ResponseEntity.ok(productService.setApprovalStatus(
                 id, com.project.product_service.model.ProductApprovalStatus.REJECTED,
-                CurrentUser.requireId(), reason)));
+                CurrentUser.requireId(), reason));
     }
 
     @Override
@@ -144,7 +141,7 @@ public class ProductController implements ProductsApi {
             @PageableDefault(size = 50) Pageable pageable) {
         com.project.product_service.model.ProductApprovalStatus approvalStatus =
                 com.project.product_service.model.ProductApprovalStatus.valueOf(status.getValue());
-        return ResponseEntity.ok(apiMapper.toApi(productService.listByApprovalStatus(
+        return ResponseEntity.ok(ProductApiMapper.toApi(productService.listByApprovalStatus(
                 approvalStatus, pageable)));
     }
 
@@ -152,7 +149,7 @@ public class ProductController implements ProductsApi {
     public ResponseEntity<PageProductResponse> getProductsByCategory1(
             String id, @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
                     Pageable pageable) {
-        return ResponseEntity.ok(apiMapper.toApi(productService.getProductsByCategory(
+        return ResponseEntity.ok(ProductApiMapper.toApi(productService.getProductsByCategory(
                 id, pageable)));
     }
 }

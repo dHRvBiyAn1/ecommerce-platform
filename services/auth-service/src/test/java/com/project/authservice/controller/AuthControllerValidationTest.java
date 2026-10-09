@@ -1,7 +1,7 @@
 package com.project.authservice.controller;
 
 import com.project.authservice.generated.model.ChangePasswordRequest;
-import com.project.authservice.generated.mapper.AuthApiMapperImpl;
+import com.project.authservice.mapper.AuthApiMapper;
 import com.project.authservice.exception.AuthException;
 import com.project.authservice.security.AuthenticatedUserValidator;
 import com.project.authservice.service.AuthService;
@@ -22,7 +22,7 @@ class AuthControllerValidationTest {
     @Test
     void malformedPrincipalFailsBeforeChangePasswordService() {
         AuthController controller = new AuthController(authService, mock(ClientCredentialsService.class),
-                new AuthenticatedUserValidator(), new AuthApiMapperImpl());
+                new AuthenticatedUserValidator(), new AuthApiMapper());
 
         SecurityContextHolder.setContext(new SecurityContextImpl(
                 new UsernamePasswordAuthenticationToken("not-a-uuid", null)));

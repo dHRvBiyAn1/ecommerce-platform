@@ -31,18 +31,16 @@ public class CouponController implements CouponsApi {
     @PreAuthorize("hasRole('ADMIN') and hasAuthority('" + Permissions.COUPONS_WRITE + "')")
     public ResponseEntity<com.project.coupon.generated.model.CouponResponse> createCoupon(
             com.project.coupon.generated.model.CouponRequest request) {
-        var domainRequest = apiMapper.toDomain(request);
-        requestValidator.validateDefinition(domainRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(apiMapper.toApi(couponService.create(domainRequest)));
+        requestValidator.validateDefinition(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(couponService.create(request));
     }
 
     @Override
     @PreAuthorize("hasRole('ADMIN') and hasAuthority('" + Permissions.COUPONS_WRITE + "')")
     public ResponseEntity<com.project.coupon.generated.model.CouponResponse> updateCoupon(
             UUID id, com.project.coupon.generated.model.CouponRequest request) {
-        var domainRequest = apiMapper.toDomain(request);
-        requestValidator.validateDefinition(domainRequest);
-        return ResponseEntity.ok(apiMapper.toApi(couponService.update(id, domainRequest)));
+        requestValidator.validateDefinition(request);
+        return ResponseEntity.ok(couponService.update(id, request));
     }
 
     @Override
@@ -55,7 +53,7 @@ public class CouponController implements CouponsApi {
     @Override
     @PreAuthorize("hasAuthority('" + Permissions.COUPONS_READ + "') or hasRole('ADMIN')")
     public ResponseEntity<com.project.coupon.generated.model.CouponResponse> getCoupon(UUID id) {
-        return ResponseEntity.ok(apiMapper.toApi(couponService.get(id)));
+        return ResponseEntity.ok(couponService.get(id));
     }
 
     @Override
@@ -70,10 +68,9 @@ public class CouponController implements CouponsApi {
             + ServiceScopes.AUTHORITY_COUPONS_READ + "'))")
     public ResponseEntity<com.project.coupon.generated.model.ValidateCouponResponse> validateCoupon(
             com.project.coupon.generated.model.ValidateCouponRequest request) {
-        var domainRequest = apiMapper.toDomain(request);
-        requestValidator.validateValidation(domainRequest);
-        validateActor(domainRequest.userId(), ServiceScopes.AUTHORITY_COUPONS_READ);
-        return ResponseEntity.ok(apiMapper.toApi(couponService.validate(domainRequest)));
+        requestValidator.validateValidation(request);
+        validateActor(request.getUserId(), ServiceScopes.AUTHORITY_COUPONS_READ);
+        return ResponseEntity.ok(couponService.validate(request));
     }
 
     @Override
@@ -81,10 +78,9 @@ public class CouponController implements CouponsApi {
             + ServiceScopes.AUTHORITY_COUPONS_WRITE + "'))")
     public ResponseEntity<com.project.coupon.generated.model.CouponReservationResponse> reserveCoupon(
             com.project.coupon.generated.model.CouponReservationRequest request) {
-        var domainRequest = apiMapper.toDomain(request);
-        requestValidator.validateReservation(domainRequest);
-        validateActor(domainRequest.userId(), ServiceScopes.AUTHORITY_COUPONS_WRITE);
-        return ResponseEntity.ok(apiMapper.toApi(couponService.reserve(domainRequest)));
+        requestValidator.validateReservation(request);
+        validateActor(request.getUserId(), ServiceScopes.AUTHORITY_COUPONS_WRITE);
+        return ResponseEntity.ok(couponService.reserve(request));
     }
 
     @Override
@@ -92,10 +88,9 @@ public class CouponController implements CouponsApi {
             + ServiceScopes.AUTHORITY_COUPONS_WRITE + "'))")
     public ResponseEntity<com.project.coupon.generated.model.CouponReservationResponse> commitCouponReservation(
             com.project.coupon.generated.model.CouponTransitionRequest request) {
-        var domainRequest = apiMapper.toDomain(request);
-        requestValidator.validateTransition(domainRequest);
-        validateActor(domainRequest.userId(), ServiceScopes.AUTHORITY_COUPONS_WRITE);
-        return ResponseEntity.ok(apiMapper.toApi(couponService.commit(domainRequest)));
+        requestValidator.validateTransition(request);
+        validateActor(request.getUserId(), ServiceScopes.AUTHORITY_COUPONS_WRITE);
+        return ResponseEntity.ok(couponService.commit(request));
     }
 
     @Override
@@ -103,10 +98,9 @@ public class CouponController implements CouponsApi {
             + ServiceScopes.AUTHORITY_COUPONS_WRITE + "'))")
     public ResponseEntity<com.project.coupon.generated.model.CouponReservationResponse> releaseCouponReservation(
             com.project.coupon.generated.model.CouponTransitionRequest request) {
-        var domainRequest = apiMapper.toDomain(request);
-        requestValidator.validateTransition(domainRequest);
-        validateActor(domainRequest.userId(), ServiceScopes.AUTHORITY_COUPONS_WRITE);
-        return ResponseEntity.ok(apiMapper.toApi(couponService.release(domainRequest)));
+        requestValidator.validateTransition(request);
+        validateActor(request.getUserId(), ServiceScopes.AUTHORITY_COUPONS_WRITE);
+        return ResponseEntity.ok(couponService.release(request));
     }
 
     @Override
@@ -114,10 +108,9 @@ public class CouponController implements CouponsApi {
             + ServiceScopes.AUTHORITY_COUPONS_WRITE + "'))")
     public ResponseEntity<com.project.coupon.generated.model.ValidateCouponResponse> redeemCoupon(
             com.project.coupon.generated.model.RedeemCouponRequest request) {
-        var domainRequest = apiMapper.toDomain(request);
-        requestValidator.validateRedemption(domainRequest);
-        validateActor(domainRequest.userId(), ServiceScopes.AUTHORITY_COUPONS_WRITE);
-        return ResponseEntity.ok(apiMapper.toApi(couponService.redeem(domainRequest)));
+        requestValidator.validateRedemption(request);
+        validateActor(request.getUserId(), ServiceScopes.AUTHORITY_COUPONS_WRITE);
+        return ResponseEntity.ok(couponService.redeem(request));
     }
 
     private void validateActor(UUID claimedUserId, String requiredScope) {

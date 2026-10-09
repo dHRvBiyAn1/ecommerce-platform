@@ -1,8 +1,7 @@
 package com.project.cart.controller;
 
-import com.project.cart.generated.mapper.CartApiMapperImpl;
 import com.project.cart.config.SecurityConfig;
-import com.project.cart.dto.CartResponse;
+import com.project.cart.generated.model.CartResponse;
 import com.project.cart.service.CartService;
 import com.project.common.exception.BusinessException;
 import com.project.common.exception.GlobalExceptionHandler;
@@ -101,7 +100,7 @@ class CartGeneratedClientHttpTest {
                 null, BigDecimal.ZERO.setScale(2), BigDecimal.ZERO.setScale(2),
                 BigDecimal.ZERO.setScale(2), 0, null);
         CartResponse filled = new CartResponse("cart-1", USER_ID,
-                List.of(new CartResponse.Item("sku-1", "SKU-1", "Desk", null,
+                List.of(new com.project.cart.generated.model.CartItem("sku-1", "SKU-1", "Desk", null,
                         new BigDecimal("12.35"), 2)), "INR", null, BigDecimal.ZERO.setScale(2),
                 new BigDecimal("24.70"), new BigDecimal("24.70"), 2, null);
         when(cartService.getMyCart(USER_ID)).thenReturn(empty);
@@ -131,11 +130,29 @@ class CartGeneratedClientHttpTest {
         assertThat(updated.getItemCount()).isEqualTo(2);
         api.updateCartItemQuantity("sku-1", new UpdateQuantityRequest());
         verify(cartService).getMyCart(USER_ID);
-        verify(cartService).addItem(eq(USER_ID), eq(new com.project.cart.dto.AddCartItemRequest("sku-1", 2)));
+        verify(cartService).addItem(eq(USER_ID), eq(new com.project.cart.generated.model.AddCartItemRequest("sku-1", 2)));
         verify(cartService).updateQuantity(eq(USER_ID), eq("sku-1"),
-                eq(new com.project.cart.dto.UpdateQuantityRequest(2)));
+                eq(new com.project.cart.generated.model.UpdateQuantityRequest(2)));
         verify(cartService).updateQuantity(eq(USER_ID), eq("sku-1"),
-                eq(new com.project.cart.dto.UpdateQuantityRequest(0)));
+                eq(new com.project.cart.generated.model.UpdateQuantityRequest(0)));
+    }
+
+    @Test
+    void omittedAndNullQuantityKeepLegacyZeroDefaultOverHttp() throws Exception {
+        when(cartService.updateQuantity(eq(USER_ID), eq("sku-1"), any()))
+                .thenReturn(new CartResponse().userId(USER_ID).items(List.of()).itemCount(0));
+        var client = java.net.http.HttpClient.newHttpClient();
+        for (String body : List.of("{}", "{\"quantity\":null}")) {
+            var request = java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://localhost:"
+                            + serverContext.getWebServer().getPort() + "/api/v1/cart/items/sku-1"))
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + TOKEN)
+                    .header(HttpHeaders.CONTENT_TYPE, "application/json")
+                    .method("PATCH", java.net.http.HttpRequest.BodyPublishers.ofString(body)).build();
+            var response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+            assertThat(response.statusCode()).isEqualTo(200);
+        }
+        verify(cartService, org.mockito.Mockito.times(2)).updateQuantity(eq(USER_ID), eq("sku-1"),
+                eq(new com.project.cart.generated.model.UpdateQuantityRequest(0)));
     }
 
     @Test
@@ -186,8 +203,8 @@ class CartGeneratedClientHttpTest {
 
         api.addCartItem(new AddCartItemRequest().productId("sku\nid").quantity(1));
         api.applyCartCoupon(new ApplyCouponRequest().code("SAVE\n10"));
-        verify(cartService).addItem(USER_ID, new com.project.cart.dto.AddCartItemRequest("sku\nid", 1));
-        verify(cartService).applyCoupon(USER_ID, new com.project.cart.dto.ApplyCouponRequest("SAVE\n10"));
+        verify(cartService).addItem(USER_ID, new com.project.cart.generated.model.AddCartItemRequest("sku\nid", 1));
+        verify(cartService).applyCoupon(USER_ID, new com.project.cart.generated.model.ApplyCouponRequest("SAVE\n10"));
 
         ApiException invalidItem = catchThrowableOfType(
                 () -> api.addCartItem(new AddCartItemRequest().productId("\0").quantity(1)), ApiException.class);
@@ -235,6 +252,6 @@ class CartGeneratedClientHttpTest {
             "org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration",
             "org.springframework.cloud.netflix.eureka.EurekaClientAutoConfiguration"
     })
-    @Import({CartController.class, SecurityConfig.class, CartApiMapperImpl.class, GlobalExceptionHandler.class})
+    @Import({CartController.class, SecurityConfig.class, GlobalExceptionHandler.class})
     static class TestApplication { }
 }

@@ -1,11 +1,11 @@
 package com.project.order.client;
 
-import com.project.order.client.dto.CouponValidationRequest;
-import com.project.order.client.dto.CouponValidationResponse;
-import com.project.order.client.dto.CouponReservationCommand;
-import com.project.order.client.dto.CouponReservationResult;
-import com.project.order.client.dto.CouponTransitionCommand;
-import com.project.order.client.dto.RedeemCouponRequest;
+import com.project.order.generated.integration.coupon.model.ValidateCouponRequest;
+import com.project.order.generated.integration.coupon.model.ValidateCouponResponse;
+import com.project.order.generated.integration.coupon.model.CouponReservationRequest;
+import com.project.order.generated.integration.coupon.model.CouponReservationResponse;
+import com.project.order.generated.integration.coupon.model.CouponTransitionRequest;
+import com.project.order.generated.integration.coupon.model.RedeemCouponRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -17,35 +17,31 @@ public class CouponClientFallbackFactory implements FallbackFactory<CouponClient
     public CouponClient create(Throwable cause) {
         return new CouponClient() {
             @Override
-            public CouponValidationResponse validate(CouponValidationRequest request) {
+            public ValidateCouponResponse validate(ValidateCouponRequest request) {
                 log.error("Fallback triggered for coupon validate: {}", cause.getMessage());
-                return CouponValidationResponse.builder()
-                        .valid(false)
-                        .reason("Coupon service is currently unavailable")
-                        .build();
+                return new ValidateCouponResponse().valid(false)
+                        .reason("Coupon service is currently unavailable");
             }
 
             @Override
-            public CouponValidationResponse redeem(RedeemCouponRequest request) {
+            public ValidateCouponResponse redeem(RedeemCouponRequest request) {
                 log.error("Fallback triggered for coupon redeem: {}", cause.getMessage());
-                return CouponValidationResponse.builder()
-                        .valid(false)
-                        .reason("Coupon service is currently unavailable")
-                        .build();
+                return new ValidateCouponResponse().valid(false)
+                        .reason("Coupon service is currently unavailable");
             }
 
             @Override
-            public CouponReservationResult reserve(CouponReservationCommand request) {
+            public CouponReservationResponse reserve(CouponReservationRequest request) {
                 throw unavailable("reserve", cause);
             }
 
             @Override
-            public CouponReservationResult commit(CouponTransitionCommand request) {
+            public CouponReservationResponse commit(CouponTransitionRequest request) {
                 throw unavailable("commit", cause);
             }
 
             @Override
-            public CouponReservationResult release(CouponTransitionCommand request) {
+            public CouponReservationResponse release(CouponTransitionRequest request) {
                 throw unavailable("release", cause);
             }
         };

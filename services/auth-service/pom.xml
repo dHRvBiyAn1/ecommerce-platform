@@ -187,6 +187,7 @@
                                 <skipDefaultInterface>true</skipDefaultInterface>
                                 <useBeanValidation>true</useBeanValidation>
                                 <openApiNullable>false</openApiNullable>
+                                <generateConstructorWithAllArgs>true</generateConstructorWithAllArgs>
                                 <generateJsonIncludeAnnotations>true</generateJsonIncludeAnnotations>
                                 <optionalNonNullPropertyJsonInclude>NON_NULL</optionalNonNullPropertyJsonInclude>
                                 <generateJsonSetterNullsAnnotations>false</generateJsonSetterNullsAnnotations>

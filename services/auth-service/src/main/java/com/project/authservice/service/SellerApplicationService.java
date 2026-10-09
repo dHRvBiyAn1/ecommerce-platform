@@ -1,8 +1,8 @@
 package com.project.authservice.service;
 
-import com.project.authservice.dto.request.seller.RejectApplicationRequest;
-import com.project.authservice.dto.request.seller.SellerApplicationRequest;
-import com.project.authservice.dto.response.seller.SellerApplicationResponse;
+import com.project.authservice.generated.model.RejectApplicationRequest;
+import com.project.authservice.generated.model.SellerApplicationRequest;
+import com.project.authservice.generated.model.SellerApplicationResponse;
 import com.project.authservice.entity.Address;
 import com.project.authservice.entity.Role;
 import com.project.authservice.entity.SellerApplication;
@@ -74,14 +74,14 @@ public class SellerApplicationService {
         } else {
             app = SellerApplication.builder().userId(userId).build();
         }
-        app.setBusinessName(req.businessName());
-        app.setGstin(blankToNull(req.gstin()));
-        app.setContactPhone(req.contactPhone());
-        Address pickupAddress = addressMapper.toEntity(req.pickupAddress());
+        app.setBusinessName(req.getBusinessName());
+        app.setGstin(blankToNull(req.getGstin()));
+        app.setContactPhone(req.getContactPhone());
+        Address pickupAddress = addressMapper.toEntity(req.getPickupAddress());
         if (pickupAddress != null && pickupAddress.getCountry() == null) pickupAddress.setCountry("IN");
         app.setPickupAddress(pickupAddress);
-        app.setBankAccountLast4(blankToNull(req.bankAccountLast4()));
-        app.setNotes(req.notes());
+        app.setBankAccountLast4(blankToNull(req.getBankAccountLast4()));
+        app.setNotes(req.getNotes());
         return toResponse(repository.save(app));
     }
 
@@ -136,7 +136,7 @@ public class SellerApplicationService {
             throw new ValidationException("Only pending applications can be rejected");
         }
         app.setStatus(SellerApplicationStatus.REJECTED);
-        app.setRejectionReason(req.reason());
+        app.setRejectionReason(req.getReason());
         app.setReviewedAt(LocalDateTime.now());
         app.setReviewedBy(adminId);
         log.info("Seller application {} rejected by {}", applicationId, adminId);

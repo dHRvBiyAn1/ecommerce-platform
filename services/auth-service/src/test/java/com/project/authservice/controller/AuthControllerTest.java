@@ -1,7 +1,6 @@
 package com.project.authservice.controller;
 
-import com.project.authservice.dto.request.ClientCredentialsRequest;
-import com.project.authservice.dto.response.ServiceTokenResponse;
+import com.project.authservice.generated.model.ServiceTokenResponse;
 import com.project.authservice.service.AuthService;
 import com.project.authservice.service.ClientCredentialsService;
 import com.project.common.exception.DuplicateResourceException;
@@ -36,10 +35,9 @@ class AuthControllerTest {
     void clientCredentialsGrantReturnsOAuthFieldsWithoutRefreshCookie() {
         ReflectionTestUtils.setField(controller, "refreshTokenDurationMs", 604_800_000L);
         ReflectionTestUtils.setField(controller, "secureCookie", true);
-        ServiceTokenResponse token = new ServiceTokenResponse(
-                "signed-service-token", "Bearer", 300L, "inventory.write");
-        when(clientCredentialsService.issue(new ClientCredentialsRequest(
-                "order-service", "correct-secret", "inventory.write"))).thenReturn(token);
+        ServiceTokenResponse token = new ServiceTokenResponse().accessToken("signed-service-token")
+                .tokenType(ServiceTokenResponse.TokenTypeEnum.BEARER).expiresIn(300L).scope("inventory.write");
+        when(clientCredentialsService.issue("order-service", "correct-secret", "inventory.write")).thenReturn(token);
         MockHttpServletResponse servletResponse = new MockHttpServletResponse();
 
         var response = controller.token(
@@ -50,15 +48,13 @@ class AuthControllerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody()).isEqualTo(token);
         assertThat(servletResponse.getHeader("Set-Cookie")).isNull();
-        verify(clientCredentialsService).issue(new ClientCredentialsRequest(
-                "order-service", "correct-secret", "inventory.write"));
+        verify(clientCredentialsService).issue("order-service", "correct-secret", "inventory.write");
         verifyNoInteractions(authService);
     }
 
     @Test
     void unrelatedBusinessFailureIsNotClassifiedAsInvalidClient() {
-        when(clientCredentialsService.issue(new ClientCredentialsRequest(
-                "order-service", "correct-secret", "inventory.write")))
+        when(clientCredentialsService.issue("order-service", "correct-secret", "inventory.write"))
                 .thenThrow(new DuplicateResourceException("client state conflict"));
 
         assertThatThrownBy(() -> controller.token(

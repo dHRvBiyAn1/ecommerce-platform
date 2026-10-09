@@ -1,5 +1,7 @@
 package com.project.cart.client;
 
+import com.project.cart.generated.integration.coupon.model.ValidateCouponRequest;
+import com.project.cart.generated.integration.coupon.model.ValidateCouponResponse;
 import com.project.common.feign.FeignAuthForwardingConfig;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,5 +16,5 @@ import org.springframework.web.bind.annotation.RequestBody;
 public interface CouponClient {
 
     @PostMapping("/api/v1/coupons/validate")
-    CouponValidationResponse validate(@RequestBody CouponValidationRequest request);
+    ValidateCouponResponse validate(@RequestBody ValidateCouponRequest request);
 }

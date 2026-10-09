@@ -37,35 +37,33 @@ public class InventoryController implements InventoryApi {
     @Override
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<com.project.inventory.generated.model.InventoryResponse> getInventoryByProduct(String id) {
-        return ResponseEntity.ok(apiMapper.toApi(inventoryService.getByProductId(id)));
+        return ResponseEntity.ok(inventoryService.getByProductId(id));
     }
 
     @Override
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<com.project.inventory.generated.model.InventoryResponse> getInventoryBySku(String sku) {
-        return ResponseEntity.ok(apiMapper.toApi(inventoryService.getBySku(sku)));
+        return ResponseEntity.ok(inventoryService.getBySku(sku));
     }
 
     @Override
     @PreAuthorize("hasRole('ADMIN') or hasRole('SELLER')")
     public ResponseEntity<List<com.project.inventory.generated.model.InventoryResponse>> listLowStockInventory() {
-        return ResponseEntity.ok(inventoryService.getLowStockItems().stream().map(apiMapper::toApi).toList());
+        return ResponseEntity.ok(inventoryService.getLowStockItems());
     }
 
     @Override
     @PreAuthorize("hasAuthority('" + Permissions.INVENTORY_WRITE + "')")
     public ResponseEntity<com.project.inventory.generated.model.InventoryResponse> createInventory(
             InventoryRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(apiMapper.toApi(
-                inventoryService.createInventory(apiMapper.toDomain(request))));
+        return ResponseEntity.status(HttpStatus.CREATED).body(inventoryService.createInventory(request));
     }
 
     @Override
     @PreAuthorize("hasAuthority('" + Permissions.INVENTORY_WRITE + "')")
     public ResponseEntity<com.project.inventory.generated.model.InventoryResponse> updateInventory(
             String id, InventoryRequest request) {
-        return ResponseEntity.ok(apiMapper.toApi(
-                inventoryService.updateInventory(id, apiMapper.toDomain(request))));
+        return ResponseEntity.ok(inventoryService.updateInventory(id, request));
     }
 
     @Override
@@ -80,7 +78,7 @@ public class InventoryController implements InventoryApi {
     public ResponseEntity<com.project.inventory.generated.model.InventoryResponse> addStock(
             String productId, Integer quantity) {
         inventoryValidator.validatePositiveQuantity(quantity);
-        return ResponseEntity.ok(apiMapper.toApi(inventoryService.addStock(productId, quantity)));
+        return ResponseEntity.ok(inventoryService.addStock(productId, quantity));
     }
 
     @Override
@@ -88,9 +86,10 @@ public class InventoryController implements InventoryApi {
             + ServiceScopes.AUTHORITY_INVENTORY_WRITE + "')")
     public ResponseEntity<com.project.inventory.generated.model.InventoryResponse> reserveStock(
             String productId, StockReservationRequest request) {
-        inventoryValidator.validateReservation(request.getQuantity(), request.getOrderId());
-        return ResponseEntity.ok(apiMapper.toApi(inventoryService.reserveStock(
-                productId, request.getQuantity(), request.getOrderId())));
+        int quantity = request.getQuantity() == null ? 0 : request.getQuantity();
+        inventoryValidator.validateReservation(quantity, request.getOrderId());
+        return ResponseEntity.ok(inventoryService.reserveStock(
+                productId, quantity, request.getOrderId()));
     }
 
     @Override
@@ -98,9 +97,10 @@ public class InventoryController implements InventoryApi {
             + ServiceScopes.AUTHORITY_INVENTORY_WRITE + "')")
     public ResponseEntity<com.project.inventory.generated.model.InventoryResponse> commitStock(
             String productId, StockReservationRequest request) {
-        inventoryValidator.validateReservation(request.getQuantity(), request.getOrderId());
-        return ResponseEntity.ok(apiMapper.toApi(inventoryService.commitStock(
-                productId, request.getQuantity(), request.getOrderId())));
+        int quantity = request.getQuantity() == null ? 0 : request.getQuantity();
+        inventoryValidator.validateReservation(quantity, request.getOrderId());
+        return ResponseEntity.ok(inventoryService.commitStock(
+                productId, quantity, request.getOrderId()));
     }
 
     @Override
@@ -108,9 +108,10 @@ public class InventoryController implements InventoryApi {
             + ServiceScopes.AUTHORITY_INVENTORY_WRITE + "')")
     public ResponseEntity<com.project.inventory.generated.model.InventoryResponse> releaseStock(
             String productId, StockReservationRequest request) {
-        inventoryValidator.validateReservation(request.getQuantity(), request.getOrderId());
-        return ResponseEntity.ok(apiMapper.toApi(inventoryService.releaseStock(
-                productId, request.getQuantity(), request.getOrderId())));
+        int quantity = request.getQuantity() == null ? 0 : request.getQuantity();
+        inventoryValidator.validateReservation(quantity, request.getOrderId());
+        return ResponseEntity.ok(inventoryService.releaseStock(
+                productId, quantity, request.getOrderId()));
     }
 
     @Override

@@ -1,8 +1,7 @@
 package com.project.authservice.service;
 
 import com.project.authservice.config.ServiceClientProperties;
-import com.project.authservice.dto.request.ClientCredentialsRequest;
-import com.project.authservice.dto.response.ServiceTokenResponse;
+import com.project.authservice.generated.model.ServiceTokenResponse;
 import com.project.authservice.exception.AuthException;
 import com.project.authservice.exception.InvalidScopeException;
 import lombok.RequiredArgsConstructor;
@@ -27,16 +26,16 @@ public class ClientCredentialsService {
     private final ServiceClientProperties properties;
     private final JwtService jwtService;
 
-    public ServiceTokenResponse issue(ClientCredentialsRequest request) {
-        if (request == null || isBlank(request.clientId()) || request.clientSecret() == null) {
+    public ServiceTokenResponse issue(String clientId, String clientSecret, String scope) {
+        if (isBlank(clientId) || clientSecret == null) {
             throw new AuthException("Invalid client credentials");
         }
 
-        ServiceClientProperties.Client client = properties.clients().get(request.clientId());
+        ServiceClientProperties.Client client = properties.clients().get(clientId);
         byte[] expectedSecret = client == null || client.secret() == null
                 ? UNKNOWN_CLIENT_SECRET
                 : client.secret().getBytes(StandardCharsets.UTF_8);
-        byte[] suppliedSecret = request.clientSecret().getBytes(StandardCharsets.UTF_8);
+        byte[] suppliedSecret = clientSecret.getBytes(StandardCharsets.UTF_8);
         boolean secretMatches = MessageDigest.isEqual(expectedSecret, suppliedSecret);
         Arrays.fill(suppliedSecret, (byte) 0);
 
@@ -44,7 +43,7 @@ public class ClientCredentialsService {
             throw new AuthException("Invalid client credentials");
         }
 
-        Set<String> requestedScopes = parseScopes(request.scope(), client.allowedScopes());
+        Set<String> requestedScopes = parseScopes(scope, client.allowedScopes());
         if (requestedScopes.isEmpty() || !client.allowedScopes().containsAll(requestedScopes)) {
             throw new InvalidScopeException("Requested scope is not allowed");
         }
@@ -55,8 +54,9 @@ public class ClientCredentialsService {
         }
 
         String normalizedScope = String.join(" ", requestedScopes);
-        String accessToken = jwtService.generateServiceToken(request.clientId(), requestedScopes, tokenTtl);
-        return new ServiceTokenResponse(accessToken, "Bearer", tokenTtl.toSeconds(), normalizedScope);
+        String accessToken = jwtService.generateServiceToken(clientId, requestedScopes, tokenTtl);
+        return new ServiceTokenResponse().accessToken(accessToken)
+                .tokenType(ServiceTokenResponse.TokenTypeEnum.BEARER).expiresIn(tokenTtl.toSeconds()).scope(normalizedScope);
     }
 
     private static Set<String> parseScopes(String requestedScope, Set<String> allowedScopes) {

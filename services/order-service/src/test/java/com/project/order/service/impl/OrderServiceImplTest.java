@@ -4,15 +4,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.order.client.CouponClient;
 import com.project.order.client.InventoryClient;
 import com.project.order.client.ProductClient;
-import com.project.order.client.dto.CouponTransitionCommand;
-import com.project.order.client.dto.CouponReservationCommand;
-import com.project.order.client.dto.CouponValidationResponse;
-import com.project.order.client.dto.ProductSummary;
-import com.project.order.dto.OrderItemRequest;
-import com.project.order.dto.OrderRequest;
-import com.project.order.dto.OrderResponse;
-import com.project.order.dto.OrderStatusUpdateRequest;
-import com.project.order.dto.ShippingAddressRequest;
+import com.project.order.generated.integration.coupon.model.CouponTransitionRequest;
+import com.project.order.generated.integration.coupon.model.CouponReservationRequest;
+import com.project.order.generated.integration.coupon.model.ValidateCouponResponse;
+import com.project.order.generated.integration.product.model.ProductResponse;
+import com.project.order.generated.model.OrderItemRequest;
+import com.project.order.generated.model.OrderRequest;
+import com.project.order.generated.model.OrderResponse;
+import com.project.order.generated.model.OrderStatusUpdateRequest;
+import com.project.order.generated.model.ShippingAddressRequest;
 import com.project.order.exception.OrderValidationException;
 import com.project.common.exception.ForbiddenOperationException;
 import com.project.order.application.mapper.OrderMapper;
@@ -70,7 +70,7 @@ class OrderServiceImplTest {
 
         service.onPaymentResult("order-1", "payment-1", PaymentStatus.COMPLETED);
 
-        verify(inventoryClient).commit("product-1", new com.project.order.client.dto.StockReservationCommand(2, "order-1"));
+        verify(inventoryClient).commit("product-1", new com.project.order.generated.integration.inventory.model.StockReservationRequest(2, "order-1"));
         assertThat(order.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
         assertThat(order.getPaymentStatus()).isEqualTo(PaymentStatus.COMPLETED);
     }
@@ -97,7 +97,7 @@ class OrderServiceImplTest {
         when(orderRepository.findById("order-1")).thenReturn(Optional.of(order));
 
         assertThatThrownBy(() -> service.updateOrderStatus("order-1",
-                new OrderStatusUpdateRequest(OrderStatus.DELIVERED, "skip shipping")))
+                new OrderStatusUpdateRequest(OrderStatusUpdateRequest.StatusEnum.DELIVERED, "skip shipping")))
                 .isInstanceOf(OrderValidationException.class)
                 .hasMessageContaining("CONFIRMED to DELIVERED");
 
@@ -115,7 +115,7 @@ class OrderServiceImplTest {
 
         service.onPaymentResult("order-1", "payment-1", PaymentStatus.COMPLETED);
 
-        verify(couponClient).commit(new CouponTransitionCommand(
+        verify(couponClient).commit(new CouponTransitionRequest(
                 "SAVE10", order.getUserId(), "order-1"));
         verify(couponClient, never()).redeem(any());
     }
@@ -130,7 +130,7 @@ class OrderServiceImplTest {
 
         service.onPaymentResult("order-1", "payment-1", PaymentStatus.FAILED);
 
-        verify(couponClient).release(new CouponTransitionCommand(
+        verify(couponClient).release(new CouponTransitionRequest(
                 "SAVE10", order.getUserId(), "order-1"));
     }
 
@@ -141,16 +141,8 @@ class OrderServiceImplTest {
 
         service.createOrder(orderRequest(), userId, "customer@example.com", null);
 
-        verify(couponClient).reserve(new CouponReservationCommand(
+        verify(couponClient).reserve(new CouponReservationRequest(
                 "SAVE10", userId, "order-1", new BigDecimal("100.00"), "INR"));
-    }
-
-    @Test
-    void requestAndResponseBoundariesAreImmutableRecords() {
-        assertThat(OrderRequest.class.isRecord()).isTrue();
-        assertThat(OrderItemRequest.class.isRecord()).isTrue();
-        assertThat(ShippingAddressRequest.class.isRecord()).isTrue();
-        assertThat(OrderResponse.class.isRecord()).isTrue();
     }
 
     @Test
@@ -162,10 +154,10 @@ class OrderServiceImplTest {
 
         OrderResponse response = new OrderMapperImpl().toResponse(order);
 
-        assertThat(response.id()).isEqualTo(order.getId());
-        assertThat(response.orderNumber()).isEqualTo(order.getOrderNumber());
-        assertThat(response.items()).hasSize(1);
-        assertThat(response.items().get(0).productId()).isEqualTo("product-1");
+        assertThat(response.getId()).isEqualTo(order.getId());
+        assertThat(response.getOrderNumber()).isEqualTo(order.getOrderNumber());
+        assertThat(response.getItems()).hasSize(1);
+        assertThat(response.getItems().get(0).getProductId()).isEqualTo("product-1");
     }
 
     @Test
@@ -195,6 +187,13 @@ class OrderServiceImplTest {
     }
 
     @Test
+    void validatorRequiresAnAuthenticatedUserWhenRequestIsPresent() {
+        assertThatThrownBy(() -> new OrderRequestValidator().validateCreate(new OrderRequest(), null))
+                .isInstanceOf(OrderValidationException.class)
+                .hasMessage("Order request and user are required");
+    }
+
+    @Test
     void orderUsesCentralPricingConstants() {
         assertThat(OrderPricing.DEFAULT_CURRENCY).isEqualTo("INR");
         assertThat(OrderPricing.TAX_RATE).isEqualByComparingTo("0.18");
@@ -213,7 +212,7 @@ class OrderServiceImplTest {
         UUID userId = UUID.randomUUID();
         AtomicReference<Order> persisted = stubCheckoutDependencies(userId);
         when(inventoryClient.reserve("product-1",
-                new com.project.order.client.dto.StockReservationCommand(2, "order-1")))
+                new com.project.order.generated.integration.inventory.model.StockReservationRequest(2, "order-1")))
                 .thenThrow(new IllegalStateException("inventory unavailable"));
         assertThatThrownBy(() -> service.createOrder(
                 orderRequest(), userId, "customer@example.com", null))
@@ -266,15 +265,15 @@ class OrderServiceImplTest {
 
         OrderResponse response = service.cancelOrder("order-1", order.getUserId(), false);
 
-        assertThat(response.status()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(response.getStatus()).isEqualTo(com.project.order.generated.model.OrderResponse.StatusEnum.CANCELLED);
         assertThat(order.getCancelledAt()).isNotNull();
         assertThat(order.getOutboxEvents()).singleElement().satisfies(event -> {
             assertThat(event.getEventType()).isEqualTo("CANCELLED");
             assertThat(event.getPayload()).contains("\"type\":\"CANCELLED\"");
         });
         verify(inventoryClient).release("product-1",
-                new com.project.order.client.dto.StockReservationCommand(2, "order-1"));
-        verify(couponClient).release(new CouponTransitionCommand("SAVE10", order.getUserId(), "order-1"));
+                new com.project.order.generated.integration.inventory.model.StockReservationRequest(2, "order-1"));
+        verify(couponClient).release(new CouponTransitionRequest("SAVE10", order.getUserId(), "order-1"));
     }
 
     @Test
@@ -303,9 +302,9 @@ class OrderServiceImplTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         OrderResponse response = service.updateOrderStatus("order-1",
-                new OrderStatusUpdateRequest(OrderStatus.SHIPPED, "carrier collected"));
+                new OrderStatusUpdateRequest(OrderStatusUpdateRequest.StatusEnum.SHIPPED, "carrier collected"));
 
-        assertThat(response.status()).isEqualTo(OrderStatus.SHIPPED);
+        assertThat(response.getStatus()).isEqualTo(com.project.order.generated.model.OrderResponse.StatusEnum.SHIPPED);
         assertThat(order.getNotes()).isEqualTo("carrier collected");
         assertThat(order.getShippedAt()).isNotNull();
         assertThat(order.getOutboxEvents()).singleElement()
@@ -319,7 +318,7 @@ class OrderServiceImplTest {
         when(orderRepository.findById("order-1")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.updateOrderStatus("order-1", new OrderStatusUpdateRequest(OrderStatus.PROCESSING, null));
+        service.updateOrderStatus("order-1", new OrderStatusUpdateRequest(OrderStatusUpdateRequest.StatusEnum.PROCESSING, null));
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PROCESSING);
         assertThat(order.getOutboxEvents()).singleElement().satisfies(event -> {
@@ -337,8 +336,8 @@ class OrderServiceImplTest {
         when(orderRepository.findById("order-1")).thenReturn(Optional.of(order));
         when(orderRepository.findByOrderNumber("ORD-1")).thenReturn(Optional.of(order));
 
-        assertThat(service.getOrder("order-1").id()).isEqualTo("order-1");
-        assertThat(service.getOrderByNumber("ORD-1").orderNumber()).isEqualTo("ORD-1");
+        assertThat(service.getOrder("order-1").getId()).isEqualTo("order-1");
+        assertThat(service.getOrderByNumber("ORD-1").getOrderNumber()).isEqualTo("ORD-1");
     }
 
     @Test
@@ -349,7 +348,7 @@ class OrderServiceImplTest {
         when(orderRepository.findById("order-1")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.updateOrderStatus("order-1", new OrderStatusUpdateRequest(OrderStatus.DELIVERED, null));
+        service.updateOrderStatus("order-1", new OrderStatusUpdateRequest(OrderStatusUpdateRequest.StatusEnum.DELIVERED, null));
 
         assertThat(order.getDeliveredAt()).isNotNull();
         assertThat(order.getNotes()).isEqualTo("existing note");
@@ -395,15 +394,15 @@ class OrderServiceImplTest {
     @Test
     void invalidCouponPreventsOrderPersistence() {
         UUID userId = UUID.randomUUID();
-        ProductSummary product = new ProductSummary();
+        ProductResponse product = new ProductResponse();
         product.setId("product-1");
         product.setSku("SKU-1");
         product.setName("Product");
         product.setPrice(new BigDecimal("50.00"));
         product.setActive(true);
         when(productClient.getProduct("product-1")).thenReturn(product);
-        when(couponClient.validate(any())).thenReturn(CouponValidationResponse.builder()
-                .valid(false).reason("expired").build());
+        when(couponClient.validate(any())).thenReturn(new ValidateCouponResponse()
+                .valid(false).reason("expired"));
 
         assertThatThrownBy(() -> service.createOrder(orderRequest(), userId, "customer@example.com", null))
                 .isInstanceOf(OrderValidationException.class)
@@ -416,12 +415,12 @@ class OrderServiceImplTest {
     void couponDiscountCannotMakeTheOrderTotalNegative() {
         UUID userId = UUID.randomUUID();
         stubCheckoutDependencies(userId);
-        when(couponClient.validate(any())).thenReturn(CouponValidationResponse.builder()
-                .valid(true).discountAmount(new BigDecimal("1000.00")).build());
+        when(couponClient.validate(any())).thenReturn(new ValidateCouponResponse()
+                .valid(true).discountAmount(new BigDecimal("1000.00")));
 
         OrderResponse response = service.createOrder(orderRequest(), userId, "customer@example.com", null);
 
-        assertThat(response.totalAmount()).isEqualByComparingTo("0.00");
+        assertThat(response.getTotalAmount()).isEqualByComparingTo("0.00");
     }
 
     @Test
@@ -465,7 +464,7 @@ class OrderServiceImplTest {
         assertThat(order.getSagaState().getOperations()).extracting(com.project.order.model.SagaState.Operation::getId)
                 .doesNotHaveDuplicates();
         verify(inventoryClient, times(2)).reserve("product-1",
-                new com.project.order.client.dto.StockReservationCommand(2, "order-1"));
+                new com.project.order.generated.integration.inventory.model.StockReservationRequest(2, "order-1"));
     }
 
     @Test
@@ -477,7 +476,7 @@ class OrderServiceImplTest {
 
         OrderResponse response = service.createOrder(orderRequest(), userId, "customer@example.com", "checkout-key");
 
-        assertThat(response.id()).isEqualTo("order-1");
+        assertThat(response.getId()).isEqualTo("order-1");
         verify(productClient, never()).getProduct(any());
         verify(orderRepository, never()).insert(any(Order.class));
     }
@@ -494,7 +493,7 @@ class OrderServiceImplTest {
 
     @Test
     void inactiveProductIsRejectedBeforeOrderIsPersisted() {
-        ProductSummary product = new ProductSummary();
+        ProductResponse product = new ProductResponse();
         product.setId("product-1");
         product.setActive(false);
         when(productClient.getProduct("product-1")).thenReturn(product);
@@ -526,9 +525,9 @@ class OrderServiceImplTest {
 
         OrderResponse response = service.cancelOrder("order-1", UUID.randomUUID(), true);
 
-        assertThat(response.status()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(response.getStatus()).isEqualTo(com.project.order.generated.model.OrderResponse.StatusEnum.CANCELLED);
         verify(inventoryClient).release("product-1",
-                new com.project.order.client.dto.StockReservationCommand(2, "order-1"));
+                new com.project.order.generated.integration.inventory.model.StockReservationRequest(2, "order-1"));
         verify(couponClient, never()).release(any());
     }
 
@@ -548,7 +547,7 @@ class OrderServiceImplTest {
     void checkoutMapsProvidedAddressesAndWaivesShippingAtTheFreeShippingThreshold() {
         UUID userId = UUID.randomUUID();
         AtomicReference<Order> persisted = new AtomicReference<>();
-        ProductSummary product = new ProductSummary();
+        ProductResponse product = new ProductResponse();
         product.setId("product-1");
         product.setSku("SKU-1");
         product.setName("Threshold product");
@@ -570,7 +569,7 @@ class OrderServiceImplTest {
         when(orderRepository.findById("order-1")).thenAnswer(invocation -> Optional.ofNullable(persisted.get()));
         OrderRequest request = new OrderRequest(List.of(new OrderItemRequest("product-1", 1)), null,
                 new ShippingAddressRequest("Customer", "555", "1 Main", "City", "State", "12345", "IN"),
-                new com.project.order.dto.BillingAddressRequest(
+                new com.project.order.generated.model.BillingAddressRequest(
                         "Customer", "555", "1 Main", "City", "State", "12345", "IN"),
                 null, "CARD");
 
@@ -583,17 +582,16 @@ class OrderServiceImplTest {
     }
 
     private AtomicReference<Order> stubCheckoutDependencies(UUID userId) {
-        ProductSummary product = new ProductSummary();
+        ProductResponse product = new ProductResponse();
         product.setId("product-1");
         product.setSku("SKU-1");
         product.setName("Product");
         product.setPrice(new BigDecimal("50.00"));
         product.setActive(true);
         when(productClient.getProduct("product-1")).thenReturn(product);
-        when(couponClient.validate(any())).thenReturn(CouponValidationResponse.builder()
+        when(couponClient.validate(any())).thenReturn(new ValidateCouponResponse()
                 .valid(true)
-                .discountAmount(new BigDecimal("10.00"))
-                .build());
+                .discountAmount(new BigDecimal("10.00")));
         AtomicReference<Order> savedOrder = new AtomicReference<>();
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
             Order order = invocation.getArgument(0);

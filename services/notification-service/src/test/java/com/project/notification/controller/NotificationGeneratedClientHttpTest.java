@@ -3,7 +3,7 @@ package com.project.notification.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.exception.ForbiddenOperationException;
 import com.project.common.exception.GlobalExceptionHandler;
-import com.project.notification.api.dto.response.NotificationResponse;
+import com.project.notification.generated.model.NotificationResponse;
 import com.project.notification.application.mapper.NotificationMapper;
 import com.project.notification.application.validator.NotificationAccessValidator;
 import com.project.notification.config.SecurityConfig;
@@ -130,6 +130,27 @@ class NotificationGeneratedClientHttpTest {
         var serializedRecord = objectMapper.readTree(objectMapper.writeValueAsBytes(legacyRecord));
         var rawRecord = objectMapper.readTree(rawHistory.body()).path("data").path("content").get(0);
         assertThat(rawRecord).isEqualTo(serializedRecord);
+        assertThat(rawRecord.has("status")).isTrue();
+        assertThat(rawRecord.get("status").isNull()).isTrue();
+    }
+
+    @Test
+    void legacyStoredNotificationWithoutStatusRemainsReadableOverHttp() throws Exception {
+        Notification legacy = Notification.builder().id("legacy-null-status").userId(OWNER)
+                .recipient("owner@example.com").channel("EMAIL").category("ORDER")
+                .subject("Order update").body("Order is ready").status(null).retryCount(0).build();
+        when(repository.findByUserIdOrderByCreatedAtDesc(eq(OWNER), any()))
+                .thenReturn(new PageImpl<>(List.of(legacy)));
+
+        var history = ownerApi.callListWithHttpInfo(null, null, null);
+        HttpResponse<String> rawHistory = rawListResponse("");
+
+        assertThat(history.getStatusCode()).isEqualTo(200);
+        assertThat(history.getData().getData().getContent()).hasSize(1);
+        assertThat(history.getData().getData().getContent().get(0).getStatus()).isNull();
+        var rawRecord = objectMapper.readTree(rawHistory.body()).path("data").path("content").get(0);
+        assertThat(rawHistory.statusCode()).isEqualTo(200);
+        assertThat(rawRecord.path("id").asText()).isEqualTo("legacy-null-status");
         assertThat(rawRecord.has("status")).isTrue();
         assertThat(rawRecord.get("status").isNull()).isTrue();
     }

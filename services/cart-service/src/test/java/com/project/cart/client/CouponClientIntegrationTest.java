@@ -6,9 +6,11 @@ import com.project.common.feign.FeignAuthForwardingConfig;
 import com.project.common.feign.ServiceAuthProperties;
 import com.project.common.feign.ServiceTokenClient;
 import com.project.common.feign.ServiceTokenProvider;
-import com.project.common.feign.ServiceTokenResponse;
+import com.project.common.generated.token.ServiceTokenResponse;
 import com.project.cart.application.mapper.CartMapper;
-import com.project.cart.dto.ApplyCouponRequest;
+import com.project.cart.generated.integration.coupon.model.ValidateCouponRequest;
+import com.project.cart.generated.integration.coupon.model.ValidateCouponResponse;
+import com.project.cart.generated.model.ApplyCouponRequest;
 import com.project.cart.model.Cart;
 import com.project.cart.model.CartItem;
 import com.project.cart.repository.CartRepository;
@@ -81,10 +83,10 @@ class CouponClientIntegrationTest {
                             .requestInterceptor(context.getBean(feign.RequestInterceptor.class))
                             .target(CouponClient.class, "http://localhost:" + server.getAddress().getPort());
 
-                    CouponValidationResponse response = client.validate(CouponValidationRequest.builder()
-                            .code("SAVE10").subtotal(new BigDecimal("25.00")).currency("INR").build());
+                    ValidateCouponResponse response = client.validate(new ValidateCouponRequest()
+                            .code("SAVE10").subtotal(new BigDecimal("25.00")).currency("INR"));
 
-                    assertThat(response.isValid()).isTrue();
+                    assertThat(response.getValid()).isTrue();
                     assertThat(authorization.get()).isEqualTo("Bearer cart-service-token");
                 });
         } finally {
@@ -96,8 +98,8 @@ class CouponClientIntegrationTest {
     void unavailableCouponGatewayRaisesTypedValidationFailureInsteadOfReturningDiscount() {
         CouponClient fallback = new CouponClientFallback();
 
-        assertThatThrownBy(() -> fallback.validate(CouponValidationRequest.builder()
-                        .code("SAVE10").subtotal(new BigDecimal("25.00")).currency("INR").build()))
+        assertThatThrownBy(() -> fallback.validate(new ValidateCouponRequest()
+                        .code("SAVE10").subtotal(new BigDecimal("25.00")).currency("INR")))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(error -> {
                     BusinessException business = (BusinessException) error;
@@ -114,7 +116,7 @@ class CouponClientIntegrationTest {
                 .build();
         CartService service = serviceReturning(userId, cart, null);
 
-        assertThatThrownBy(() -> service.applyCoupon(userId, new ApplyCouponRequest("SAVE10")))
+        assertThatThrownBy(() -> service.applyCoupon(userId, new ApplyCouponRequest().code("SAVE10")))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(error -> assertThat(((BusinessException) error).getStatus().value()).isEqualTo(503));
 
@@ -125,10 +127,10 @@ class CouponClientIntegrationTest {
     @Test
     void mismatchedSuccessfulCouponCodeDoesNotApplyDiscount() {
         Cart cart = cart();
-        CartService service = serviceReturning(cart.getUserId(), cart, CouponValidationResponse.builder()
-                .valid(true).code("OTHER").discountAmount(new BigDecimal("5.00")).build());
+        CartService service = serviceReturning(cart.getUserId(), cart, new ValidateCouponResponse()
+                .valid(true).code("OTHER").discountAmount(new BigDecimal("5.00")));
 
-        assertThatThrownBy(() -> service.applyCoupon(cart.getUserId(), new ApplyCouponRequest("SAVE10")))
+        assertThatThrownBy(() -> service.applyCoupon(cart.getUserId(), new ApplyCouponRequest().code("SAVE10")))
                 .isInstanceOf(ValidationException.class);
 
         assertThat(cart.getAppliedCouponCode()).isNull();
@@ -138,10 +140,10 @@ class CouponClientIntegrationTest {
     @Test
     void normalizedCouponCodeAppliesDiscount() {
         Cart cart = cart();
-        CartService service = serviceReturning(cart.getUserId(), cart, CouponValidationResponse.builder()
-                .valid(true).code("SAVE10").discountAmount(new BigDecimal("5.00")).build());
+        CartService service = serviceReturning(cart.getUserId(), cart, new ValidateCouponResponse()
+                .valid(true).code("SAVE10").discountAmount(new BigDecimal("5.00")));
 
-        service.applyCoupon(cart.getUserId(), new ApplyCouponRequest("  save10 "));
+        service.applyCoupon(cart.getUserId(), new ApplyCouponRequest().code("  save10 "));
 
         assertThat(cart.getAppliedCouponCode()).isEqualTo("SAVE10");
         assertThat(cart.getAppliedDiscountAmount()).isEqualByComparingTo("5.00");
@@ -154,8 +156,8 @@ class CouponClientIntegrationTest {
             if (!"SAVE10".equals(request.getCode())) {
                 throw new IllegalArgumentException("coupon endpoint rejects unnormalized code");
             }
-            return CouponValidationResponse.builder().valid(true).code("SAVE10")
-                    .discountAmount(new BigDecimal("5.00")).build();
+            return new ValidateCouponResponse().valid(true).code("SAVE10")
+                    .discountAmount(new BigDecimal("5.00"));
         };
         CartRepository repository = mock(CartRepository.class);
         when(repository.findByUserId(cart.getUserId())).thenReturn(Optional.of(cart));
@@ -163,7 +165,7 @@ class CouponClientIntegrationTest {
         CartService service = new CartService(repository, client, mock(ProductClient.class), Mappers.getMapper(CartMapper.class),
                 new CartCouponPersistenceService(repository));
 
-        service.applyCoupon(cart.getUserId(), new ApplyCouponRequest("  save10 "));
+        service.applyCoupon(cart.getUserId(), new ApplyCouponRequest().code("  save10 "));
 
         assertThat(cart.getAppliedCouponCode()).isEqualTo("SAVE10");
     }
@@ -172,10 +174,10 @@ class CouponClientIntegrationTest {
     void nonpositiveOrMissingCouponDiscountDoesNotApplyDiscount() {
         for (BigDecimal discount : java.util.List.of(BigDecimal.ZERO, new BigDecimal("-1.00"))) {
             Cart cart = cart();
-            CartService service = serviceReturning(cart.getUserId(), cart, CouponValidationResponse.builder()
-                    .valid(true).code("SAVE10").discountAmount(discount).build());
+            CartService service = serviceReturning(cart.getUserId(), cart, new ValidateCouponResponse()
+                    .valid(true).code("SAVE10").discountAmount(discount));
 
-            assertThatThrownBy(() -> service.applyCoupon(cart.getUserId(), new ApplyCouponRequest("SAVE10")))
+            assertThatThrownBy(() -> service.applyCoupon(cart.getUserId(), new ApplyCouponRequest().code("SAVE10")))
                     .isInstanceOf(ValidationException.class);
             assertThat(cart.getAppliedCouponCode()).isNull();
         }
@@ -184,10 +186,10 @@ class CouponClientIntegrationTest {
     @Test
     void missingCouponDiscountDoesNotApplyDiscount() {
         Cart cart = cart();
-        CartService service = serviceReturning(cart.getUserId(), cart, CouponValidationResponse.builder()
-                .valid(true).code("SAVE10").discountAmount(null).build());
+        CartService service = serviceReturning(cart.getUserId(), cart, new ValidateCouponResponse()
+                .valid(true).code("SAVE10").discountAmount(null));
 
-        assertThatThrownBy(() -> service.applyCoupon(cart.getUserId(), new ApplyCouponRequest("SAVE10")))
+        assertThatThrownBy(() -> service.applyCoupon(cart.getUserId(), new ApplyCouponRequest().code("SAVE10")))
                 .isInstanceOf(ValidationException.class);
         assertThat(cart.getAppliedDiscountAmount()).isNull();
     }
@@ -195,15 +197,15 @@ class CouponClientIntegrationTest {
     @Test
     void couponDiscountGreaterThanSubtotalDoesNotApplyDiscount() {
         Cart cart = cart();
-        CartService service = serviceReturning(cart.getUserId(), cart, CouponValidationResponse.builder()
-                .valid(true).code("SAVE10").discountAmount(new BigDecimal("25.01")).build());
+        CartService service = serviceReturning(cart.getUserId(), cart, new ValidateCouponResponse()
+                .valid(true).code("SAVE10").discountAmount(new BigDecimal("25.01")));
 
-        assertThatThrownBy(() -> service.applyCoupon(cart.getUserId(), new ApplyCouponRequest("SAVE10")))
+        assertThatThrownBy(() -> service.applyCoupon(cart.getUserId(), new ApplyCouponRequest().code("SAVE10")))
                 .isInstanceOf(ValidationException.class);
         assertThat(cart.getAppliedDiscountAmount()).isNull();
     }
 
-    private static CartService serviceReturning(UUID userId, Cart cart, CouponValidationResponse response) {
+    private static CartService serviceReturning(UUID userId, Cart cart, ValidateCouponResponse response) {
         CartRepository repository = mock(CartRepository.class);
         when(repository.findByUserId(userId)).thenReturn(Optional.of(cart));
         when(repository.save(cart)).thenReturn(cart);

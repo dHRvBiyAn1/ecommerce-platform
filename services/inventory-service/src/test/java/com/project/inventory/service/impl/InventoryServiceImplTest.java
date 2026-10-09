@@ -4,6 +4,7 @@ import com.project.common.exception.ValidationException;
 import com.project.inventory.application.mapper.InventoryMapper;
 import com.project.inventory.application.validator.InventoryValidator;
 import com.project.inventory.domain.model.InventoryItem;
+import com.project.inventory.generated.model.InventoryRequest;
 import com.project.inventory.domain.model.ReservationStatus;
 import com.project.inventory.domain.model.StockReservation;
 import com.project.inventory.repository.InventoryRepository;
@@ -56,7 +57,7 @@ class InventoryServiceImplTest {
 
         var response = service.reserveStock("product-1", 3, "order-1");
 
-        assertThat(response.reservedQuantity()).isEqualTo(3);
+        assertThat(response.getReservedQuantity()).isEqualTo(3);
         verify(mongoTemplate, never()).findAndModify(
                 any(Query.class), any(Update.class), any(FindAndModifyOptions.class), eq(InventoryItem.class));
     }
@@ -74,8 +75,39 @@ class InventoryServiceImplTest {
 
         var response = service.commitStock("product-1", 3, "order-1");
 
-        assertThat(response.quantity()).isEqualTo(7);
-        assertThat(response.reservedQuantity()).isZero();
+        assertThat(response.getQuantity()).isEqualTo(7);
+        assertThat(response.getReservedQuantity()).isZero();
+    }
+
+    @Test
+    void updateRejectsMissingOrNullQuantityBelowReservedStockWithoutSaving() {
+        InventoryItem item = inventory("product-1", 10, 5);
+        when(inventoryRepository.findById("inventory-1")).thenReturn(Optional.of(item));
+        InventoryRequest missingQuantity = new InventoryRequest().productId("product-1").sku("SKU-1");
+        InventoryRequest nullQuantity = new InventoryRequest().productId("product-1").sku("SKU-1").quantity(null);
+
+        assertThatThrownBy(() -> service.updateInventory("inventory-1", missingQuantity))
+                .isInstanceOf(ValidationException.class).hasMessageContaining("reserved quantity");
+        assertThatThrownBy(() -> service.updateInventory("inventory-1", nullQuantity))
+                .isInstanceOf(ValidationException.class).hasMessageContaining("reserved quantity");
+        verify(inventoryRepository, never()).save(any(InventoryItem.class));
+    }
+
+    @Test
+    void updateTreatsMissingQuantityAsZeroWhenNoStockIsReserved() {
+        InventoryItem item = inventory("product-1", 10, 0);
+        when(inventoryRepository.findById("inventory-1")).thenReturn(Optional.of(item));
+        when(inventoryRepository.save(any(InventoryItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        InventoryRequest missingQuantity = new InventoryRequest().productId("product-1").sku("SKU-1");
+        InventoryRequest nullQuantity = new InventoryRequest().productId("product-1").sku("SKU-1").quantity(null);
+
+        var missingResponse = service.updateInventory("inventory-1", missingQuantity);
+        var nullResponse = service.updateInventory("inventory-1", nullQuantity);
+
+        assertThat(missingResponse.getQuantity()).isZero();
+        assertThat(nullResponse.getQuantity()).isZero();
+        assertThat(item.getQuantity()).isZero();
+        verify(inventoryRepository, org.mockito.Mockito.times(2)).save(item);
     }
 
     @Test

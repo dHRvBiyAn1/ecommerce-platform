@@ -1,5 +1,6 @@
 package com.project.common.feign;
 
+import com.project.common.generated.token.ServiceTokenResponse;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.ResourceAccessException;

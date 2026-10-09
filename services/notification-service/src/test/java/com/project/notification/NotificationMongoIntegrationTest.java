@@ -232,7 +232,7 @@ class NotificationMongoIntegrationTest {
         var page = service.listForUser(owner, PageRequest.of(0, 20));
 
         assertThat(page.getContent()).singleElement()
-                .satisfies(item -> assertThat(item.userId()).isEqualTo(owner));
+                .satisfies(item -> assertThat(item.getUserId()).isEqualTo(owner));
     }
 
     private NotificationDelivery pendingEmail() {

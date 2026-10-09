@@ -90,7 +90,7 @@ The root [swagger.yaml](swagger.yaml) combines these contracts for documentation
 edit the owning service file rather than the combined copy. The
 `/v3/api-docs` endpoints derive their output from implemented controllers and
 generated interface annotations; payment's endpoint requires authentication.
-Maven generates Spring interfaces and HTTP boundary models at `generate-sources`,
+Maven generates Spring interfaces and service request/response models at `generate-sources`,
 and separate Java clients at `generate-test-sources`. Both ordinary `./mvnw test`
 and `./mvnw verify` generate and compile the required code. Generated Java stays
 under `target/` and must not be committed. See the
@@ -371,7 +371,7 @@ ecommerce-platform/
 ├── prometheus.yml
 ├── tempo.yaml
 └── services/
-    ├── common/                  # shared security, DTOs, events, and Kafka utilities
+    ├── common/                  # shared security, generated response models, events, and Kafka utilities
     ├── api-gateway/
     ├── config-server/ and discovery-server/
     ├── auth-service/

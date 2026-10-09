@@ -1,11 +1,11 @@
 package com.project.order.client;
 
-import com.project.order.client.dto.CouponValidationRequest;
-import com.project.order.client.dto.CouponValidationResponse;
-import com.project.order.client.dto.CouponReservationCommand;
-import com.project.order.client.dto.CouponReservationResult;
-import com.project.order.client.dto.CouponTransitionCommand;
-import com.project.order.client.dto.RedeemCouponRequest;
+import com.project.order.generated.integration.coupon.model.ValidateCouponRequest;
+import com.project.order.generated.integration.coupon.model.ValidateCouponResponse;
+import com.project.order.generated.integration.coupon.model.CouponReservationRequest;
+import com.project.order.generated.integration.coupon.model.CouponReservationResponse;
+import com.project.order.generated.integration.coupon.model.CouponTransitionRequest;
+import com.project.order.generated.integration.coupon.model.RedeemCouponRequest;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -13,17 +13,17 @@ import org.springframework.web.bind.annotation.RequestBody;
 @FeignClient(name = "coupon-service", fallbackFactory = CouponClientFallbackFactory.class)
 public interface CouponClient {
     @PostMapping("/api/v1/coupons/validate")
-    CouponValidationResponse validate(@RequestBody CouponValidationRequest request);
+    ValidateCouponResponse validate(@RequestBody ValidateCouponRequest request);
 
     @PostMapping("/api/v1/coupons/redeem")
-    CouponValidationResponse redeem(@RequestBody RedeemCouponRequest request);
+    ValidateCouponResponse redeem(@RequestBody RedeemCouponRequest request);
 
     @PostMapping("/api/v1/coupons/reserve")
-    CouponReservationResult reserve(@RequestBody CouponReservationCommand request);
+    CouponReservationResponse reserve(@RequestBody CouponReservationRequest request);
 
     @PostMapping("/api/v1/coupons/commit")
-    CouponReservationResult commit(@RequestBody CouponTransitionCommand request);
+    CouponReservationResponse commit(@RequestBody CouponTransitionRequest request);
 
     @PostMapping("/api/v1/coupons/release")
-    CouponReservationResult release(@RequestBody CouponTransitionCommand request);
+    CouponReservationResponse release(@RequestBody CouponTransitionRequest request);
 }

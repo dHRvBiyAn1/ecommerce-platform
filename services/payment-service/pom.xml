@@ -142,6 +142,7 @@
                             <modelPackage>com.project.payment.generated.model</modelPackage>
                             <openapiNormalizer>FILTER=operationId:initiatePayment|listMyPayments|getPaymentById|getPaymentByReference|getPaymentByOrderId|processPayment|refundPayment</openapiNormalizer>
                             <configOptions>
+                                <generateConstructorWithAllArgs>true</generateConstructorWithAllArgs>
                                 <interfaceOnly>true</interfaceOnly>
                                 <useSpringBoot3>true</useSpringBoot3>
                                 <useTags>true</useTags>
@@ -174,6 +175,29 @@
                                 <useJakartaEe>true</useJakartaEe>
                                 <dateLibrary>java8</dateLibrary>
                                 <openApiNullable>true</openApiNullable>
+                            </configOptions>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>generate-order-models</id>
+                        <phase>generate-sources</phase>
+                        <goals><goal>generate</goal></goals>
+                        <configuration>
+                            <inputSpec>${project.basedir}/../order-service/src/main/openapi/swagger.yaml</inputSpec>
+                            <generatorName>spring</generatorName>
+                            <library>spring-boot</library>
+                            <output>${project.build.directory}/generated-sources/openapi-order-models</output>
+                            <modelPackage>com.project.payment.generated.integration.order.model</modelPackage>
+                            <generateApis>false</generateApis>
+                            <generateSupportingFiles>false</generateSupportingFiles>
+                            <configOptions>
+                                <useSpringBoot3>true</useSpringBoot3>
+                                <useBeanValidation>true</useBeanValidation>
+                                <openApiNullable>false</openApiNullable>
+                                <generateConstructorWithAllArgs>true</generateConstructorWithAllArgs>
+                                <generateJsonIncludeAnnotations>true</generateJsonIncludeAnnotations>
+                                <optionalNonNullPropertyJsonInclude>NON_NULL</optionalNonNullPropertyJsonInclude>
+                                <generateJsonSetterNullsAnnotations>false</generateJsonSetterNullsAnnotations>
                             </configOptions>
                         </configuration>
                     </execution>

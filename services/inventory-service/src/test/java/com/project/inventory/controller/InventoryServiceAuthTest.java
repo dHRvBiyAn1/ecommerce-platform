@@ -1,7 +1,7 @@
 package com.project.inventory.controller;
 
 import com.project.inventory.application.validator.InventoryValidator;
-import com.project.inventory.api.dto.request.StockReservationRequest;
+import com.project.inventory.generated.model.StockReservationRequest;
 import com.project.inventory.service.InventoryService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.params.ParameterizedTest;

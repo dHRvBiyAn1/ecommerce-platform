@@ -19,7 +19,7 @@ import com.project.authservice.service.JwtService;
 import com.project.authservice.service.TokenBlacklistService;
 import com.project.authservice.service.UserProfileService;
 import com.project.authservice.service.SellerApplicationService;
-import com.project.authservice.generated.mapper.AuthApiMapperImpl;
+import com.project.authservice.mapper.AuthApiMapper;
 import com.project.common.exception.GlobalExceptionHandler;
 import com.project.authservice.exception.AuthException;
 import com.project.authservice.exception.InvalidScopeException;
@@ -29,8 +29,7 @@ import com.project.authservice.generated.testclient.api.UserProfileApi;
 import com.project.authservice.generated.testclient.api.DiscoveryApi;
 import com.project.authservice.generated.testclient.invoker.ApiClient;
 import com.project.authservice.generated.testclient.model.Token200Response;
-import com.project.authservice.dto.request.ClientCredentialsRequest;
-import com.project.authservice.dto.response.ServiceTokenResponse;
+import com.project.authservice.generated.model.ServiceTokenResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -66,6 +65,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
@@ -159,9 +159,8 @@ class GeneratedClientContractTest {
 
     @Test
     void clientCredentialsGrantKeepsSecretsOutOfUrlAndReturnsRawOAuthShape() {
-        when(clientCredentialsService.issue(new ClientCredentialsRequest(
-                "order-service", "service-secret", "inventory.write")))
-                .thenReturn(new ServiceTokenResponse("service-access", "Bearer", 300L, "inventory.write"));
+        when(clientCredentialsService.issue("order-service", "service-secret", "inventory.write"))
+                .thenReturn(new ServiceTokenResponse().accessToken("service-access").tokenType(ServiceTokenResponse.TokenTypeEnum.BEARER).expiresIn(300L).scope("inventory.write"));
 
         var client = client();
         var responseEntity = client.api.tokenWithHttpInfo(
@@ -175,13 +174,12 @@ class GeneratedClientContractTest {
         assertThat(response.getScope()).isEqualTo("inventory.write");
         assertThat(responseEntity.getHeaders().containsKey(HttpHeaders.SET_COOKIE)).isFalse();
         assertThat(client.lastUri.get().getRawQuery()).isNull();
-        verify(clientCredentialsService).issue(new ClientCredentialsRequest(
-                "order-service", "service-secret", "inventory.write"));
+        verify(clientCredentialsService).issue("order-service", "service-secret", "inventory.write");
     }
 
     @Test
     void invalidScopeAndClientCredentialsRetainOAuthErrorStatuses() {
-        when(clientCredentialsService.issue(any(ClientCredentialsRequest.class)))
+        when(clientCredentialsService.issue(anyString(), anyString(), org.mockito.ArgumentMatchers.nullable(String.class)))
                 .thenThrow(new InvalidScopeException("Requested scope is not allowed"));
         var client = client();
 
@@ -192,8 +190,9 @@ class GeneratedClientContractTest {
         assertThat(invalidScope.getStatusCode()).isEqualTo(HttpStatusCode.valueOf(400));
         assertThat(invalidScope.getResponseBodyAsString()).contains("invalid_scope");
 
-        when(clientCredentialsService.issue(any(ClientCredentialsRequest.class)))
-                .thenThrow(new AuthException("bad client details"));
+        org.mockito.Mockito.doThrow(new AuthException("bad client details"))
+                .when(clientCredentialsService).issue(anyString(), anyString(),
+                        org.mockito.ArgumentMatchers.nullable(String.class));
         HttpClientErrorException invalidClient = org.assertj.core.api.Assertions.catchThrowableOfType(
                 () -> client.api.token(null, null, null, null, null, null, null,
                         "client_credentials", null, null, "order-service", "wrong-secret", "inventory.write"),
@@ -408,12 +407,12 @@ class GeneratedClientContractTest {
         stubAdminSellerApplicationReadPermission();
         when(sellerApplicationService.list(any(), any()))
                 .thenAnswer(invocation -> new org.springframework.data.domain.PageImpl<>(
-                        List.of(new com.project.authservice.dto.response.seller.SellerApplicationResponse(
+                        List.of(new com.project.authservice.generated.model.SellerApplicationResponse(
                                 UUID.fromString("44444444-4444-4444-4444-444444444444"),
                                 UUID.fromString(USER_ID), "seller@example.com", "Seller One",
-                                com.project.authservice.entity.SellerApplicationStatus.APPROVED,
+                                com.project.authservice.generated.model.SellerApplicationResponse.StatusEnum.APPROVED,
                                 "Seller Business", "123456789012345", "+1 555 0101",
-                                new com.project.authservice.dto.AddressDto("Seller One", "+1 555 0101",
+                                new com.project.authservice.generated.model.AddressDto("Seller One", "+1 555 0101",
                                         "2 Market Street", "Springfield", "IL", "62702", "US"),
                                 "4321", "Business notes", null,
                                 java.time.LocalDateTime.parse("2026-10-01T10:00:00"), null, null)),
@@ -624,7 +623,7 @@ class GeneratedClientContractTest {
             KafkaAutoConfiguration.class
     })
     @Import({AuthController.class, AdminController.class, UserController.class, JwkSetController.class,
-            AuthApiMapperImpl.class, SecurityConfig.class, JwtAuthFilter.class,
+            AuthApiMapper.class, SecurityConfig.class, JwtAuthFilter.class,
             AuthenticatedUserValidator.class, GlobalExceptionHandler.class, TestSecurityConfig.class})
     static class TestApplication {}
 

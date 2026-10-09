@@ -1,7 +1,7 @@
 package com.project.notification.service;
 
 import com.project.common.exception.ResourceNotFoundException;
-import com.project.notification.api.dto.response.NotificationResponse;
+import com.project.notification.generated.model.NotificationResponse;
 import com.project.notification.application.mapper.NotificationMapper;
 import com.project.notification.application.validator.NotificationAccessValidator;
 import com.project.notification.model.Notification;

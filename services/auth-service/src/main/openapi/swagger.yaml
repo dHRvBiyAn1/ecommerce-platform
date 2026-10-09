@@ -1651,6 +1651,7 @@ components:
         gstin:
           pattern: "^[0-9A-Z]{15}$|^$"
           type: string
+          x-pattern-message: GSTIN must be 15 alphanumeric characters
         contactPhone:
           pattern: "^\\+?[0-9 ()-]{6,20}$"
           type: string
@@ -1662,6 +1663,7 @@ components:
         bankAccountLast4:
           pattern: "^[0-9]{4}$|^$"
           type: string
+          x-pattern-message: Last-4 of bank account must be 4 digits
         notes:
           maxLength: 4000
           minLength: 0

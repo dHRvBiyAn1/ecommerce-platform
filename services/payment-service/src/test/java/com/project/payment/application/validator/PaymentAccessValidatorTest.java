@@ -1,7 +1,7 @@
 package com.project.payment.application.validator;
 
 import com.project.common.exception.ForbiddenOperationException;
-import com.project.payment.api.dto.response.PaymentResponse;
+import com.project.payment.generated.model.PaymentResponse;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -37,7 +37,6 @@ class PaymentAccessValidatorTest {
     }
 
     private PaymentResponse paymentOwnedBy(UUID ownerId) {
-        return new PaymentResponse(null, null, null, null, ownerId, null, null, null,
-                null, null, null, null, null, null, 0, null, null, null, null);
+        return new PaymentResponse().id(null).paymentReference(null).orderId(null).orderNumber(null).userId(ownerId).userEmail(null).status(null).paymentMethod(null).amount(null).refundedAmount(null).currency(null).transactionId(null).gatewayResponse(null).failureReason(null).retryCount(0).description(null).createdAt(null).updatedAt(null).completedAt(null);
     }
 }

@@ -1,7 +1,8 @@
 package com.project.product_service.config;
 
-import com.project.product_service.dto.CategoryResponse;
-import com.project.product_service.dto.ProductResponse;
+import com.project.product_service.generated.model.CategoryResponse;
+import com.project.product_service.generated.model.ProductResponse;
+import com.project.product_service.generated.model.ProductApprovalStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -23,8 +24,8 @@ class LayeredCacheSerializationTest {
 
     @Test
     void coldCategoryCacheRestoresDtoElementsFromRedisJson() {
-        var category = new CategoryResponse("category-1", "Home", "Home goods", null,
-                "image.jpg", true, timestamp, timestamp);
+        var category = new CategoryResponse().id("category-1").name("Home").description("Home goods")
+                .imageUrl("image.jpg").active(true).createdAt(timestamp).updatedAt(timestamp);
         var cache = cacheWithRedisValue("categories", "SimpleKey []", List.of(category));
 
         assertThat(cache.get("SimpleKey []").get()).isEqualTo(List.of(category));
@@ -32,13 +33,26 @@ class LayeredCacheSerializationTest {
 
     @Test
     void coldProductCacheRestoresRecordFieldsFromRedisJson() {
-        var product = new ProductResponse("product-1", "SKU-1", "Lamp", "Desk lamp",
-                "category-1", "Home", new BigDecimal("1299.50"), 10, List.of("image.jpg"),
-                UUID.fromString("11111111-1111-1111-1111-111111111111"), true, "APPROVED", null,
-                Map.of("colour", "white", "dimensions", Map.of("height", 25)), timestamp, timestamp);
+        var product = new ProductResponse().id("product-1").sku("SKU-1").name("Lamp").description("Desk lamp")
+                .categoryId("category-1").categoryName("Home").price(new BigDecimal("1299.50"))
+                .stockQuantity(10).imageUrls(List.of("image.jpg"))
+                .sellerId(UUID.fromString("11111111-1111-1111-1111-111111111111"))
+                .active(true).approvalStatus(ProductApprovalStatus.APPROVED).rejectionReason(null)
+                .attributes(Map.of("colour", "white", "dimensions", Map.of("height", 25)))
+                .createdAt(timestamp).updatedAt(timestamp);
         var cache = cacheWithRedisValue("products", "product-1", product);
 
         assertThat(cache.get("product-1", ProductResponse.class)).isEqualTo(product);
+    }
+
+    @Test
+    void coldProductCacheKeepsMissingLegacyCollectionsNull() {
+        var cache = cacheWithRedisValue("products", "product-1", Map.of("id", "product-1", "name", "Lamp"));
+
+        ProductResponse cached = cache.get("product-1", ProductResponse.class);
+
+        assertThat(cached.getImageUrls()).isNull();
+        assertThat(cached.getAttributes()).isNull();
     }
 
     @Test

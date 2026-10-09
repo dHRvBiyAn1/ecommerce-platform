@@ -1,7 +1,7 @@
 package com.project.order.client;
 
-import com.project.order.client.dto.InventoryReservationResult;
-import com.project.order.client.dto.StockReservationCommand;
+import com.project.order.generated.integration.inventory.model.InventoryResponse;
+import com.project.order.generated.integration.inventory.model.StockReservationRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
@@ -23,7 +23,7 @@ public class InventoryClientFallbackFactory implements FallbackFactory<Inventory
     public InventoryClient create(Throwable cause) {
         return new InventoryClient() {
             @Override
-            public InventoryReservationResult reserve(String productId, StockReservationCommand command) {
+            public InventoryResponse reserve(String productId, StockReservationRequest command) {
                 log.error("Resilience4j Circuit Breaker / Timeout triggered for stock reservation of product={}, quantity={} in order={}. Cause: {}",
                         productId, command.getQuantity(), command.getOrderId(), cause.getMessage());
                 // Throw an exception so OrderServiceImpl catches it and aborts the checkout cleanly
@@ -31,7 +31,7 @@ public class InventoryClientFallbackFactory implements FallbackFactory<Inventory
             }
 
             @Override
-            public InventoryReservationResult release(String productId, StockReservationCommand command) {
+            public InventoryResponse release(String productId, StockReservationRequest command) {
                 log.error("Resilience4j Circuit Breaker / Timeout triggered for stock release of product={}, quantity={} in order={}. Compensation failed! Cause: {}",
                         productId, command.getQuantity(), command.getOrderId(), cause.getMessage());
                 // Log and return a dummy failure state so that OrderServiceImpl logs the compensation error
@@ -39,7 +39,7 @@ public class InventoryClientFallbackFactory implements FallbackFactory<Inventory
             }
 
             @Override
-            public InventoryReservationResult commit(String productId, StockReservationCommand command) {
+            public InventoryResponse commit(String productId, StockReservationRequest command) {
                 log.error("Inventory commit failed for product={}, quantity={} in order={}. Cause: {}",
                         productId, command.getQuantity(), command.getOrderId(), cause.getMessage());
                 throw new IllegalStateException("Inventory commit failed due to inventory service outage.");

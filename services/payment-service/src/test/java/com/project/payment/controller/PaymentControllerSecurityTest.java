@@ -3,7 +3,7 @@ package com.project.payment.controller;
 import com.project.common.constant.Permissions;
 import com.project.common.exception.GlobalExceptionHandler;
 import com.project.payment.application.validator.PaymentAccessValidator;
-import com.project.payment.api.dto.response.PaymentResponse;
+import com.project.payment.generated.model.PaymentResponse;
 import com.project.payment.model.PaymentStatus;
 import com.project.payment.service.PaymentService;
 import org.junit.jupiter.api.Test;
@@ -103,7 +103,7 @@ class PaymentControllerSecurityTest {
     @Test
     void customerCanInitiateButCannotProcessWhileProcessorCanProcess() throws Exception {
         when(paymentService.createPayment(any(), any(), any(), any())).thenReturn(
-                new com.project.payment.api.dto.response.PaymentInitiationResponse(
+                new com.project.payment.generated.model.PaymentInitiationResponse(
                         paymentResponse(UUID.randomUUID(), PaymentStatus.PENDING), "client-secret"));
         when(paymentService.processPayment("payment-1")).thenReturn(
                 paymentResponse(UUID.randomUUID(), PaymentStatus.COMPLETED));
@@ -144,9 +144,7 @@ class PaymentControllerSecurityTest {
     }
 
     private PaymentResponse paymentResponse(UUID ownerId, PaymentStatus status) {
-        return new PaymentResponse("payment-1", "PAY-1", "order-1", "ORD-1", ownerId, null,
-                status, "CARD", java.math.BigDecimal.TEN, java.math.BigDecimal.ZERO,
-                "USD", null, null, null, 0, null, null, null, null);
+        return new PaymentResponse().id("payment-1").paymentReference("PAY-1").orderId("order-1").orderNumber("ORD-1").userId(ownerId).userEmail(null).status(status == null ? null : com.project.payment.generated.model.PaymentStatus.valueOf(status.name())).paymentMethod("CARD").amount(java.math.BigDecimal.TEN).refundedAmount(java.math.BigDecimal.ZERO).currency("USD").transactionId(null).gatewayResponse(null).failureReason(null).retryCount(0).description(null).createdAt(null).updatedAt(null).completedAt(null);
     }
 
     private String paymentRequest() {

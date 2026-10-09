@@ -5,8 +5,7 @@ import com.project.common.constant.Permissions;
 import com.project.common.exception.GlobalExceptionHandler;
 import com.project.order.generated.mapper.OrderApiMapperImpl;
 import com.project.order.config.SecurityConfig;
-import com.project.order.dto.OrderResponse;
-import com.project.common.dto.ApiResponse;
+import com.project.order.generated.model.OrderResponse;
 import com.project.order.generated.testclient.api.OrdersApi;
 import com.project.order.generated.testclient.invoker.ApiClient;
 import com.project.order.generated.testclient.invoker.ApiException;
@@ -189,9 +188,9 @@ class OrderGeneratedClientHttpTest {
         ApiException rejected = catchThrowableOfType(() -> ownerApi.createOrder(controlOnly, null), ApiException.class);
         assertThat(rejected.getCode()).isEqualTo(HttpStatus.BAD_REQUEST.value());
         assertThat(rejected.getResponseBody()).contains("Product ID is required");
-        var captured = org.mockito.ArgumentCaptor.forClass(com.project.order.dto.OrderRequest.class);
+        var captured = org.mockito.ArgumentCaptor.forClass(com.project.order.generated.model.OrderRequest.class);
         verify(orderService).createOrder(captured.capture(), eq(OWNER), eq(null), eq(null));
-        assertThat(captured.getValue().items().get(0).productId()).isEqualTo("line1\nline2");
+        assertThat(captured.getValue().getItems().get(0).getProductId()).isEqualTo("line1\nline2");
     }
 
     @Test
@@ -211,7 +210,7 @@ class OrderGeneratedClientHttpTest {
         HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
         assertThat(response.statusCode()).isEqualTo(200);
         JsonNode actualData = objectMapper.readTree(response.body()).path("data");
-        JsonNode legacyData = objectMapper.readTree(objectMapper.writeValueAsString(ApiResponse.success(page))).path("data");
+        JsonNode legacyData = objectMapper.readTree(objectMapper.writeValueAsString(com.project.common.web.Responses.success(page))).path("data");
         assertThat(actualData).isEqualTo(legacyData);
         verify(orderService).getUserOrders(eq(OWNER), eq(PageRequest.of(page.getNumber(), page.getSize(), page.getSort())));
     }
@@ -259,7 +258,8 @@ class OrderGeneratedClientHttpTest {
     }
 
     private static OrderResponse response(String id, UUID user, com.project.order.model.OrderStatus status) {
-        return new OrderResponse(id, "ORD-1", user, null, status, List.of(), BigDecimal.ZERO, BigDecimal.ZERO,
+        return new OrderResponse(id, "ORD-1", user, null,
+                com.project.order.generated.model.OrderResponse.StatusEnum.valueOf(status.name()), List.of(), BigDecimal.ZERO, BigDecimal.ZERO,
                 BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, "INR", null, null, null, "CARD", null,
                 null, null, null, null, null, null, null, null);
     }

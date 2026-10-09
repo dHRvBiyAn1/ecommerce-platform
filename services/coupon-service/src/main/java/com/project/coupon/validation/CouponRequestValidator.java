@@ -1,12 +1,11 @@
 package com.project.coupon.validation;
 
 import com.project.common.exception.ForbiddenOperationException;
-import com.project.coupon.dto.CouponRequest;
-import com.project.coupon.dto.CouponReservationRequest;
-import com.project.coupon.dto.CouponTransitionRequest;
-import com.project.coupon.dto.RedeemCouponRequest;
-import com.project.coupon.dto.ValidateCouponRequest;
-import com.project.coupon.entity.DiscountType;
+import com.project.coupon.generated.model.CouponRequest;
+import com.project.coupon.generated.model.CouponReservationRequest;
+import com.project.coupon.generated.model.CouponTransitionRequest;
+import com.project.coupon.generated.model.RedeemCouponRequest;
+import com.project.coupon.generated.model.ValidateCouponRequest;
 import com.project.coupon.exception.InvalidCouponRequestException;
 import org.springframework.stereotype.Component;
 
@@ -24,32 +23,32 @@ public class CouponRequestValidator {
     }
 
     public void validateDefinition(CouponRequest request) {
-        if (!request.validUntil().isAfter(request.validFrom())) {
+        if (!request.getValidUntil().isAfter(request.getValidFrom())) {
             throw new InvalidCouponRequestException("validUntil must be after validFrom");
         }
-        if (request.discountType() == DiscountType.PERCENT
-                && request.discountValue().compareTo(BigDecimal.valueOf(100)) > 0) {
+        if (request.getDiscountType() == CouponRequest.DiscountTypeEnum.PERCENT
+                && request.getDiscountValue().compareTo(BigDecimal.valueOf(100)) > 0) {
             throw new InvalidCouponRequestException("Percentage discount cannot exceed 100");
         }
     }
 
     public void validateValidation(ValidateCouponRequest request) {
-        requireSafeCode(request.code());
+        requireSafeCode(request.getCode());
     }
 
     public void validateReservation(CouponReservationRequest request) {
-        requireSafeCode(request.code());
-        requireSafeOrderId(request.orderId());
+        requireSafeCode(request.getCode());
+        requireSafeOrderId(request.getOrderId());
     }
 
     public void validateTransition(CouponTransitionRequest request) {
-        requireSafeCode(request.code());
-        requireSafeOrderId(request.orderId());
+        requireSafeCode(request.getCode());
+        requireSafeOrderId(request.getOrderId());
     }
 
     public void validateRedemption(RedeemCouponRequest request) {
-        requireSafeCode(request.code());
-        requireSafeOrderId(request.orderId());
+        requireSafeCode(request.getCode());
+        requireSafeOrderId(request.getOrderId());
     }
 
     private void requireSafeCode(String code) {

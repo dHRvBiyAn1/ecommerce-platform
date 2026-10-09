@@ -6,8 +6,8 @@ import com.project.common.exception.GlobalExceptionHandler;
 import com.project.payment.application.mapper.PaymentMapper;
 import com.project.payment.application.validator.PaymentAccessValidator;
 import com.project.payment.config.SecurityConfig;
-import com.project.payment.api.dto.response.PaymentInitiationResponse;
-import com.project.payment.api.dto.response.PaymentResponse;
+import com.project.payment.generated.model.PaymentInitiationResponse;
+import com.project.payment.generated.model.PaymentResponse;
 import com.project.payment.model.PaymentStatus;
 import com.project.payment.generated.testclient.api.PaymentsApi;
 import com.project.payment.generated.testclient.invoker.ApiClient;
@@ -173,9 +173,9 @@ class PaymentGeneratedClientHttpTest {
                 new PaymentRequest().orderId(String.valueOf((char) 0)).paymentMethod("CARD"), null), ApiException.class);
         assertThat(controlOnly.getCode()).isEqualTo(HttpStatus.BAD_REQUEST.value());
         assertThat(controlOnly.getResponseBody()).contains("Order ID is required");
-        var captured = org.mockito.ArgumentCaptor.forClass(com.project.payment.api.dto.request.PaymentRequest.class);
+        var captured = org.mockito.ArgumentCaptor.forClass(com.project.payment.generated.model.PaymentRequest.class);
         verify(paymentService).createPayment(captured.capture(), eq(OWNER), eq(null), eq(null));
-        assertThat(captured.getValue().orderId()).isEqualTo("line1\nline2");
+        assertThat(captured.getValue().getOrderId()).isEqualTo("line1\nline2");
     }
 
     @Test
@@ -292,9 +292,7 @@ class PaymentGeneratedClientHttpTest {
     }
 
     private static PaymentResponse payment(String id, UUID user, PaymentStatus status) {
-        return new PaymentResponse(id, "ref-1", "order-1", "ORD-1", user, null, status, "CARD",
-                new BigDecimal("10.00"), BigDecimal.ZERO, "USD", null, null, null, 0, null,
-                null, null, null);
+        return new PaymentResponse().id(id).paymentReference("ref-1").orderId("order-1").orderNumber("ORD-1").userId(user).userEmail(null).status(status == null ? null : com.project.payment.generated.model.PaymentStatus.valueOf(status.name())).paymentMethod("CARD").amount(new BigDecimal("10.00")).refundedAmount(BigDecimal.ZERO).currency("USD").transactionId(null).gatewayResponse(null).failureReason(null).retryCount(0).description(null).createdAt(null).updatedAt(null).completedAt(null);
     }
 
     @Configuration(proxyBeanMethods = false)

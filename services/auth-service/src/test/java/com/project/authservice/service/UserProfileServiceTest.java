@@ -1,8 +1,8 @@
 package com.project.authservice.service;
 
-import com.project.authservice.dto.AddressDto;
-import com.project.authservice.dto.request.UserUpdateRequest;
-import com.project.authservice.dto.response.UserProfileDto;
+import com.project.authservice.generated.model.AddressDto;
+import com.project.authservice.generated.model.UserUpdateRequest;
+import com.project.authservice.generated.model.UserProfileDto;
 import com.project.authservice.entity.AuthProvider;
 import com.project.authservice.entity.User;
 import com.project.authservice.mapper.AddressMapper;

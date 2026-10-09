@@ -2,7 +2,7 @@ package com.project.coupon.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.constant.ErrorCode;
-import com.project.common.dto.ApiResponse;
+import com.project.common.web.Responses;
 import com.project.common.security.JwtAuthenticationConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,14 +31,14 @@ public class SecurityConfig {
             response.setStatus(401);
             response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            objectMapper.writeValue(response.getWriter(), ApiResponse.errorResponse(
+            objectMapper.writeValue(response.getWriter(), Responses.errorResponse(
                     401, ErrorCode.UNAUTHENTICATED.value(), "Authentication required",
                     request.getRequestURI(), null, requestId(request)));
         };
         AccessDeniedHandler deniedHandler = (request, response, exception) -> {
             response.setStatus(403);
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            objectMapper.writeValue(response.getWriter(), ApiResponse.errorResponse(
+            objectMapper.writeValue(response.getWriter(), Responses.errorResponse(
                     403, ErrorCode.ACCESS_DENIED.value(), "Access denied",
                     request.getRequestURI(), null, requestId(request)));
         };

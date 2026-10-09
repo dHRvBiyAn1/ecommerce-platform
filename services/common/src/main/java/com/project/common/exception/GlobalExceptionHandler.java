@@ -1,7 +1,8 @@
 package com.project.common.exception;
 
-import com.project.common.dto.ApiResponse;
-import com.project.common.dto.ErrorResponse;
+import com.project.common.web.Responses;
+import com.project.common.generated.model.ResponseEnvelope;
+import com.project.common.generated.model.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -146,7 +147,7 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ErrorResponse> build(HttpStatus status, String code, String message,
                                                 HttpServletRequest req, Map<String, String> fieldErrors) {
-        ErrorResponse body = ApiResponse.errorResponse(
+        ErrorResponse body = Responses.errorResponse(
                 status.value(), code, message, req.getRequestURI(), fieldErrors, requestId(req));
         return ResponseEntity.status(status).body(body);
     }

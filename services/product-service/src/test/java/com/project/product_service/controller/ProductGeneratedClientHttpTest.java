@@ -1,11 +1,11 @@
 package com.project.product_service.controller;
 
 import com.project.common.exception.GlobalExceptionHandler;
-import com.project.product_service.application.mapper.ProductApiMapper;
-import com.project.product_service.generated.mapper.ProductApiMapperImpl;
 import com.project.product_service.config.SecurityConfig;
-import com.project.product_service.dto.CategoryResponse;
-import com.project.product_service.dto.ProductResponse;
+import com.project.product_service.application.mapper.ProductApiMapper;
+import com.project.product_service.generated.model.CategoryResponse;
+import com.project.product_service.generated.model.ProductResponse;
+import com.project.product_service.generated.model.ProductApprovalStatus;
 import com.project.product_service.generated.testclient.api.CategoriesApi;
 import com.project.product_service.generated.testclient.api.ProductsApi;
 import com.project.product_service.generated.testclient.invoker.ApiClient;
@@ -77,9 +77,6 @@ class ProductGeneratedClientHttpTest {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private ProductApiMapper apiMapper;
-
-    @Autowired
     @Qualifier("requestMappingHandlerMapping")
     private RequestMappingHandlerMapping handlerMapping;
 
@@ -134,9 +131,9 @@ class ProductGeneratedClientHttpTest {
     void generatedClientReadsPublicProductAndCategoryAndPreservesPricePrecision() throws Exception {
         ProductResponse response = product("desk-1", new BigDecimal("149.9900"));
         when(productService.getProduct("desk-1")).thenReturn(response);
-        when(categoryService.getAllCategories()).thenReturn(List.of(new CategoryResponse(
-                "furniture", "Furniture", null, null, null, true,
-                LocalDateTime.parse("2026-10-01T12:34:56"), null)));
+        when(categoryService.getAllCategories()).thenReturn(List.of(new CategoryResponse()
+                .id("furniture").name("Furniture").active(true)
+                .createdAt(LocalDateTime.parse("2026-10-01T12:34:56"))));
 
         var decodedProduct = productsApi.getProduct("desk-1");
         assertThat(decodedProduct.getPrice()).isEqualByComparingTo("149.9900");
@@ -187,16 +184,44 @@ class ProductGeneratedClientHttpTest {
     }
 
     @Test
+    void rawProductUpdateDistinguishesOmittedAttributesFromExplicitEmptyMap() throws Exception {
+        when(productService.updateProduct(eq("desk-1"), any(), eq(false)))
+                .thenReturn(product("desk-1", new BigDecimal("10.00")));
+        String body = """
+                {"sku":"SKU-DESK","name":"Edited desk","categoryId":"furniture",
+                 "price":10.00,"stockQuantity":1}
+                """;
+        var explicitEmpty = objectMapper.readTree(body);
+        ((com.fasterxml.jackson.databind.node.ObjectNode) explicitEmpty).putObject("attributes");
+        var http = java.net.http.HttpClient.newHttpClient();
+        for (String payload : List.of(body, objectMapper.writeValueAsString(explicitEmpty))) {
+            var response = http.send(java.net.http.HttpRequest.newBuilder(java.net.URI.create(
+                            "http://localhost:" + serverContext.getWebServer().getPort() + "/api/v1/products/desk-1"))
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + SELLER_TOKEN)
+                    .header(HttpHeaders.CONTENT_TYPE, "application/json")
+                    .PUT(java.net.http.HttpRequest.BodyPublishers.ofString(payload)).build(),
+                    java.net.http.HttpResponse.BodyHandlers.ofString());
+            assertThat(response.statusCode()).isEqualTo(200);
+        }
+        var requests = ArgumentCaptor.forClass(com.project.product_service.generated.model.ProductRequest.class);
+        verify(productService, times(2)).updateProduct(eq("desk-1"), requests.capture(), eq(false));
+        assertThat(requests.getAllValues().get(0).getAttributes()).isNull();
+        assertThat(requests.getAllValues().get(1).getAttributes()).isEmpty();
+        assertThat(requests.getAllValues()).allSatisfy(request ->
+                assertThat(request.getSellerId()).isEqualTo(SELLER_ID));
+    }
+
+    @Test
     void requiredTextAcceptsMultilineContentAndRejectsLegacyWhitespaceOnlyValues() throws Exception {
         var multiline = new com.project.product_service.generated.testclient.model.ProductRequest()
                 .sku("SKU-MULTILINE").name("Desk\nLamp").categoryId("furniture")
                 .price(new BigDecimal("10.00")).stockQuantity(1);
-        when(productService.createProduct(any(com.project.product_service.dto.ProductRequest.class),
+        when(productService.createProduct(any(com.project.product_service.generated.model.ProductRequest.class),
                 eq(false))).thenReturn(product("multiline", new BigDecimal("10.00")));
 
         productsApi.createProduct(multiline);
 
-        var captured = org.mockito.ArgumentCaptor.forClass(com.project.product_service.dto.ProductRequest.class);
+        var captured = org.mockito.ArgumentCaptor.forClass(com.project.product_service.generated.model.ProductRequest.class);
         verify(productService).createProduct(captured.capture(), eq(false));
         assertThat(captured.getValue().getName()).isEqualTo("Desk\nLamp");
 
@@ -265,11 +290,11 @@ class ProductGeneratedClientHttpTest {
         var sortedPageable = PageRequest.of(1, 3, Sort.by(Sort.Order.desc("createdAt")));
         var sortedPage = new PageImpl<>(List.of(product("desk-3", new BigDecimal("4.50"))),
                 sortedPageable, 10);
-        assertThat(objectMapper.readTree(objectMapper.writeValueAsBytes(apiMapper.toApi(sortedPage))))
+        assertThat(objectMapper.readTree(objectMapper.writeValueAsBytes(ProductApiMapper.toApi(sortedPage))))
                 .isEqualTo(objectMapper.readTree(objectMapper.writeValueAsBytes(sortedPage)));
 
         Page<ProductResponse> emptyPage = new PageImpl<>(List.of(), PageRequest.of(0, 20), 0);
-        assertThat(objectMapper.readTree(objectMapper.writeValueAsBytes(apiMapper.toApi(emptyPage))))
+        assertThat(objectMapper.readTree(objectMapper.writeValueAsBytes(ProductApiMapper.toApi(emptyPage))))
                 .isEqualTo(objectMapper.readTree(objectMapper.writeValueAsBytes(emptyPage)));
     }
 
@@ -342,9 +367,11 @@ class ProductGeneratedClientHttpTest {
     }
 
     private static ProductResponse product(String id, BigDecimal price) {
-        return new ProductResponse(id, "SKU-" + id, "Desk", null, "furniture", "Furniture", price,
-                3, List.of(), SELLER_ID, true, "APPROVED", null, Map.of(),
-                LocalDateTime.parse("2026-10-01T12:34:56"), null);
+        return new ProductResponse().id(id).sku("SKU-" + id).name("Desk")
+                .categoryId("furniture").categoryName("Furniture").price(price)
+                .stockQuantity(3).imageUrls(List.of()).sellerId(SELLER_ID).active(true)
+                .approvalStatus(ProductApprovalStatus.APPROVED).attributes(Map.of())
+                .createdAt(LocalDateTime.parse("2026-10-01T12:34:56"));
     }
 
     @Configuration(proxyBeanMethods = false)
@@ -360,8 +387,7 @@ class ProductGeneratedClientHttpTest {
             "org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration",
             "org.springframework.cloud.netflix.eureka.EurekaClientAutoConfiguration"
     })
-    @Import({ProductController.class, CategoryController.class, SecurityConfig.class,
-            ProductApiMapperImpl.class, GlobalExceptionHandler.class})
+    @Import({ProductController.class, CategoryController.class, SecurityConfig.class, GlobalExceptionHandler.class})
     static class TestApplication {
     }
 }

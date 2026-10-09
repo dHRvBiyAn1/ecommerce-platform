@@ -10,10 +10,10 @@ import com.project.order.application.validator.OrderRequestValidator;
 import com.project.order.client.CouponClient;
 import com.project.order.client.InventoryClient;
 import com.project.order.client.ProductClient;
-import com.project.order.client.dto.ProductSummary;
-import com.project.order.dto.OrderItemRequest;
-import com.project.order.dto.OrderRequest;
-import com.project.order.dto.OrderResponse;
+import com.project.order.generated.integration.product.model.ProductResponse;
+import com.project.order.generated.model.OrderItemRequest;
+import com.project.order.generated.model.OrderRequest;
+import com.project.order.generated.model.OrderResponse;
 import com.project.order.model.Order;
 import com.project.order.model.OrderStatus;
 import com.project.order.repository.OrderRepository;
@@ -105,11 +105,11 @@ class OrderMongoIntegrationTest {
 
                 OrderResponse firstResponse = first.get(10, TimeUnit.SECONDS);
                 OrderResponse replayResponse = replay.get(10, TimeUnit.SECONDS);
-                assertThat(replayResponse.id()).isEqualTo(firstResponse.id());
+                assertThat(replayResponse.getId()).isEqualTo(firstResponse.getId());
                 assertThat(restarted.count()).isEqualTo(1);
                 assertThat(restarted.findByUserIdAndIdempotencyKey(userId, "checkout-1"))
                         .get().satisfies(persisted -> {
-                            assertThat(persisted.getId()).isEqualTo(firstResponse.id());
+                            assertThat(persisted.getId()).isEqualTo(firstResponse.getId());
                             assertThat(persisted.getUserId()).isEqualTo(userId);
                             assertThat(persisted.getIdempotencyKey()).isEqualTo("checkout-1");
                         });
@@ -153,8 +153,8 @@ class OrderMongoIntegrationTest {
                 null, null, null, null, "CARD");
     }
 
-    private static ProductSummary product() {
-        ProductSummary product = new ProductSummary();
+    private static ProductResponse product() {
+        ProductResponse product = new ProductResponse();
         product.setId("product-1");
         product.setSku("SKU-1");
         product.setName("Product");

@@ -126,6 +126,7 @@
                             <modelPackage>com.project.notification.generated.model</modelPackage>
                             <configOptions>
                                 <interfaceOnly>true</interfaceOnly>
+                                <generateConstructorWithAllArgs>true</generateConstructorWithAllArgs>
                                 <useSpringBoot3>true</useSpringBoot3>
                                 <useTags>true</useTags>
                                 <skipDefaultInterface>true</skipDefaultInterface>

@@ -4,7 +4,7 @@ import com.project.common.exception.ForbiddenOperationException;
 import com.project.common.exception.ResourceNotFoundException;
 import com.project.notification.application.mapper.NotificationMapper;
 import com.project.notification.application.validator.NotificationAccessValidator;
-import com.project.notification.api.dto.response.NotificationResponse;
+import com.project.notification.generated.model.NotificationResponse;
 import com.project.notification.model.Notification;
 import com.project.notification.repository.NotificationDeliveryRepository;
 import com.project.notification.repository.NotificationRepository;
@@ -49,8 +49,8 @@ class NotificationServiceTest {
 
         var response = service.markRead("notification-1", ownerId, false);
 
-        assertThat(response.status()).isEqualTo(NotificationResponse.Status.READ);
-        assertThat(response.readAt()).isNotNull();
+        assertThat(response.getStatus()).isEqualTo(NotificationResponse.StatusEnum.READ);
+        assertThat(response.getReadAt()).isNotNull();
     }
 
     @Test
@@ -71,7 +71,7 @@ class NotificationServiceTest {
 
         var response = service.markRead("notification-1", UUID.randomUUID(), true);
 
-        assertThat(response.status()).isEqualTo(NotificationResponse.Status.READ);
+        assertThat(response.getStatus()).isEqualTo(NotificationResponse.StatusEnum.READ);
     }
 
     @Test
@@ -96,7 +96,7 @@ class NotificationServiceTest {
         var response = service.record(ownerId, "owner@example.com", "EMAIL", "ORDER", "Subject", "Body",
                 "order-event-1");
 
-        assertThat(response.id()).isEqualTo("notification-1");
+        assertThat(response.getId()).isEqualTo("notification-1");
         verify(repository, never()).insert(any(Notification.class));
         verify(deliveryRepository, never()).save(any());
     }

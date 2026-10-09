@@ -1,8 +1,8 @@
 package com.project.inventory.application.validator;
 
 import com.project.common.exception.ValidationException;
-import com.project.inventory.api.dto.request.InventoryRequest;
 import com.project.inventory.domain.model.InventoryItem;
+import com.project.inventory.generated.model.InventoryRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.regex.Pattern;
@@ -27,7 +27,8 @@ public class InventoryValidator {
     }
 
     public void validateUpdate(InventoryItem item, InventoryRequest request) {
-        if (request.quantity() < item.getReservedQuantity()) {
+        int quantity = request.getQuantity() == null ? 0 : request.getQuantity();
+        if (quantity < item.getReservedQuantity()) {
             throw new ValidationException("Quantity cannot be lower than the reserved quantity");
         }
     }
