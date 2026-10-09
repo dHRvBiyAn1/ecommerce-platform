@@ -1,7 +1,7 @@
 package com.project.product_service.service;
 
-import com.project.product_service.dto.ProductRequest;
-import com.project.product_service.dto.ProductResponse;
+import com.project.product_service.generated.model.ProductRequest;
+import com.project.product_service.generated.model.ProductResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 

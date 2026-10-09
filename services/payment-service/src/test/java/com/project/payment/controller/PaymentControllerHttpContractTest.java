@@ -4,8 +4,8 @@ import com.project.common.constant.ErrorCode;
 import com.project.common.constant.Permissions;
 import com.project.common.exception.GlobalExceptionHandler;
 import com.project.common.exception.ForbiddenOperationException;
-import com.project.payment.api.dto.response.PaymentInitiationResponse;
-import com.project.payment.api.dto.response.PaymentResponse;
+import com.project.payment.generated.model.PaymentInitiationResponse;
+import com.project.payment.generated.model.PaymentResponse;
 import com.project.payment.application.validator.PaymentAccessValidator;
 import com.project.payment.model.PaymentStatus;
 import com.project.payment.service.PaymentService;
@@ -137,8 +137,6 @@ class PaymentControllerHttpContractTest {
     }
 
     private PaymentResponse paymentResponse() {
-        return new PaymentResponse("payment-1", "PAY-1", "order-1", "ORD-1", CUSTOMER_ID,
-                "customer@example.com", PaymentStatus.PENDING, "CARD", new BigDecimal("10.00"),
-                BigDecimal.ZERO, "USD", "intent-1", null, null, 0, "checkout", null, null, null);
+        return new PaymentResponse().id("payment-1").paymentReference("PAY-1").orderId("order-1").orderNumber("ORD-1").userId(CUSTOMER_ID).userEmail("customer@example.com").status(com.project.payment.generated.model.PaymentStatus.PENDING).paymentMethod("CARD").amount(new BigDecimal("10.00")).refundedAmount(BigDecimal.ZERO).currency("USD").transactionId("intent-1").gatewayResponse(null).failureReason(null).retryCount(0).description("checkout").createdAt(null).updatedAt(null).completedAt(null);
     }
 }

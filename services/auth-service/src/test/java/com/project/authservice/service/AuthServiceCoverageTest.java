@@ -1,6 +1,6 @@
 package com.project.authservice.service;
 
-import com.project.authservice.dto.request.RegistrationRequest;
+import com.project.authservice.generated.model.RegistrationRequest;
 import com.project.authservice.entity.AuthProvider;
 import com.project.authservice.entity.RefreshToken;
 import com.project.authservice.entity.Role;

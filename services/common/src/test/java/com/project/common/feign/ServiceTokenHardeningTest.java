@@ -1,5 +1,6 @@
 package com.project.common.feign;
 
+import com.project.common.generated.token.ServiceTokenResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;

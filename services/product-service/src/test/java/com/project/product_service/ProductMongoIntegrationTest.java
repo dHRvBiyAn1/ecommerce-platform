@@ -4,7 +4,7 @@ import com.project.common.exception.ResourceNotFoundException;
 import com.project.product_service.application.mapper.ProductMapper;
 import com.project.product_service.application.validator.CategoryIntegrityValidator;
 import com.project.product_service.application.validator.ProductAccessValidator;
-import com.project.product_service.dto.ProductResponse;
+import com.project.product_service.generated.model.ProductResponse;
 import com.project.product_service.model.Product;
 import com.project.product_service.model.ProductApprovalStatus;
 import com.project.product_service.repository.CategoryRepository;
@@ -105,14 +105,14 @@ class ProductMongoIntegrationTest {
         ProductResponse approved = productService.setApprovalStatus(productId, ProductApprovalStatus.APPROVED,
                 UUID.randomUUID(), null);
 
-        assertThat(approved.approvalStatus()).isEqualTo("APPROVED");
-        assertThat(approved.createdAt()).isNotNull();
-        assertThat(approved.updatedAt()).isNotNull();
+        assertThat(approved.getApprovalStatus()).isEqualTo(com.project.product_service.generated.model.ProductApprovalStatus.APPROVED);
+        assertThat(approved.getCreatedAt()).isNotNull();
+        assertThat(approved.getUpdatedAt()).isNotNull();
         assertThat(products.findByActiveTrueAndApprovalStatus(ProductApprovalStatus.APPROVED, PageRequest.of(0, 20)))
                 .extracting(Product::getId).contains(productId);
         assertThat(products.searchByText("lifecycle", PageRequest.of(0, 20)))
                 .extracting(Product::getId).contains(productId);
-        assertThat(productService.getProduct(productId).stockQuantity()).isEqualTo(2);
+        assertThat(productService.getProduct(productId).getStockQuantity()).isEqualTo(2);
         assertThat(productsCache.get(productId)).isNotNull();
 
         productService.updateStock(productId, 7, sellerId, false);
@@ -121,7 +121,7 @@ class ProductMongoIntegrationTest {
         assertThat(products.findById(productId).orElseThrow().getStockQuantity()).isEqualTo(7);
         assertThat(products.searchByText("lifecycle", PageRequest.of(0, 20)))
                 .singleElement().extracting(Product::getStockQuantity).isEqualTo(7);
-        assertThat(productService.getProduct(productId).stockQuantity()).isEqualTo(7);
+        assertThat(productService.getProduct(productId).getStockQuantity()).isEqualTo(7);
     }
 
     @TestConfiguration(proxyBeanMethods = false)

@@ -1,7 +1,7 @@
 package com.project.order.controller;
 
 import com.project.common.exception.ForbiddenOperationException;
-import com.project.order.dto.OrderResponse;
+import com.project.order.generated.model.OrderResponse;
 import com.project.order.service.OrderService;
 import com.project.order.validation.OrderAccessValidator;
 import org.junit.jupiter.api.AfterEach;
@@ -37,9 +37,7 @@ class OrderServiceAuthTest {
     static class Config {
         @Bean OrderController controller() {
             OrderService service = mock(OrderService.class);
-            OrderResponse order = new OrderResponse("order-1", "ORD-1", OWNER, null, null, null,
-                    null, null, null, null, null, null, null, null, null, null, null, null, null,
-                    null, null, null, null, null, null);
+            OrderResponse order = new OrderResponse().id("order-1").orderNumber("ORD-1").userId(OWNER);
             when(service.getOrder("order-1")).thenReturn(order);
             when(service.getOrderByNumber("ORD-1")).thenReturn(order);
             return new OrderController(service, new OrderAccessValidator(),

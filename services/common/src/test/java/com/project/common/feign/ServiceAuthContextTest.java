@@ -1,5 +1,6 @@
 package com.project.common.feign;
 
+import com.project.common.generated.token.ServiceTokenResponse;
 import feign.RequestInterceptor;
 import feign.RequestTemplate;
 import org.junit.jupiter.api.AfterEach;

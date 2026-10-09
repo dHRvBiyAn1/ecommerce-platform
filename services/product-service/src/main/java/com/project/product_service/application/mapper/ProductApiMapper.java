@@ -1,30 +1,17 @@
 package com.project.product_service.application.mapper;
 
-import com.project.product_service.dto.CategoryRequest;
-import com.project.product_service.dto.CategoryResponse;
-import com.project.product_service.dto.ProductResponse;
 import com.project.product_service.generated.model.PageProductResponse;
 import com.project.product_service.generated.model.PageableObject;
+import com.project.product_service.generated.model.ProductResponse;
 import com.project.product_service.generated.model.SortObject;
-import org.mapstruct.Mapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 
+public final class ProductApiMapper {
 
-@Mapper(componentModel = "spring", implementationPackage = "com.project.product_service.generated.mapper")
-public interface ProductApiMapper {
+    private ProductApiMapper() {}
 
-    com.project.product_service.dto.ProductRequest toDomain(
-            com.project.product_service.generated.model.ProductRequest request);
-
-    com.project.product_service.dto.CategoryRequest toDomain(
-            com.project.product_service.generated.model.CategoryRequest request);
-
-    com.project.product_service.generated.model.ProductResponse toApi(ProductResponse response);
-
-    com.project.product_service.generated.model.CategoryResponse toApi(CategoryResponse response);
-
-    default PageProductResponse toApi(Page<ProductResponse> page) {
+    public static PageProductResponse toApi(Page<ProductResponse> page) {
         var pageable = page.getPageable();
         SortObject sort = toApi(page.getSort());
         PageableObject pageableObject = new PageableObject()
@@ -38,7 +25,7 @@ public interface ProductApiMapper {
                 .totalPages(page.getTotalPages())
                 .totalElements(page.getTotalElements())
                 .size(page.getSize())
-                .content(page.getContent().stream().map(this::toApi).toList())
+                .content(page.getContent())
                 .number(page.getNumber())
                 .sort(sort)
                 .pageable(pageableObject)

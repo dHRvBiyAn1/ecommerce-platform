@@ -1,6 +1,6 @@
 package com.project.inventory.application.mapper;
 
-import com.project.inventory.api.dto.response.InventoryResponse;
+import com.project.inventory.generated.model.InventoryResponse;
 import com.project.inventory.domain.model.InventoryItem;
 import org.junit.jupiter.api.Test;
 
@@ -18,7 +18,7 @@ class InventoryMapperTest {
         item.setQuantity(12);
         item.setReservedQuantity(5);
         InventoryResponse response = mapper.toResponse(item);
-        assertThat(response.id()).isEqualTo("inventory-1");
-        assertThat(response.availableQuantity()).isEqualTo(7);
+        assertThat(response.getId()).isEqualTo("inventory-1");
+        assertThat(response.getAvailableQuantity()).isEqualTo(7);
     }
 }

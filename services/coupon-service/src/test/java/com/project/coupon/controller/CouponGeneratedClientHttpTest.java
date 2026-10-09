@@ -124,8 +124,8 @@ class CouponGeneratedClientHttpTest {
     @Test
     void generatedClientDecodesValidationAndReservationDecimalsAndNullableFields() throws Exception {
         when(couponService.validate(any())).thenReturn(
-                new com.project.coupon.dto.ValidateCouponResponse(true, "SAVE10", null,
-                        new BigDecimal("7.50"), null));
+                new com.project.coupon.generated.model.ValidateCouponResponse().valid(true).code("SAVE10")
+                        .discountAmount(new BigDecimal("7.50")));
         when(couponService.reserve(any())).thenReturn(reservation(OWNER, "order-1", "RESERVED"));
 
         var validation = customerApi.validateCoupon(new com.project.coupon.generated.testclient.model.ValidateCouponRequest()
@@ -143,8 +143,9 @@ class CouponGeneratedClientHttpTest {
         assertThat(reservation.getDiscountAmount()).isEqualByComparingTo("7.50");
         assertThat(reservation.getStatus()).isEqualTo(
                 com.project.coupon.generated.testclient.model.CouponReservationResponse.StatusEnum.RESERVED);
-        verify(couponService).validate(new com.project.coupon.dto.ValidateCouponRequest(
-                "SAVE10", OWNER, new BigDecimal("75.00"), "INR"));
+        verify(couponService).validate(argThat(request -> "SAVE10".equals(request.getCode())
+                && OWNER.equals(request.getUserId()) && new BigDecimal("75.00").equals(request.getSubtotal())
+                && "INR".equals(request.getCurrency())));
     }
 
     @Test
@@ -183,14 +184,15 @@ class CouponGeneratedClientHttpTest {
         var release = new com.project.coupon.generated.testclient.model.CouponTransitionRequest()
                 .code("SAVE10").userId(OWNER).orderId("order-3");
         assertThat(writeServiceApi.releaseCouponReservation(release).getStatus().name()).isEqualTo("RELEASED");
-        verify(couponService).commit(new com.project.coupon.dto.CouponTransitionRequest("SAVE10", OWNER, "order-2"));
+        verify(couponService).commit(argThat(request -> "SAVE10".equals(request.getCode())
+                && OWNER.equals(request.getUserId()) && "order-2".equals(request.getOrderId())));
     }
 
     @Test
     void userCannotValidateForAnotherOwnerWhileScopedServiceCan() throws Exception {
         when(couponService.validate(any())).thenReturn(
-                new com.project.coupon.dto.ValidateCouponResponse(true, "SAVE10", null,
-                        new BigDecimal("1.00"), "save"));
+                new com.project.coupon.generated.model.ValidateCouponResponse().valid(true).code("SAVE10")
+                        .discountAmount(new BigDecimal("1.00")).description("save"));
         var otherRequest = new com.project.coupon.generated.testclient.model.ValidateCouponRequest()
                 .code("SAVE10").userId(OTHER).subtotal(new BigDecimal("10.00"));
 
@@ -200,8 +202,9 @@ class CouponGeneratedClientHttpTest {
         assertThat(denied.getCode()).isEqualTo(HttpStatus.FORBIDDEN.value());
         assertThat(denied.getResponseBody()).contains("FORBIDDEN");
         assertThat(serviceResult.getValid()).isTrue();
-        verify(couponService).validate(new com.project.coupon.dto.ValidateCouponRequest(
-                "SAVE10", OTHER, new BigDecimal("10.00"), null));
+        verify(couponService).validate(argThat(request -> "SAVE10".equals(request.getCode())
+                && OTHER.equals(request.getUserId()) && new BigDecimal("10.00").equals(request.getSubtotal())
+                && request.getCurrency() == null));
     }
 
     @Test
@@ -220,9 +223,9 @@ class CouponGeneratedClientHttpTest {
 
     @Test
     void conflictUnavailableAndMissingServiceScopeKeepTheirActualHttpFailures() throws Exception {
-        when(couponService.reserve(argThat(request -> request != null && "order-conflict".equals(request.orderId()))))
+        when(couponService.reserve(argThat(request -> request != null && "order-conflict".equals(request.getOrderId()))))
                 .thenThrow(new CouponReservationConflictException("Reservation conflicts with existing data"));
-        when(couponService.reserve(argThat(request -> request != null && "order-unavailable".equals(request.orderId()))))
+        when(couponService.reserve(argThat(request -> request != null && "order-unavailable".equals(request.getOrderId()))))
                 .thenThrow(new CouponUnavailableException("Coupon is unavailable"));
         var conflictRequest = reservationRequest("order-conflict");
         var unavailableRequest = reservationRequest("order-unavailable");
@@ -297,14 +300,16 @@ class CouponGeneratedClientHttpTest {
 
     @Test
     void generatedCouponPageMatchesSpringPageJsonAndDecodesOverHttp() throws Exception {
-        var response = new com.project.coupon.dto.CouponResponse(UUID.randomUUID(), "SAVE10", "save",
-                com.project.coupon.entity.DiscountType.FIXED, new BigDecimal("7.50"), null,
-                new BigDecimal("10.00"), "INR", java.time.LocalDateTime.parse("2026-10-01T00:00:00"),
-                java.time.LocalDateTime.parse("2030-10-01T00:00:00"), 100, 0, 1, 1, true,
-                java.time.LocalDateTime.parse("2026-10-01T00:00:00"), null);
-        Page<com.project.coupon.dto.CouponResponse> sorted = new PageImpl<>(List.of(response),
+        var response = new com.project.coupon.generated.model.CouponResponse().id(UUID.randomUUID()).code("SAVE10")
+                .description("save").discountType(com.project.coupon.generated.model.CouponResponse.DiscountTypeEnum.FIXED)
+                .discountValue(new BigDecimal("7.50")).minOrderAmount(new BigDecimal("10.00")).currency("INR")
+                .validFrom(java.time.LocalDateTime.parse("2026-10-01T00:00:00"))
+                .validUntil(java.time.LocalDateTime.parse("2030-10-01T00:00:00"))
+                .usageLimit(100).usageCount(0).reservedCount(1).perUserLimit(1).active(true)
+                .createdAt(java.time.LocalDateTime.parse("2026-10-01T00:00:00"));
+        Page<com.project.coupon.generated.model.CouponResponse> sorted = new PageImpl<>(List.of(response),
                 PageRequest.of(0, 10, Sort.by(Sort.Order.desc("createdAt"))), 1);
-        Page<com.project.coupon.dto.CouponResponse> empty = Page.empty(
+        Page<com.project.coupon.generated.model.CouponResponse> empty = Page.empty(
                 PageRequest.of(2, 5, Sort.unsorted()));
         when(couponService.list(any())).thenReturn(sorted);
 
@@ -333,10 +338,11 @@ class CouponGeneratedClientHttpTest {
                 .subtotal(new BigDecimal("10.00")).currency("INR");
     }
 
-    private static com.project.coupon.dto.CouponReservationResponse reservation(
+    private static com.project.coupon.generated.model.CouponReservationResponse reservation(
             UUID userId, String orderId, String status) {
-        return new com.project.coupon.dto.CouponReservationResponse(UUID.randomUUID(), "SAVE10", userId,
-                orderId, new BigDecimal("7.50"), com.project.coupon.entity.RedemptionStatus.valueOf(status));
+        return new com.project.coupon.generated.model.CouponReservationResponse().reservationId(UUID.randomUUID())
+                .code("SAVE10").userId(userId).orderId(orderId).discountAmount(new BigDecimal("7.50"))
+                .status(com.project.coupon.generated.model.CouponReservationResponse.StatusEnum.valueOf(status));
     }
 
     @Configuration(proxyBeanMethods = false)

@@ -1,12 +1,14 @@
 package com.project.authservice.controller;
 
-import com.project.authservice.dto.request.seller.RejectApplicationRequest;
-import com.project.authservice.dto.request.seller.SellerApplicationRequest;
-import com.project.authservice.dto.response.seller.SellerApplicationResponse;
+import com.project.authservice.generated.model.RejectApplicationRequest;
+import com.project.authservice.generated.model.SellerApplicationRequest;
+import com.project.authservice.generated.model.SellerApplicationResponse;
 import com.project.authservice.entity.SellerApplicationStatus;
 import com.project.authservice.service.SellerApplicationService;
 import com.project.authservice.security.AuthenticatedUserValidator;
-import com.project.common.dto.ApiResponse;
+import com.project.common.generated.model.PageEnvelope;
+import com.project.common.generated.model.ResponseEnvelope;
+import com.project.common.web.Responses;
 import com.project.common.constant.Permissions;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -45,21 +47,21 @@ public class SellerApplicationController {
     /** 200 with the application body, or 204 if the user has never applied. */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<SellerApplicationResponse>> getMine(Authentication auth) {
+    public ResponseEntity<ResponseEnvelope<SellerApplicationResponse>> getMine(Authentication auth) {
         UUID userId = authenticatedUserValidator.requireUserId(auth);
         return service.getMine(userId)
-                .map(r -> ResponseEntity.ok(ApiResponse.success(r)))
+                .map(r -> ResponseEntity.ok(Responses.success(r)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NO_CONTENT).build());
     }
 
     @PostMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<SellerApplicationResponse>> apply(
+    public ResponseEntity<ResponseEnvelope<SellerApplicationResponse>> apply(
             @Valid @RequestBody SellerApplicationRequest req,
             Authentication auth) {
         UUID userId = authenticatedUserValidator.requireUserId(auth);
         SellerApplicationResponse out = service.apply(userId, req);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(out));
+        return ResponseEntity.status(HttpStatus.CREATED).body(Responses.created(out));
     }
 }
 
@@ -71,33 +73,33 @@ class AdminSellerApplicationController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('" + Permissions.USERS_READ + "')")
-    public ResponseEntity<ApiResponse<Page<SellerApplicationResponse>>> list(
+    public ResponseEntity<ResponseEnvelope<PageEnvelope<SellerApplicationResponse>>> list(
             @RequestParam(required = false) SellerApplicationStatus status,
             @PageableDefault(size = 20, sort = "submittedAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.success(service.list(status, pageable)));
+        return ResponseEntity.ok(Responses.envelope(200, "Success", Responses.page(service.list(status, pageable))));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('" + Permissions.USERS_READ + "')")
-    public ResponseEntity<ApiResponse<SellerApplicationResponse>> get(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(service.get(id)));
+    public ResponseEntity<ResponseEnvelope<SellerApplicationResponse>> get(@PathVariable UUID id) {
+        return ResponseEntity.ok(Responses.success(service.get(id)));
     }
 
     @PutMapping("/{id}/approve")
     @PreAuthorize("hasAuthority('" + Permissions.USERS_WRITE + "')")
-    public ResponseEntity<ApiResponse<SellerApplicationResponse>> approve(
+    public ResponseEntity<ResponseEnvelope<SellerApplicationResponse>> approve(
             @PathVariable UUID id, Authentication auth) {
         UUID adminId = authenticatedUserValidator.requireUserId(auth);
-        return ResponseEntity.ok(ApiResponse.success(service.approve(id, adminId)));
+        return ResponseEntity.ok(Responses.success(service.approve(id, adminId)));
     }
 
     @PutMapping("/{id}/reject")
     @PreAuthorize("hasAuthority('" + Permissions.USERS_WRITE + "')")
-    public ResponseEntity<ApiResponse<SellerApplicationResponse>> reject(
+    public ResponseEntity<ResponseEnvelope<SellerApplicationResponse>> reject(
             @PathVariable UUID id,
             @Valid @RequestBody RejectApplicationRequest req,
             Authentication auth) {
         UUID adminId = authenticatedUserValidator.requireUserId(auth);
-        return ResponseEntity.ok(ApiResponse.success(service.reject(id, adminId, req)));
+        return ResponseEntity.ok(Responses.success(service.reject(id, adminId, req)));
     }
 }

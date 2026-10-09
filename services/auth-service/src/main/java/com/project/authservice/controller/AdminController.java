@@ -22,7 +22,7 @@ import com.project.authservice.security.AuthenticatedUserValidator;
 import com.project.authservice.service.SellerApplicationService;
 import com.project.authservice.service.UserProfileService;
 import com.project.common.constant.Permissions;
-import com.project.common.dto.ApiResponse;
+import com.project.common.web.Responses;
 import com.project.common.exception.DuplicateResourceException;
 import com.project.common.exception.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
@@ -57,7 +57,7 @@ public class AdminController implements AdministrationApi {
     public ResponseEntity<ApiResponseSellerApplicationResponse> approve(UUID id) {
         UUID adminId = authenticatedUserValidator.requireUserId(SecurityContextHolder.getContext().getAuthentication());
         return ResponseEntity.ok(apiMapper.toApiSellerApplication(
-                ApiResponse.success(sellerApplicationService.approve(id, adminId))));
+                Responses.success(sellerApplicationService.approve(id, adminId))));
     }
 
     @Override
@@ -68,22 +68,21 @@ public class AdminController implements AdministrationApi {
                     Pageable pageable) {
         SellerApplicationStatus filter = status == null ? null : SellerApplicationStatus.valueOf(status.getValue());
         return ResponseEntity.ok(apiMapper.toApiSellerApplications(
-                ApiResponse.success(sellerApplicationService.list(filter, pageable))));
+                Responses.success(sellerApplicationService.list(filter, pageable))));
     }
 
     @Override
     @PreAuthorize("hasAuthority('admin:roles:write')")
     @Transactional
     public ResponseEntity<ApiResponseRole> createRole(CreateRoleRequest createRoleRequest) {
-        var request = apiMapper.toDomain(createRoleRequest);
-        if (roleRepository.findByName(request.name()).isPresent()) {
-            throw new DuplicateResourceException("Role already exists: " + request.name());
+        if (roleRepository.findByName(createRoleRequest.getName()).isPresent()) {
+            throw new DuplicateResourceException("Role already exists: " + createRoleRequest.getName());
         }
         Role role = new Role();
-        role.setName(request.name());
+        role.setName(createRoleRequest.getName());
         role = roleRepository.save(role);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(apiMapper.toApiRole(ApiResponse.created(role)));
+                .body(apiMapper.toApiRole(Responses.created(apiMapper.toApi(role))));
     }
 
     @Override
@@ -100,7 +99,7 @@ public class AdminController implements AdministrationApi {
     @PreAuthorize("hasAuthority('" + Permissions.USERS_READ + "')")
     public ResponseEntity<ApiResponseSellerApplicationResponse> get(UUID id) {
         return ResponseEntity.ok(apiMapper.toApiSellerApplication(
-                ApiResponse.success(sellerApplicationService.get(id))));
+                Responses.success(sellerApplicationService.get(id))));
     }
 
     @Override
@@ -109,20 +108,21 @@ public class AdminController implements AdministrationApi {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
         return ResponseEntity.ok(apiMapper.toApiUserProfile(
-                ApiResponse.success(userProfileService.toDto(user))));
+                Responses.success(userProfileService.toDto(user))));
     }
 
     @Override
     @PreAuthorize("hasAuthority('admin:roles:read')")
     public ResponseEntity<ApiResponseListRole> listRoles() {
-        return ResponseEntity.ok(apiMapper.toApiRoles(ApiResponse.success(roleRepository.findAll())));
+        return ResponseEntity.ok(apiMapper.toApiRoles(Responses.success(
+                roleRepository.findAll().stream().map(apiMapper::toApi).toList())));
     }
 
     @Override
     @PreAuthorize("hasAuthority('admin:users:read')")
     public ResponseEntity<ApiResponsePageUserProfileDto> listUsers(
             @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(apiMapper.toApiUserProfiles(ApiResponse.success(
+        return ResponseEntity.ok(apiMapper.toApiUserProfiles(Responses.success(
                 userRepository.findAll(pageable).map(userProfileService::toDto))));
     }
 
@@ -130,8 +130,8 @@ public class AdminController implements AdministrationApi {
     @PreAuthorize("hasAuthority('" + Permissions.USERS_WRITE + "')")
     public ResponseEntity<ApiResponseSellerApplicationResponse> reject(UUID id, RejectApplicationRequest rejectRequest) {
         UUID adminId = authenticatedUserValidator.requireUserId(SecurityContextHolder.getContext().getAuthentication());
-        return ResponseEntity.ok(apiMapper.toApiSellerApplication(ApiResponse.success(
-                sellerApplicationService.reject(id, adminId, apiMapper.toDomain(rejectRequest)))));
+        return ResponseEntity.ok(apiMapper.toApiSellerApplication(Responses.success(
+                sellerApplicationService.reject(id, adminId, rejectRequest))));
     }
 
     @Override
@@ -143,7 +143,7 @@ public class AdminController implements AdministrationApi {
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
         user.setActive(active);
         return ResponseEntity.ok(apiMapper.toApiUserProfile(
-                ApiResponse.success(userProfileService.toDto(userRepository.save(user)))));
+                Responses.success(userProfileService.toDto(userRepository.save(user)))));
     }
 
     @Override
@@ -151,16 +151,16 @@ public class AdminController implements AdministrationApi {
     @Transactional
     public ResponseEntity<com.project.authservice.generated.model.ApiResponseUserProfileDto> setRoles(
             UUID userId, AssignRolesRequest assignRolesRequest) {
-        var request = apiMapper.toDomain(assignRolesRequest);
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
-        Set<Role> roles = request.roles().stream()
+        Set<Role> roles = assignRolesRequest.getRoles().stream()
                 .map(name -> roleRepository.findByName(name)
                         .orElseThrow(() -> new ResourceNotFoundException("Role", name)))
                 .collect(Collectors.toSet());
         user.setRoles(roles);
         return ResponseEntity.ok(apiMapper.toApiUserProfile(
-                ApiResponse.success(userProfileService.toDto(userRepository.save(user)))));
+                Responses.success(userProfileService.toDto(userRepository.save(user)))));
     }
 
     @Override
@@ -168,14 +168,14 @@ public class AdminController implements AdministrationApi {
     @Transactional
     public ResponseEntity<ApiResponseRole> updateRolePermissions(
             UUID roleId, UpdateRolePermissionsRequest permissionsRequest) {
-        var request = apiMapper.toDomain(permissionsRequest);
+
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role", roleId));
-        Set<Permission> permissions = request.permissions().stream()
+        Set<Permission> permissions = permissionsRequest.getPermissions().stream()
                 .map(name -> permissionRepository.findByName(name)
                         .orElseThrow(() -> new ResourceNotFoundException("Permission", name)))
                 .collect(Collectors.toSet());
         role.setPermissions(permissions);
-        return ResponseEntity.ok(apiMapper.toApiRole(ApiResponse.success(roleRepository.save(role))));
+        return ResponseEntity.ok(apiMapper.toApiRole(Responses.success(apiMapper.toApi(roleRepository.save(role)))));
     }
 }

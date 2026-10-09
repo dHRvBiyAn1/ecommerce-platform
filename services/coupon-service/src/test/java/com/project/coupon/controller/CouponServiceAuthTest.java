@@ -1,7 +1,6 @@
 package com.project.coupon.controller;
 
 import com.project.common.exception.ForbiddenOperationException;
-import com.project.coupon.dto.*;
 import com.project.coupon.service.CouponService;
 import com.project.coupon.validation.CouponRequestValidator;
 import org.junit.jupiter.api.AfterEach;

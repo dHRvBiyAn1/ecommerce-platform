@@ -19,10 +19,15 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestComponent;
 import org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -40,8 +45,10 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -70,6 +77,9 @@ class InventoryGeneratedClientHttpTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private TestRestTemplate http;
 
     @Autowired
     private InventoryApiMapper apiMapper;
@@ -105,13 +115,15 @@ class InventoryGeneratedClientHttpTest {
 
     @Test
     void generatedClientKeepsProductLookupDistinctFromRecordMutationIds() throws Exception {
-        var domainResponse = new com.project.inventory.api.dto.response.InventoryResponse(
-                "record-42", "product-7", "SKU-7", 8, 2, 6, 1, null,
-                LocalDateTime.parse("2026-10-01T10:00:00"),
-                LocalDateTime.parse("2026-10-01T09:00:00"), LocalDateTime.parse("2026-10-01T10:00:00"));
+        var domainResponse = new com.project.inventory.generated.model.InventoryResponse()
+                .id("record-42").productId("product-7").sku("SKU-7").quantity(8).reservedQuantity(2)
+                .availableQuantity(6).lowStockThreshold(1).location(null)
+                .lastRestockedAt(LocalDateTime.parse("2026-10-01T10:00:00"))
+                .createdAt(LocalDateTime.parse("2026-10-01T09:00:00"))
+                .updatedAt(LocalDateTime.parse("2026-10-01T10:00:00"));
         when(inventoryService.getByProductId("product-7")).thenReturn(domainResponse);
         when(inventoryService.updateInventory(eq("record-42"), eq(
-                new com.project.inventory.api.dto.request.InventoryRequest("product-7", "SKU-7", 0, 0, null))))
+                new com.project.inventory.generated.model.InventoryRequest().productId("product-7").sku("SKU-7"))))
                 .thenReturn(domainResponse);
 
         var productLookup = adminApi.getInventoryByProduct("product-7");
@@ -128,7 +140,7 @@ class InventoryGeneratedClientHttpTest {
         assertThat(updated.getQuantity()).isEqualTo(8);
         verify(inventoryService).getByProductId("product-7");
         verify(inventoryService).updateInventory("record-42",
-                new com.project.inventory.api.dto.request.InventoryRequest("product-7", "SKU-7", 0, 0, null));
+                new com.project.inventory.generated.model.InventoryRequest().productId("product-7").sku("SKU-7"));
         verify(inventoryService).deleteInventory("record-42");
     }
 
@@ -150,6 +162,33 @@ class InventoryGeneratedClientHttpTest {
         assertThat(insufficient.getCode()).isEqualTo(HttpStatus.CONFLICT.value());
         assertThat(insufficient.getResponseBody()).contains("INSUFFICIENT_STOCK");
         verify(inventoryService).reserveStock("product-7", 2, "order-7");
+    }
+
+    @Test
+    void missingOrNullReservationQuantityReturnsValidationErrorForEveryTransition() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(SERVICE_TOKEN);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        List<String> payloads = List.of(
+                "{\"orderId\":\"order-10\"}",
+                "{\"quantity\":null,\"orderId\":\"order-10\"}");
+        List<String> transitions = List.of("reserve", "commit", "release");
+
+        for (String transition : transitions) {
+            for (String payload : payloads) {
+                ResponseEntity<String> response = http.exchange(
+                        "http://localhost:" + serverContext.getWebServer().getPort()
+                                + "/api/v1/inventory/product-7/" + transition,
+                        HttpMethod.POST, new HttpEntity<>(payload, headers), String.class);
+
+                assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+                assertThat(response.getBody()).contains("Quantity must be positive");
+            }
+        }
+
+        verify(inventoryService, never()).reserveStock(anyString(), anyInt(), anyString());
+        verify(inventoryService, never()).commitStock(anyString(), anyInt(), anyString());
+        verify(inventoryService, never()).releaseStock(anyString(), anyInt(), anyString());
     }
 
     @Test
@@ -214,9 +253,9 @@ class InventoryGeneratedClientHttpTest {
     @Test
     void generatedPageBoundaryMatchesSpringPageJsonForSortedAndEmptyPages() throws Exception {
         var item = inventoryResponse("product-7", 8, 2);
-        Page<com.project.inventory.api.dto.response.InventoryResponse> sorted = new PageImpl<>(List.of(item),
+        Page<com.project.inventory.generated.model.InventoryResponse> sorted = new PageImpl<>(List.of(item),
                 PageRequest.of(0, 10, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.asc("productId"))), 1);
-        Page<com.project.inventory.api.dto.response.InventoryResponse> empty = Page.empty(
+        Page<com.project.inventory.generated.model.InventoryResponse> empty = Page.empty(
                 PageRequest.of(2, 5, Sort.unsorted()));
 
         assertThat(objectMapper.readTree(objectMapper.writeValueAsString(apiMapper.toApi(sorted))))
@@ -233,11 +272,13 @@ class InventoryGeneratedClientHttpTest {
         return new InventoryApi(client);
     }
 
-    private static com.project.inventory.api.dto.response.InventoryResponse inventoryResponse(
+    private static com.project.inventory.generated.model.InventoryResponse inventoryResponse(
             String productId, int quantity, int reserved) {
-        return new com.project.inventory.api.dto.response.InventoryResponse(
-                "record-42", productId, "SKU-7", quantity, reserved, quantity - reserved, 1, "A1", null,
-                LocalDateTime.parse("2026-10-01T09:00:00"), LocalDateTime.parse("2026-10-01T10:00:00"));
+        return new com.project.inventory.generated.model.InventoryResponse()
+                .id("record-42").productId(productId).sku("SKU-7").quantity(quantity).reservedQuantity(reserved)
+                .availableQuantity(quantity - reserved).lowStockThreshold(1).location("A1")
+                .createdAt(LocalDateTime.parse("2026-10-01T09:00:00"))
+                .updatedAt(LocalDateTime.parse("2026-10-01T10:00:00"));
     }
 
     @Configuration(proxyBeanMethods = false)

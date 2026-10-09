@@ -1,9 +1,9 @@
 package com.project.authservice.mapper;
 
-import com.project.authservice.dto.response.UserProfileDto;
 import com.project.authservice.entity.Permission;
 import com.project.authservice.entity.Role;
 import com.project.authservice.entity.User;
+import com.project.authservice.generated.model.UserProfileDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -13,15 +13,15 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class UserMapper {
-
     private final AddressMapper addressMapper;
 
     public UserProfileDto toDto(User user, boolean hasPassword) {
         if (user == null) return null;
-        return new UserProfileDto(user.getId(), user.getEmail(), user.getDisplayName(), user.getImageUrl(),
-                user.getPhone(), user.isActive(), user.getCreatedAt(), mapRoleNames(user.getRoles()),
-                mapPermissionNames(user.getRoles()), addressMapper.toDto(user.getShippingAddress()),
-                addressMapper.toDto(user.getBillingAddress()), hasPassword);
+        return new UserProfileDto().id(user.getId()).email(user.getEmail()).displayName(user.getDisplayName())
+                .imageUrl(user.getImageUrl()).phone(user.getPhone()).active(user.isActive())
+                .createdAt(user.getCreatedAt()).roles(mapRoleNames(user.getRoles()))
+                .permissions(mapPermissionNames(user.getRoles())).shippingAddress(addressMapper.toDto(user.getShippingAddress()))
+                .billingAddress(addressMapper.toDto(user.getBillingAddress())).hasPassword(hasPassword);
     }
 
     private Set<String> mapRoleNames(Set<Role> roles) {
@@ -31,9 +31,7 @@ public class UserMapper {
 
     private Set<String> mapPermissionNames(Set<Role> roles) {
         if (roles == null) return Set.of();
-        return Set.copyOf(roles.stream()
-                .flatMap(role -> role.getPermissions().stream())
-                .map(Permission::getName)
-                .collect(Collectors.toSet()));
+        return Set.copyOf(roles.stream().flatMap(role -> role.getPermissions().stream())
+                .map(Permission::getName).collect(Collectors.toSet()));
     }
 }

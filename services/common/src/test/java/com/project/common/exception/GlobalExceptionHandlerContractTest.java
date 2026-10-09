@@ -1,7 +1,7 @@
 package com.project.common.exception;
 
 import com.project.common.constant.ErrorCode;
-import com.project.common.dto.ErrorResponse;
+import com.project.common.generated.model.ErrorResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
@@ -76,17 +76,17 @@ class GlobalExceptionHandlerContractTest {
                 new BusinessException(HttpStatus.BAD_REQUEST, "PROVIDER_ERROR",
                         "provider=stripe secret=sk_live_sensitive"), request("/payments"));
 
-        assertThat(response.getBody().message()).isEqualTo("Request could not be processed");
+        assertThat(response.getBody().getMessage()).isEqualTo("Request could not be processed");
     }
 
     @Test
     void preservesIntentionalMessagesFromTypedUserFacingExceptions() {
         assertThat(handler.handleBusiness(new ValidationException("Email is required"), request("/users"))
-                .getBody().message()).isEqualTo("Email is required");
+                .getBody().getMessage()).isEqualTo("Email is required");
         assertThat(handler.handleBusiness(new ResourceNotFoundException("Order", "42"), request("/orders/42"))
-                .getBody().message()).isEqualTo("Order not found: 42");
+                .getBody().getMessage()).isEqualTo("Order not found: 42");
         assertThat(handler.handleBusiness(new DuplicateResourceException("Order already exists"), request("/orders"))
-                .getBody().message()).isEqualTo("Order already exists");
+                .getBody().getMessage()).isEqualTo("Order already exists");
     }
 
     @ParameterizedTest
@@ -96,7 +96,7 @@ class GlobalExceptionHandlerContractTest {
 
         assertThat(handler.handleBusiness(
                 new BusinessException(HttpStatus.BAD_REQUEST, code, detail), request("/orders"))
-                .getBody().message()).isEqualTo(expectedMessage);
+                .getBody().getMessage()).isEqualTo(expectedMessage);
     }
 
     private static Stream<Arguments> businessMessageCases() {
@@ -146,12 +146,12 @@ class GlobalExceptionHandlerContractTest {
 
         assertThat(response.getStatusCode()).isEqualTo(status);
         assertThat(body).isNotNull();
-        assertThat(body.status()).isEqualTo(status.value());
-        assertThat(body.error()).isEqualTo(status.getReasonPhrase());
-        assertThat(body.code()).isEqualTo(code);
-        assertThat(body.message()).isEqualTo(message);
-        assertThat(body.traceId()).isEqualTo(REQUEST_ID);
-        assertThat(body.timestamp()).isBetween(Instant.now().minusSeconds(5), Instant.now());
+        assertThat(body.getStatus()).isEqualTo(status.value());
+        assertThat(body.getError()).isEqualTo(status.getReasonPhrase());
+        assertThat(body.getCode()).isEqualTo(code);
+        assertThat(body.getMessage()).isEqualTo(message);
+        assertThat(body.getTraceId()).isEqualTo(REQUEST_ID);
+        assertThat(body.getTimestamp()).isBetween(Instant.now().minusSeconds(5), Instant.now());
     }
 
     private MockHttpServletRequest request(String path) {

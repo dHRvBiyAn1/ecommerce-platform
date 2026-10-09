@@ -274,6 +274,8 @@ components:
           type: integer
           format: int32
           minimum: 0
+          default: 0
+          x-setter-extra-annotation: "@com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.SKIP)"
           description: Zero removes the line item; positive values set its quantity.
     CartItem:
       type: object

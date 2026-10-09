@@ -3,7 +3,6 @@ package com.project.product_service.controller;
 import com.project.product_service.service.ProductService;
 import com.project.product_service.service.CategoryService;
 import com.project.product_service.config.SecurityConfig;
-import com.project.product_service.generated.mapper.ProductApiMapperImpl;
 import org.junit.jupiter.api.Test;
 import org.springdoc.core.configuration.SpringDocConfiguration;
 import org.springdoc.core.configuration.SpringDocPageableConfiguration;
@@ -30,8 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc(addFilters = false)
 @ContextConfiguration(classes = ProductOpenApiContractTest.OpenApiTestApplication.class)
 @Import({SpringDocConfiguration.class, SpringDocWebMvcConfiguration.class, SpringDocSecurityConfiguration.class,
-        SpringDocPageableConfiguration.class, SpringDocSortConfiguration.class, ProductApiMapperImpl.class,
-        SecurityConfig.class})
+        SpringDocPageableConfiguration.class, SpringDocSortConfiguration.class, SecurityConfig.class})
 class ProductOpenApiContractTest {
 
     @Autowired

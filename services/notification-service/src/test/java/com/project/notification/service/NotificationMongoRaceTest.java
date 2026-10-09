@@ -11,7 +11,7 @@ import com.project.notification.model.Notification;
 import com.project.notification.model.NotificationDelivery;
 import com.project.notification.repository.NotificationDeliveryRepository;
 import com.project.notification.repository.NotificationRepository;
-import com.project.notification.api.dto.response.NotificationResponse;
+import com.project.notification.generated.model.NotificationResponse;
 import org.bson.UuidRepresentation;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
@@ -73,9 +73,9 @@ class NotificationMongoRaceTest {
                     responses.add(future.get());
                 }
 
-                assertThat(responses).allMatch(response -> response.id() != null);
-                assertThat(responses).extracting(NotificationResponse::id)
-                        .containsOnly(responses.get(0).id());
+                assertThat(responses).allMatch(response -> response.getId() != null);
+                assertThat(responses).extracting(NotificationResponse::getId)
+                        .containsOnly(responses.get(0).getId());
             } finally {
                 executor.shutdownNow();
             }

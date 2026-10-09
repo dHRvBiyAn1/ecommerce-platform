@@ -10,29 +10,7 @@ import org.springframework.data.domain.Sort;
 @Mapper(componentModel = "spring", implementationPackage = "com.project.coupon.generated.mapper")
 public interface CouponApiMapper {
 
-    com.project.coupon.dto.CouponRequest toDomain(com.project.coupon.generated.model.CouponRequest request);
-
-    com.project.coupon.dto.ValidateCouponRequest toDomain(
-            com.project.coupon.generated.model.ValidateCouponRequest request);
-
-    com.project.coupon.dto.CouponReservationRequest toDomain(
-            com.project.coupon.generated.model.CouponReservationRequest request);
-
-    com.project.coupon.dto.CouponTransitionRequest toDomain(
-            com.project.coupon.generated.model.CouponTransitionRequest request);
-
-    com.project.coupon.dto.RedeemCouponRequest toDomain(
-            com.project.coupon.generated.model.RedeemCouponRequest request);
-
-    com.project.coupon.generated.model.CouponResponse toApi(com.project.coupon.dto.CouponResponse response);
-
-    com.project.coupon.generated.model.CouponReservationResponse toApi(
-            com.project.coupon.dto.CouponReservationResponse response);
-
-    com.project.coupon.generated.model.ValidateCouponResponse toApi(
-            com.project.coupon.dto.ValidateCouponResponse response);
-
-    default PageCouponResponse toApi(Page<com.project.coupon.dto.CouponResponse> page) {
+    default PageCouponResponse toApi(Page<com.project.coupon.generated.model.CouponResponse> page) {
         PageCouponResponsePageable pageable = new PageCouponResponsePageable()
                 .offset(page.getPageable().getOffset())
                 .sort(toApi(page.getSort()))
@@ -44,7 +22,7 @@ public interface CouponApiMapper {
                 .totalElements(page.getTotalElements())
                 .totalPages(page.getTotalPages())
                 .size(page.getSize())
-                .content(page.getContent().stream().map(this::toApi).toList())
+                .content(page.getContent())
                 .number(page.getNumber())
                 .sort(toApi(page.getSort()))
                 .pageable(pageable)

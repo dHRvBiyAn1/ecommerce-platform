@@ -1,12 +1,12 @@
 package com.project.cart;
 
 import com.project.cart.client.CouponClient;
-import com.project.cart.client.CouponValidationResponse;
+import com.project.cart.generated.integration.coupon.model.ValidateCouponResponse;
 import com.project.cart.client.ProductClient;
-import com.project.cart.client.ProductSummary;
-import com.project.cart.dto.AddCartItemRequest;
-import com.project.cart.dto.ApplyCouponRequest;
-import com.project.cart.dto.UpdateQuantityRequest;
+import com.project.cart.generated.integration.product.model.ProductResponse;
+import com.project.cart.generated.model.AddCartItemRequest;
+import com.project.cart.generated.model.ApplyCouponRequest;
+import com.project.cart.generated.model.UpdateQuantityRequest;
 import com.project.cart.model.Cart;
 import com.project.cart.repository.CartRepository;
 import com.project.cart.service.CartService;
@@ -78,14 +78,11 @@ class CartMongoIntegrationTest {
     @Test
     void mongoReloadPreservesProductSnapshotAndCouponInvalidationAfterQuantityChange() {
         UUID userId = UUID.fromString("44444444-4444-4444-4444-444444444444");
-        when(productClient.getProduct("product-1")).thenReturn(new ProductSummary(
-                "product-1", "SKU-1", "Snapshot product", List.of("image-1"),
-                new BigDecimal("125.50"), true));
-        when(couponClient.validate(any())).thenReturn(CouponValidationResponse.builder()
+        when(productClient.getProduct("product-1")).thenReturn(new ProductResponse().id("product-1").sku("SKU-1").name("Snapshot product").imageUrls(List.of("image-1")).price(new BigDecimal("125.50")).active(true));
+        when(couponClient.validate(any())).thenReturn(new ValidateCouponResponse()
                 .valid(true)
                 .code("SAVE10")
-                .discountAmount(new BigDecimal("10.00"))
-                .build());
+                .discountAmount(new BigDecimal("10.00")));
 
         cartService.addItem(userId, new AddCartItemRequest("product-1", 2));
         cartService.applyCoupon(userId, new ApplyCouponRequest("SAVE10"));
@@ -119,6 +116,6 @@ class CartMongoIntegrationTest {
         });
         assertThat(reloaded.getAppliedCouponCode()).isNull();
         assertThat(reloaded.getAppliedDiscountAmount()).isNull();
-        assertThat(cartService.getMyCart(userId).subtotal()).isEqualByComparingTo("376.50");
+        assertThat(cartService.getMyCart(userId).getSubtotal()).isEqualByComparingTo("376.50");
     }
 }

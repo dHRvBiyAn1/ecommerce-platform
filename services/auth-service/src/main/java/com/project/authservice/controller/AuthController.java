@@ -1,8 +1,7 @@
 package com.project.authservice.controller;
 
-import com.project.authservice.dto.TokenResponse;
-import com.project.authservice.dto.request.ClientCredentialsRequest;
-import com.project.authservice.dto.response.ServiceTokenResponse;
+import com.project.authservice.generated.model.TokenResponse;
+import com.project.authservice.generated.model.ServiceTokenResponse;
 import com.project.authservice.exception.InvalidScopeException;
 import com.project.authservice.exception.AuthException;
 import com.project.authservice.security.AuthenticatedUserValidator;
@@ -12,7 +11,7 @@ import com.project.authservice.generated.model.ApiResponseVoid;
 import com.project.authservice.generated.model.ProviderDiscovery;
 import com.project.authservice.generated.model.OAuthProvider;
 import com.project.authservice.mapper.AuthApiMapper;
-import com.project.common.dto.ApiResponse;
+import com.project.common.web.Responses;
 import com.project.authservice.service.AuthService;
 import com.project.authservice.service.ClientCredentialsService;
 import com.project.authservice.util.CookieUtils;
@@ -70,7 +69,7 @@ public class AuthController implements AuthenticationApi {
     public ResponseEntity<ApiResponseUserProfileDto> register(
             com.project.authservice.generated.model.RegistrationRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(apiMapper.toApiUserProfile(
-                ApiResponse.created(authService.register(apiMapper.toDomain(request)))));
+                Responses.created(authService.register(request))));
     }
 
     /**
@@ -103,8 +102,7 @@ public class AuthController implements AuthenticationApi {
 
         if ("client_credentials".equals(grantType)) {
             try {
-                ServiceTokenResponse serviceToken = clientCredentialsService.issue(
-                        new ClientCredentialsRequest(clientId, clientSecret, scope));
+                ServiceTokenResponse serviceToken = clientCredentialsService.issue(clientId, clientSecret, scope);
                 return ResponseEntity.ok(serviceToken);
             } catch (InvalidScopeException ex) {
                 return oauthError(HttpStatus.BAD_REQUEST, "invalid_scope", ex.getMessage());
@@ -127,8 +125,8 @@ public class AuthController implements AuthenticationApi {
         CookieUtils.addCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME,
                 result.getRefreshToken(), (int) (refreshTokenDurationMs / 1000), secureCookie);
 
-        return ResponseEntity.ok(ApiResponse.success(
-                new TokenResponse(result.getAccessToken())));
+        return ResponseEntity.ok(Responses.success(
+                new TokenResponse().accessToken(result.getAccessToken()).tokenType(TokenResponse.TokenTypeEnum.BEARER)));
     }
 
     @Override
@@ -141,7 +139,7 @@ public class AuthController implements AuthenticationApi {
         String refreshTokenValue = CookieUtils.getCookieValue(request, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
         authService.logout(accessToken, refreshTokenValue);
         CookieUtils.deleteCookie(request, response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
-        return ResponseEntity.ok(apiMapper.toApiVoid(ApiResponse.success(null)));
+        return ResponseEntity.ok(apiMapper.toApiVoid(Responses.success(null)));
     }
 
     /**
@@ -154,9 +152,8 @@ public class AuthController implements AuthenticationApi {
             com.project.authservice.generated.model.ChangePasswordRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         java.util.UUID userId = authenticatedUserValidator.requireUserId(authentication);
-        var domainRequest = apiMapper.toDomain(request);
-        authService.changePasswordByUserId(userId, domainRequest.oldPassword(), domainRequest.newPassword());
-        return ResponseEntity.ok(apiMapper.toApiVoid(ApiResponse.success(null)));
+        authService.changePasswordByUserId(userId, request.getOldPassword(), request.getNewPassword());
+        return ResponseEntity.ok(apiMapper.toApiVoid(Responses.success(null)));
     }
 
     @Override

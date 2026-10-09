@@ -77,29 +77,29 @@ class InventoryOpenApiContractTest {
         InventoryService inventoryService() {
             return new InventoryService() {
                 @Override
-                public Page<com.project.inventory.api.dto.response.InventoryResponse> getAllInventory(Pageable pageable) {
+                public Page<com.project.inventory.generated.model.InventoryResponse> getAllInventory(Pageable pageable) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public com.project.inventory.api.dto.response.InventoryResponse getByProductId(String productId) {
+                public com.project.inventory.generated.model.InventoryResponse getByProductId(String productId) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public com.project.inventory.api.dto.response.InventoryResponse getBySku(String sku) {
+                public com.project.inventory.generated.model.InventoryResponse getBySku(String sku) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public com.project.inventory.api.dto.response.InventoryResponse createInventory(
-                        com.project.inventory.api.dto.request.InventoryRequest request) {
+                public com.project.inventory.generated.model.InventoryResponse createInventory(
+                        com.project.inventory.generated.model.InventoryRequest request) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public com.project.inventory.api.dto.response.InventoryResponse updateInventory(
-                        String id, com.project.inventory.api.dto.request.InventoryRequest request) {
+                public com.project.inventory.generated.model.InventoryResponse updateInventory(
+                        String id, com.project.inventory.generated.model.InventoryRequest request) {
                     throw new UnsupportedOperationException();
                 }
 
@@ -109,27 +109,27 @@ class InventoryOpenApiContractTest {
                 }
 
                 @Override
-                public com.project.inventory.api.dto.response.InventoryResponse reserveStock(String productId, int quantity, String orderId) {
+                public com.project.inventory.generated.model.InventoryResponse reserveStock(String productId, int quantity, String orderId) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public com.project.inventory.api.dto.response.InventoryResponse commitStock(String productId, int quantity, String orderId) {
+                public com.project.inventory.generated.model.InventoryResponse commitStock(String productId, int quantity, String orderId) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public com.project.inventory.api.dto.response.InventoryResponse releaseStock(String productId, int quantity, String orderId) {
+                public com.project.inventory.generated.model.InventoryResponse releaseStock(String productId, int quantity, String orderId) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public com.project.inventory.api.dto.response.InventoryResponse addStock(String productId, int quantity) {
+                public com.project.inventory.generated.model.InventoryResponse addStock(String productId, int quantity) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public List<com.project.inventory.api.dto.response.InventoryResponse> getLowStockItems() {
+                public List<com.project.inventory.generated.model.InventoryResponse> getLowStockItems() {
                     throw new UnsupportedOperationException();
                 }
 

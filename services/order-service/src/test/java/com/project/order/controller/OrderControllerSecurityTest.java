@@ -4,8 +4,8 @@ import com.project.common.constant.Permissions;
 import com.project.common.exception.GlobalExceptionHandler;
 import com.project.order.OrderServiceApplication;
 import com.project.order.config.SecurityConfig;
-import com.project.order.dto.OrderResponse;
-import com.project.order.dto.OrderStatusUpdateRequest;
+import com.project.order.generated.model.OrderResponse;
+import com.project.order.generated.model.OrderStatusUpdateRequest;
 import com.project.order.model.OrderStatus;
 import com.project.order.service.OrderService;
 import com.project.order.validation.OrderAccessValidator;
@@ -172,8 +172,7 @@ class OrderControllerSecurityTest {
     }
 
     private static OrderResponse response(String id, UUID userId, OrderStatus status) {
-        return new OrderResponse(id, "ORD-1", userId, null, status, null,
-                null, null, null, null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null);
+        return new OrderResponse().id(id).orderNumber("ORD-1").userId(userId)
+                .status(com.project.order.generated.model.OrderResponse.StatusEnum.valueOf(status.name()));
     }
 }

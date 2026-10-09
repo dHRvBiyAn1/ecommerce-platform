@@ -1,8 +1,7 @@
 package com.project.authservice.service;
 
 import com.project.authservice.config.ServiceClientProperties;
-import com.project.authservice.dto.request.ClientCredentialsRequest;
-import com.project.authservice.dto.response.ServiceTokenResponse;
+import com.project.authservice.generated.model.ServiceTokenResponse;
 import com.project.authservice.exception.AuthException;
 import com.project.authservice.exception.InvalidScopeException;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,21 +45,19 @@ class ClientCredentialsServiceTest {
                 "order-service", Set.of("inventory.write"), Duration.ofMinutes(5)))
                 .thenReturn("signed-service-token");
 
-        ServiceTokenResponse response = service.issue(new ClientCredentialsRequest(
-                "order-service", "correct-secret", "inventory.write"));
+        ServiceTokenResponse response = service.issue("order-service", "correct-secret", "inventory.write");
 
-        assertThat(response.accessToken()).isEqualTo("signed-service-token");
-        assertThat(response.tokenType()).isEqualTo("Bearer");
-        assertThat(response.expiresIn()).isEqualTo(300);
-        assertThat(response.scope()).isEqualTo("inventory.write");
+        assertThat(response.getAccessToken()).isEqualTo("signed-service-token");
+        assertThat(response.getTokenType().getValue()).isEqualTo("Bearer");
+        assertThat(response.getExpiresIn()).isEqualTo(300);
+        assertThat(response.getScope()).isEqualTo("inventory.write");
         verify(jwtService).generateServiceToken(
                 "order-service", Set.of("inventory.write"), Duration.ofMinutes(5));
     }
 
     @Test
     void badSecretIsRejectedWithoutIssuingToken() {
-        assertThatThrownBy(() -> service.issue(new ClientCredentialsRequest(
-                "order-service", "wrong-secret", "inventory.write")))
+        assertThatThrownBy(() -> service.issue("order-service", "wrong-secret", "inventory.write"))
                 .isInstanceOf(AuthException.class)
                 .hasMessage("Invalid client credentials");
 
@@ -69,8 +66,7 @@ class ClientCredentialsServiceTest {
 
     @Test
     void scopeOutsideClientAllowlistIsRejected() {
-        assertThatThrownBy(() -> service.issue(new ClientCredentialsRequest(
-                "order-service", "correct-secret", "inventory.delete")))
+        assertThatThrownBy(() -> service.issue("order-service", "correct-secret", "inventory.delete"))
                 .isExactlyInstanceOf(InvalidScopeException.class)
                 .hasFieldOrPropertyWithValue("status", HttpStatus.BAD_REQUEST)
                 .hasFieldOrPropertyWithValue("code", "INVALID_SCOPE")
@@ -83,8 +79,7 @@ class ClientCredentialsServiceTest {
     void subSecondTokenTtlIsRejectedWithoutIssuingToken() {
         service = new ClientCredentialsService(propertiesWithTtl(Duration.ofMillis(500)), jwtService);
 
-        assertThatThrownBy(() -> service.issue(new ClientCredentialsRequest(
-                "order-service", "correct-secret", "inventory.write")))
+        assertThatThrownBy(() -> service.issue("order-service", "correct-secret", "inventory.write"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Service token TTL must be between 1 second and 15 minutes");
 
@@ -98,10 +93,9 @@ class ClientCredentialsServiceTest {
                 "order-service", Set.of("inventory.write"), Duration.ofSeconds(1)))
                 .thenReturn("signed-service-token");
 
-        ServiceTokenResponse response = service.issue(new ClientCredentialsRequest(
-                "order-service", "correct-secret", "inventory.write"));
+        ServiceTokenResponse response = service.issue("order-service", "correct-secret", "inventory.write");
 
-        assertThat(response.expiresIn()).isEqualTo(1);
+        assertThat(response.getExpiresIn()).isEqualTo(1);
         verify(jwtService).generateServiceToken(
                 "order-service", Set.of("inventory.write"), Duration.ofSeconds(1));
     }
@@ -113,10 +107,9 @@ class ClientCredentialsServiceTest {
         when(jwtService.generateServiceToken("order-service", Set.of("inventory.write"), ttl))
                 .thenReturn("signed-service-token");
 
-        ServiceTokenResponse response = service.issue(new ClientCredentialsRequest(
-                "order-service", "correct-secret", "inventory.write"));
+        ServiceTokenResponse response = service.issue("order-service", "correct-secret", "inventory.write");
 
-        assertThat(response.expiresIn()).isEqualTo(1);
+        assertThat(response.getExpiresIn()).isEqualTo(1);
         verify(jwtService).generateServiceToken("order-service", Set.of("inventory.write"), ttl);
     }
 
@@ -127,10 +120,9 @@ class ClientCredentialsServiceTest {
                 "order-service", Set.of("inventory.write"), Duration.ofMinutes(15)))
                 .thenReturn("signed-service-token");
 
-        ServiceTokenResponse response = service.issue(new ClientCredentialsRequest(
-                "order-service", "correct-secret", "inventory.write"));
+        ServiceTokenResponse response = service.issue("order-service", "correct-secret", "inventory.write");
 
-        assertThat(response.expiresIn()).isEqualTo(900);
+        assertThat(response.getExpiresIn()).isEqualTo(900);
         verify(jwtService).generateServiceToken(
                 "order-service", Set.of("inventory.write"), Duration.ofMinutes(15));
     }
@@ -139,8 +131,7 @@ class ClientCredentialsServiceTest {
     void tokenTtlAboveFifteenMinutesIsRejectedWithoutIssuingToken() {
         service = new ClientCredentialsService(propertiesWithTtl(Duration.ofMinutes(15).plusSeconds(1)), jwtService);
 
-        assertThatThrownBy(() -> service.issue(new ClientCredentialsRequest(
-                "order-service", "correct-secret", "inventory.write")))
+        assertThatThrownBy(() -> service.issue("order-service", "correct-secret", "inventory.write"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Service token TTL must be between 1 second and 15 minutes");
 
@@ -149,16 +140,12 @@ class ClientCredentialsServiceTest {
 
     @Test
     void malformedOrUnknownClientCredentialsAreRejectedWithoutIssuingTokens() {
-        for (ClientCredentialsRequest request : new ClientCredentialsRequest[] {
-                null,
-                new ClientCredentialsRequest(" ", "correct-secret", "inventory.write"),
-                new ClientCredentialsRequest("order-service", null, "inventory.write"),
-                new ClientCredentialsRequest("unknown", "correct-secret", "inventory.write")
-        }) {
-            assertThatThrownBy(() -> service.issue(request))
-                    .isInstanceOf(AuthException.class)
-                    .hasMessage("Invalid client credentials");
-        }
+        assertThatThrownBy(() -> service.issue(" ", "correct-secret", "inventory.write"))
+                .isInstanceOf(AuthException.class).hasMessage("Invalid client credentials");
+        assertThatThrownBy(() -> service.issue("order-service", null, "inventory.write"))
+                .isInstanceOf(AuthException.class).hasMessage("Invalid client credentials");
+        assertThatThrownBy(() -> service.issue("unknown", "correct-secret", "inventory.write"))
+                .isInstanceOf(AuthException.class).hasMessage("Invalid client credentials");
 
         verifyNoInteractions(jwtService);
     }
@@ -169,13 +156,11 @@ class ClientCredentialsServiceTest {
                 "order-service", Set.of("coupons.read", "inventory.write"), Duration.ofMinutes(5)))
                 .thenReturn("signed-service-token");
 
-        ServiceTokenResponse response = service.issue(new ClientCredentialsRequest(
-                "order-service", "correct-secret", null));
+        ServiceTokenResponse response = service.issue("order-service", "correct-secret", null);
 
-        assertThat(response.scope()).isEqualTo("coupons.read inventory.write");
+        assertThat(response.getScope()).isEqualTo("coupons.read inventory.write");
         service = new ClientCredentialsService(propertiesWithTtl(null), jwtService);
-        assertThatThrownBy(() -> service.issue(new ClientCredentialsRequest(
-                "order-service", "correct-secret", "inventory.write")))
+        assertThatThrownBy(() -> service.issue("order-service", "correct-secret", "inventory.write"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Service token TTL must be between 1 second and 15 minutes");
     }

@@ -9,7 +9,7 @@ import com.project.authservice.mapper.AuthApiMapper;
 import com.project.authservice.security.AuthenticatedUserValidator;
 import com.project.authservice.service.SellerApplicationService;
 import com.project.authservice.service.UserProfileService;
-import com.project.common.dto.ApiResponse;
+import com.project.common.web.Responses;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -33,15 +33,15 @@ public class UserController implements UserProfileApi {
     public ResponseEntity<ApiResponseUserProfileDto> getProfile() {
         UUID userId = authenticatedUserValidator.requireUserId(SecurityContextHolder.getContext().getAuthentication());
         return ResponseEntity.ok(apiMapper.toApiUserProfile(
-                ApiResponse.success(userProfileService.getProfile(userId))));
+                Responses.success(userProfileService.getProfile(userId))));
     }
 
     @Override
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponseUserProfileDto> updateProfile(UserUpdateRequest userUpdateRequest) {
         UUID userId = authenticatedUserValidator.requireUserId(SecurityContextHolder.getContext().getAuthentication());
-        var profile = userProfileService.updateProfile(userId, apiMapper.toDomain(userUpdateRequest));
-        return ResponseEntity.ok(apiMapper.toApiUserProfile(ApiResponse.success(profile)));
+        var profile = userProfileService.updateProfile(userId, userUpdateRequest);
+        return ResponseEntity.ok(apiMapper.toApiUserProfile(Responses.success(profile)));
     }
 
     @Override
@@ -49,7 +49,7 @@ public class UserController implements UserProfileApi {
     public ResponseEntity<ApiResponseSellerApplicationResponse> getMine() {
         UUID userId = authenticatedUserValidator.requireUserId(SecurityContextHolder.getContext().getAuthentication());
         return sellerApplicationService.getMine(userId)
-                .map(response -> ResponseEntity.ok(apiMapper.toApiSellerApplication(ApiResponse.success(response))))
+                .map(response -> ResponseEntity.ok(apiMapper.toApiSellerApplication(Responses.success(response))))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NO_CONTENT).build());
     }
 
@@ -57,8 +57,8 @@ public class UserController implements UserProfileApi {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponseSellerApplicationResponse> apply(SellerApplicationRequest sellerApplicationRequest) {
         UUID userId = authenticatedUserValidator.requireUserId(SecurityContextHolder.getContext().getAuthentication());
-        var response = sellerApplicationService.apply(userId, apiMapper.toDomain(sellerApplicationRequest));
+        var response = sellerApplicationService.apply(userId, sellerApplicationRequest);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(apiMapper.toApiSellerApplication(ApiResponse.created(response)));
+                .body(apiMapper.toApiSellerApplication(Responses.created(response)));
     }
 }

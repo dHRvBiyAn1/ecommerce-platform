@@ -158,6 +158,8 @@
                                 <skipDefaultInterface>true</skipDefaultInterface>
                                 <useBeanValidation>true</useBeanValidation>
                                 <openApiNullable>false</openApiNullable>
+                                <generateConstructorWithAllArgs>true</generateConstructorWithAllArgs>
+                                <containerDefaultToNull>true</containerDefaultToNull>
                                 <generateJsonIncludeAnnotations>true</generateJsonIncludeAnnotations>
                                 <optionalNonNullPropertyJsonInclude>NON_NULL</optionalNonNullPropertyJsonInclude>
                                 <generateJsonSetterNullsAnnotations>false</generateJsonSetterNullsAnnotations>

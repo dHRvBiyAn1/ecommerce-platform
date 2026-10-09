@@ -1,8 +1,8 @@
 package com.project.cart;
 
 import com.project.cart.client.CouponClient;
-import com.project.cart.client.CouponValidationRequest;
-import com.project.cart.client.CouponValidationResponse;
+import com.project.cart.generated.integration.coupon.model.ValidateCouponRequest;
+import com.project.cart.generated.integration.coupon.model.ValidateCouponResponse;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -88,14 +88,13 @@ class ServiceCredentialFeignIntegrationTest {
 
     @Test
     void couponClientObtainsConfiguredServiceTokenAndForwardsBearer() {
-        CouponValidationResponse response = couponClient.validate(CouponValidationRequest.builder()
+        ValidateCouponResponse response = couponClient.validate(new ValidateCouponRequest()
                 .code("SAVE10")
                 .userId(UUID.fromString("33333333-3333-3333-3333-333333333333"))
                 .subtotal(new BigDecimal("25.00"))
-                .currency("INR")
-                .build());
+                .currency("INR"));
 
-        assertThat(response.isValid()).isTrue();
+        assertThat(response.getValid()).isTrue();
         assertThat(parseForm(AUTH_FORM.get())).containsExactlyInAnyOrderEntriesOf(Map.of(
                 "grant_type", "client_credentials",
                 "client_id", "cart-service",

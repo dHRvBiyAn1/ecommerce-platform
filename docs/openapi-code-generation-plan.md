@@ -5,7 +5,8 @@
 Each business service owns an OpenAPI 3.0.1 contract in
 `services/<service>/src/main/openapi/swagger.yaml`. Edit that input, regenerate the
 root `swagger.yaml`, and run Maven verification. The combined file is derived
-API documentation; module builds never consume it or sibling service contracts.
+API documentation; module builds never consume it. Outbound consumers generate
+model libraries from the canonical contracts of the services they call.
 
 | Service | Package base | Documented operations | Generated MVC operations |
 |---|---|---:|---:|
@@ -21,9 +22,11 @@ API documentation; module builds never consume it or sibling service contracts.
 
 The remaining operations are three handwritten MVC methods and two OAuth filter
 routes. Infrastructure modules (`common`, `api-gateway`, `config-server`,
-`discovery-server`) do not generate business API code. Existing service/domain
-DTOs, persistence mappings, Kafka contracts, public payloads, authorization,
-cookies and status codes remain the compatibility boundary.
+`discovery-server`) do not generate business API code. Handwritten transport DTOs have been removed. Business services use their generated
+models directly; persistence mappings, Kafka contracts, public payloads,
+authorization, cookies and status codes remain the compatibility boundary.
+`common` generates response metadata models from `src/main/openapi/models.yaml`
+without generating business API interfaces.
 
 ## Frozen build configuration
 
@@ -67,18 +70,18 @@ Offset-free `local-date-time` maps to `LocalDateTime`; RFC3339 `date-time` maps 
 Generated packages are excluded from JaCoCo and already fall under Sonar's
 `target/` exclusion. The generator's reserved `org.openapitools.configuration`
 supporting classes are also excluded from JaCoCo; they stay outside the service's
-component scan to retain Spring's existing enum conversion behavior. New MapStruct HTTP boundary implementations use the service's
-`.generated.mapper` package. Their handwritten interfaces/default methods and
-all existing domain mappers retain coverage, and the checked-in coverage thresholds
-remain unchanged. Order's HTTP mapper is separate from its existing domain mapper.
+component scan to retain Spring's existing enum conversion behavior. Generated MapStruct implementations use the service's `.generated.mapper` package
+where configured. Authored mapper methods and response helpers retain coverage;
+the checked-in coverage thresholds remain unchanged.
 
 ## Controller adoption and narrow exceptions
 
 Controllers implement generated interfaces. Those interfaces own the complete
 routes, so duplicate controller mapping annotations and class prefixes are
-removed. Method authorization stays on implementations. MapStruct boundary
-mappers convert HTTP models to/from existing service DTOs without changing
-business method signatures. Existing Spring `Pageable` operations use the native
+removed. Method authorization stays on implementations. Entity mappers convert persistence models directly to generated response models.
+Business method signatures consume generated requests and responses; no parallel
+handwritten transport model is maintained. Narrow envelope/page mappers remain
+where they preserve service-specific response metadata. Existing Spring `Pageable` operations use the native
 `x-spring-paginated: true` operation extension and retain their original
 `@PageableDefault` annotations. Spring continues to resolve sort expressions,
 page sizes and defaults; clients still generate the documented query parameters.
@@ -140,9 +143,37 @@ form template is unsuitable for this token contract, so auth uses RestTemplate.
 Payment webhooks retain unparsed request bodies and signature verification ahead
 of JSON parsing. Their exact-byte tests use JDK HTTP instead of generated object
 serialization. Payment client secret values appear only in the initial response. Replay retains
-the legacy `clientSecret: null` field, with no secret value. Payment and notification
-record fields retain explicit nulls; raw HTTP JSON is compared with legacy record
-serialization rather than relying on decoded null getters.
+the legacy `clientSecret: null` field, with no secret value. Payment and notification response fields retain explicit nulls; raw HTTP JSON
+assertions check field presence as well as values.
+
+## Generated shared and outbound models
+
+`common` generates `ResponseEnvelope<T>`, `PageEnvelope<T>` and `ErrorResponse`.
+`com.project.common.web.Responses` creates UUID trace IDs, timestamps, status
+messages and page metadata. It contains behavior, not transport-model definitions.
+The pinned Spring `libraries/spring-boot/pojo.mustache` adds a generic type parameter
+only for schemas marked `x-generic-type`; `object+generic-data` maps the payload
+parameter to `T`. Other schemas use the original class declaration. Recheck this
+small template change when upgrading OpenAPI Generator.
+
+The shared service-token response also generates from auth's canonical Swagger
+schema. Its dedicated `token-templates/model.mustache` emits an immutable record,
+retaining Java 21 record-pattern validation and the primitive expiry default.
+Token type text remains a string so the existing validator can accept
+case-insensitive Bearer and reject malformed tokens with the same messages.
+Common-consuming Docker builds copy the auth contract before building common.
+
+Cart consumes product and coupon schemas; order consumes product, inventory and
+coupon schemas; payment consumes order schemas. Their model-only executions use
+separate `.generated.integration.<service>.model` packages and output directories.
+They generate neither API interfaces nor supporting client runtimes. Dockerfiles
+copy those canonical contract files into the build context. There is no compiled
+dependency on another business service and no duplicated projection schema.
+
+Generated models are still data transfer objects in purpose. Removing handwritten
+DTOs removes their duplicate source definitions, not the need to carry HTTP data.
+Class names such as `UserProfileDto` may remain where the authoritative contract
+uses that schema name; their Java source exists only under `target/`.
 
 ## Deterministic documentation and linting
 
@@ -284,6 +315,26 @@ Diagnostics and review reports remain outside the repository. These results
 cover embedded HTTP compatibility and local integration; live Google login,
 Stripe processing and notification delivery remain unverified. The original
 workspace and application stack were not modified by this verification.
+
+## DTO removal verification
+
+The 2026-10-09 follow-up removed 63 handwritten transport DTO sources, including
+outbound service projections and shared envelopes. The final clean reactor
+`verify` reported 678 tests with zero failures/errors and three opt-in skips.
+Explicit product, cart and notification Mongo suites passed separately. Existing
+coverage baselines and all 11 critical-class thresholds passed unchanged.
+
+Product update regressions also verify that omitted attributes preserve stored
+values while explicit `{}` clears them. Both tests fail with the previous empty
+container default and pass with `containerDefaultToNull=true`.
+
+Strict Spectral linting reported zero diagnostics; bundling fixtures, root drift,
+routing, threading, Dockerfile, environment/release and Sonar checks passed.
+All nine common-consuming service images built and reported Java 21.0.12.1.
+Packaged artifacts contained the expected 89 generated MVC operations and no
+handwritten DTOs, generated test clients or test-only nullable support. Fresh
+reviews found no remaining actionable defects. Live external-provider scenarios
+remain unverified, and the original application stack was untouched.
 
 Rollback requires reverting each complete service migration, including interfaces,
 mappers, POM executions and corresponding contract changes. Removing generator

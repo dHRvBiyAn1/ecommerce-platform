@@ -1,6 +1,6 @@
 package com.project.notification.service;
 
-import com.project.notification.api.dto.response.NotificationResponse;
+import com.project.notification.generated.model.NotificationResponse;
 import com.project.notification.application.mapper.NotificationMapper;
 import com.project.notification.application.validator.NotificationAccessValidator;
 import com.project.notification.model.Notification;
@@ -13,7 +13,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
 
-import java.lang.reflect.RecordComponent;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -66,8 +65,8 @@ class NotificationRaceTest {
         NotificationResponse response = service.record(
                 userId, "user@example.com", "EMAIL", "ORDER", "Subject", "Body", "event-1");
 
-        assertThat(response.id()).isEqualTo("winner");
-        assertThat(response.status()).isEqualTo(NotificationResponse.Status.PENDING);
+        assertThat(response.getId()).isEqualTo("winner");
+        assertThat(response.getStatus()).isEqualTo(NotificationResponse.StatusEnum.PENDING);
         verify(deliveryRepository).save(any(NotificationDelivery.class));
         verify(repository, times(1)).insert(any(Notification.class));
         verify(repository, times(2)).findBySourceEventId("event-1");
@@ -118,8 +117,8 @@ class NotificationRaceTest {
             Future<NotificationResponse> second = executor.submit(() -> recordAfter(start, service, userId));
             start.countDown();
 
-            assertThat(first.get().id()).isEqualTo("notification-2");
-            assertThat(second.get().id()).isEqualTo("notification-2");
+            assertThat(first.get().getId()).isEqualTo("notification-2");
+            assertThat(second.get().getId()).isEqualTo("notification-2");
         } finally {
             executor.shutdownNow();
         }
@@ -138,9 +137,8 @@ class NotificationRaceTest {
     }
 
     @Test
-    void responseRecordDoesNotExposeNotificationDocumentTypes() {
-        assertThat(NotificationResponse.class.isRecord()).isTrue();
-        for (RecordComponent component : NotificationResponse.class.getRecordComponents()) {
+    void responseModelDoesNotExposeNotificationDocumentTypes() {
+        for (java.lang.reflect.Field component : NotificationResponse.class.getDeclaredFields()) {
             assertThat(component.getType()).isNotEqualTo(Notification.class);
             assertThat(component.getType().getName()).doesNotContain("notification.model");
         }

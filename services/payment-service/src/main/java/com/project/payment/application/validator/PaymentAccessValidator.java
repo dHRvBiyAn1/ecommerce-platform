@@ -1,7 +1,7 @@
 package com.project.payment.application.validator;
 
 import com.project.common.exception.ForbiddenOperationException;
-import com.project.payment.api.dto.response.PaymentResponse;
+import com.project.payment.generated.model.PaymentResponse;
 import org.springframework.stereotype.Component;
 
 import java.util.Objects;
@@ -11,7 +11,7 @@ import java.util.UUID;
 public class PaymentAccessValidator {
 
     public void validateAccess(PaymentResponse payment, UUID requesterId, boolean administrator) {
-        if (!administrator && !Objects.equals(payment.userId(), requesterId)) {
+        if (!administrator && !Objects.equals(payment.getUserId(), requesterId)) {
             throw new ForbiddenOperationException("You do not have permission to access this payment");
         }
     }

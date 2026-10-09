@@ -2,8 +2,8 @@ package com.project.product_service.service;
 
 import java.util.List;
 
-import com.project.product_service.dto.CategoryRequest;
-import com.project.product_service.dto.CategoryResponse;
+import com.project.product_service.generated.model.CategoryRequest;
+import com.project.product_service.generated.model.CategoryResponse;
 
 public interface CategoryService {
     List<CategoryResponse> getAllCategories();

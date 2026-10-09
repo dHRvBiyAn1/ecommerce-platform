@@ -120,7 +120,7 @@ explicit per-service value of `true`. For a JVM rollback, redeploy the last
 Java 17 artifact; Java 21 bytecode and the Java 21 `common` library require Java
 21 and cannot run on Java 17.
 
-Product and category Redis cache reads restore their DTO types from the existing
+Product and category Redis cache reads restore their generated response-model types from the existing
 plain JSON format, including dates and decimal prices. Malformed cached values
 fall back to database loading. Validate cache reads after restarting the service
 as part of rollout. Validate end-to-end notification delivery and tracing

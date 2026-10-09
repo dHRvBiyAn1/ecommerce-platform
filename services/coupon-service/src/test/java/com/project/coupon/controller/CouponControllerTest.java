@@ -1,8 +1,7 @@
 package com.project.coupon.controller;
 
-import com.project.coupon.dto.CouponReservationRequest;
-import com.project.coupon.dto.CouponReservationResponse;
-import com.project.coupon.entity.RedemptionStatus;
+import com.project.coupon.generated.model.CouponReservationRequest;
+import com.project.coupon.generated.model.CouponReservationResponse;
 import com.project.coupon.service.CouponService;
 import com.project.coupon.validation.CouponRequestValidator;
 import com.project.common.exception.ForbiddenOperationException;
@@ -55,21 +54,20 @@ class CouponControllerTest {
                 jwt, List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"))));
         var request = new com.project.coupon.generated.model.CouponReservationRequest()
                 .code("SAVE10").userId(userId).orderId("order-1").subtotal(new BigDecimal("500.00")).currency("INR");
-        CouponReservationRequest domainRequest = new CouponReservationRequest(
-                "SAVE10", userId, "order-1", new BigDecimal("500.00"), "INR");
-        CouponReservationResponse response = new CouponReservationResponse(
-                UUID.randomUUID(), "SAVE10", userId, "order-1", new BigDecimal("50.00"),
-                RedemptionStatus.RESERVED);
-        when(couponService.reserve(domainRequest)).thenReturn(response);
+        CouponReservationRequest serviceRequest = request;
+        CouponReservationResponse response = new CouponReservationResponse()
+                .reservationId(UUID.randomUUID()).code("SAVE10").userId(userId).orderId("order-1")
+                .discountAmount(new BigDecimal("50.00")).status(CouponReservationResponse.StatusEnum.RESERVED);
+        when(couponService.reserve(serviceRequest)).thenReturn(response);
 
         var entity = controller.reserveCoupon(request);
 
         assertThat(entity.getBody().getStatus().getValue()).isEqualTo("RESERVED");
         assertThat(entity.getBody().getDiscountAmount()).isEqualByComparingTo("50.00");
         InOrder calls = inOrder(validator, couponService);
-        calls.verify(validator).validateReservation(domainRequest);
+        calls.verify(validator).validateReservation(serviceRequest);
         calls.verify(validator).validateActor(userId, userId, false);
-        calls.verify(couponService).reserve(domainRequest);
+        calls.verify(couponService).reserve(serviceRequest);
     }
 
     @Test
@@ -87,18 +85,17 @@ class CouponControllerTest {
                 jwt, List.of(new SimpleGrantedAuthority("SCOPE_coupons.write"))));
         var request = new com.project.coupon.generated.model.CouponReservationRequest()
                 .code("SAVE10").userId(userId).orderId("order-1").subtotal(new BigDecimal("500.00")).currency("INR");
-        CouponReservationRequest domainRequest = new CouponReservationRequest(
-                "SAVE10", userId, "order-1", new BigDecimal("500.00"), "INR");
-        CouponReservationResponse response = new CouponReservationResponse(
-                UUID.randomUUID(), "SAVE10", userId, "order-1", new BigDecimal("50.00"),
-                RedemptionStatus.RESERVED);
-        when(couponService.reserve(domainRequest)).thenReturn(response);
+        CouponReservationRequest serviceRequest = request;
+        CouponReservationResponse response = new CouponReservationResponse()
+                .reservationId(UUID.randomUUID()).code("SAVE10").userId(userId).orderId("order-1")
+                .discountAmount(new BigDecimal("50.00")).status(CouponReservationResponse.StatusEnum.RESERVED);
+        when(couponService.reserve(serviceRequest)).thenReturn(response);
 
         var entity = controller.reserveCoupon(request);
 
         assertThat(entity.getBody().getStatus().getValue()).isEqualTo("RESERVED");
         verify(validator, never()).validateActor(userId, userId, false);
-        verify(couponService).reserve(domainRequest);
+        verify(couponService).reserve(serviceRequest);
     }
 
     @Test

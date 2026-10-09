@@ -1,9 +1,9 @@
 package com.project.order.application.validator;
 
-import com.project.order.dto.BillingAddressRequest;
-import com.project.order.dto.OrderItemRequest;
-import com.project.order.dto.OrderRequest;
-import com.project.order.dto.ShippingAddressRequest;
+import com.project.order.generated.model.BillingAddressRequest;
+import com.project.order.generated.model.OrderItemRequest;
+import com.project.order.generated.model.OrderRequest;
+import com.project.order.generated.model.ShippingAddressRequest;
 import com.project.order.exception.OrderValidationException;
 import com.project.order.model.OrderStatus;
 import org.springframework.stereotype.Component;
@@ -17,20 +17,20 @@ public class OrderRequestValidator {
         if (request == null || userId == null) {
             throw new OrderValidationException("Order request and user are required");
         }
-        if (request.items() == null || request.items().isEmpty()) {
+        if (request.getItems() == null || request.getItems().isEmpty()) {
             throw new OrderValidationException("Order must contain at least one item");
         }
-        for (OrderItemRequest item : request.items()) {
-            if (item == null || item.productId() == null || item.productId().isBlank()) {
+        for (OrderItemRequest item : request.getItems()) {
+            if (item == null || item.getProductId() == null || item.getProductId().isBlank()) {
                 throw new OrderValidationException("Product ID is required");
             }
-            if (item.quantity() < 1) {
+            if (item.getQuantity() == null || item.getQuantity() < 1) {
                 throw new OrderValidationException("Quantity must be at least 1");
             }
         }
-        validateShippingAddress(request.shippingAddress());
-        validateBillingAddress(request.billingAddress());
-        if (request.paymentMethod() == null || request.paymentMethod().isBlank()) {
+        validateShippingAddress(request.getShippingAddress());
+        validateBillingAddress(request.getBillingAddress());
+        if (request.getPaymentMethod() == null || request.getPaymentMethod().isBlank()) {
             throw new OrderValidationException("Payment method is required");
         }
     }
@@ -51,8 +51,8 @@ public class OrderRequestValidator {
         if (address == null) {
             return;
         }
-        if (isBlank(address.fullName()) || isBlank(address.phone()) || isBlank(address.street())
-                || isBlank(address.city()) || isBlank(address.zipCode()) || isBlank(address.country())) {
+        if (isBlank(address.getFullName()) || isBlank(address.getPhone()) || isBlank(address.getStreet())
+                || isBlank(address.getCity()) || isBlank(address.getZipCode()) || isBlank(address.getCountry())) {
             throw new OrderValidationException("Shipping address is invalid");
         }
     }
@@ -61,8 +61,8 @@ public class OrderRequestValidator {
         if (address == null) {
             return;
         }
-        if (isBlank(address.fullName()) || isBlank(address.phone()) || isBlank(address.street())
-                || isBlank(address.city()) || isBlank(address.zipCode()) || isBlank(address.country())) {
+        if (isBlank(address.getFullName()) || isBlank(address.getPhone()) || isBlank(address.getStreet())
+                || isBlank(address.getCity()) || isBlank(address.getZipCode()) || isBlank(address.getCountry())) {
             throw new OrderValidationException("Billing address is invalid");
         }
     }

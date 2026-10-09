@@ -1,6 +1,6 @@
 package com.project.order.client;
 
-import com.project.order.client.dto.ProductSummary;
+import com.project.order.generated.integration.product.model.ProductResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,5 +14,5 @@ import org.springframework.web.bind.annotation.PathVariable;
 public interface ProductClient {
 
     @GetMapping("/{id}")
-    ProductSummary getProduct(@PathVariable("id") String id);
+    ProductResponse getProduct(@PathVariable("id") String id);
 }

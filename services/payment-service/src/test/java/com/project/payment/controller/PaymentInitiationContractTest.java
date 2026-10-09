@@ -1,15 +1,16 @@
 package com.project.payment.controller;
 
+import com.project.common.web.Responses;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.project.common.dto.ApiResponse;
-import com.project.payment.api.dto.request.PaymentRequest;
-import com.project.payment.api.dto.response.PaymentInitiationResponse;
-import com.project.payment.api.dto.response.PaymentResponse;
+import com.project.common.generated.model.ResponseEnvelope;
+import com.project.payment.generated.model.PaymentRequest;
+import com.project.payment.generated.model.PaymentInitiationResponse;
+import com.project.payment.generated.model.PaymentResponse;
 import com.project.payment.application.mapper.PaymentMapper;
 import com.project.payment.application.validator.PaymentOrderValidator;
 import com.project.payment.application.validator.PaymentTransitionValidator;
 import com.project.payment.client.OrderClient;
-import com.project.payment.client.dto.OrderSummary;
+import com.project.payment.generated.integration.order.model.OrderResponse;
 import com.project.payment.exception.PaymentException;
 import com.project.payment.kafka.PaymentEventPublisher;
 import com.project.payment.model.Payment;
@@ -49,8 +50,9 @@ class PaymentInitiationContractTest {
 
     @Test
     void initiationResponseIsTheOnlyResponseContainingTheEphemeralSecret() {
-        assertThat(PaymentInitiationResponse.class.getRecordComponents())
-                .extracting(component -> component.getName())
+        assertThat(PaymentInitiationResponse.class.getDeclaredFields())
+                .filteredOn(field -> !java.lang.reflect.Modifier.isStatic(field.getModifiers()))
+                .extracting(java.lang.reflect.Field::getName)
                 .containsExactly("payment", "clientSecret");
     }
 
@@ -87,8 +89,7 @@ class PaymentInitiationContractTest {
         var repository = Mockito.mock(com.project.payment.repository.PaymentRepository.class);
         when(repository.findByOrderId("order-1")).thenReturn(Optional.empty());
         UUID ownerId = UUID.randomUUID();
-        when(orderClient.getOrder("order-1")).thenReturn(ApiResponse.success(new OrderSummary(
-                "order-1", "ORD-1", ownerId, "PENDING", new BigDecimal("10.00"), "USD")));
+        when(orderClient.getOrder("order-1")).thenReturn(Responses.success(new OrderResponse().id("order-1").orderNumber("ORD-1").userId(ownerId).status(com.project.payment.generated.integration.order.model.OrderResponse.StatusEnum.fromValue("PENDING")).totalAmount(new BigDecimal("10.00")).currency("USD")));
         PaymentServiceImpl service = new PaymentServiceImpl(
                 repository, Mockito.mock(PaymentOperationRepository.class),
                 Mockito.mock(WebhookReceiptRepository.class), Mockito.mock(PaymentOutboxRepository.class),

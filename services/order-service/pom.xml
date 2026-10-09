@@ -165,6 +165,7 @@
                             <modelPackage>com.project.order.generated.model</modelPackage>
                             <configOptions>
                                 <interfaceOnly>true</interfaceOnly>
+                                <generateConstructorWithAllArgs>true</generateConstructorWithAllArgs>
                                 <useSpringBoot3>true</useSpringBoot3>
                                 <useTags>true</useTags>
                                 <skipDefaultInterface>true</skipDefaultInterface>
@@ -173,6 +174,75 @@
                                 <generateJsonIncludeAnnotations>true</generateJsonIncludeAnnotations>
                                 <optionalNonNullPropertyJsonInclude>NON_NULL</optionalNonNullPropertyJsonInclude>
                                 <generateJsonSetterNullsAnnotations>false</generateJsonSetterNullsAnnotations>
+                            </configOptions>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>generate-product-models</id>
+                        <phase>generate-sources</phase>
+                        <goals><goal>generate</goal></goals>
+                        <configuration>
+                            <inputSpec>${project.basedir}/../product-service/src/main/openapi/swagger.yaml</inputSpec>
+                            <generatorName>spring</generatorName>
+                            <library>spring-boot</library>
+                            <output>${project.build.directory}/generated-sources/openapi-product-models</output>
+                            <modelPackage>com.project.order.generated.integration.product.model</modelPackage>
+                            <generateApis>false</generateApis>
+                            <generateSupportingFiles>false</generateSupportingFiles>
+                            <configOptions>
+                                <interfaceOnly>true</interfaceOnly>
+                                <useSpringBoot3>true</useSpringBoot3>
+                                <openApiNullable>false</openApiNullable>
+                                <generateJsonIncludeAnnotations>true</generateJsonIncludeAnnotations>
+                                <optionalNonNullPropertyJsonInclude>NON_NULL</optionalNonNullPropertyJsonInclude>
+                                <generateJsonSetterNullsAnnotations>false</generateJsonSetterNullsAnnotations>
+                                <generateConstructorWithAllArgs>true</generateConstructorWithAllArgs>
+                            </configOptions>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>generate-coupon-models</id>
+                        <phase>generate-sources</phase>
+                        <goals><goal>generate</goal></goals>
+                        <configuration>
+                            <inputSpec>${project.basedir}/../coupon-service/src/main/openapi/swagger.yaml</inputSpec>
+                            <generatorName>spring</generatorName>
+                            <library>spring-boot</library>
+                            <output>${project.build.directory}/generated-sources/openapi-coupon-models</output>
+                            <modelPackage>com.project.order.generated.integration.coupon.model</modelPackage>
+                            <generateApis>false</generateApis>
+                            <generateSupportingFiles>false</generateSupportingFiles>
+                            <configOptions>
+                                <interfaceOnly>true</interfaceOnly>
+                                <useSpringBoot3>true</useSpringBoot3>
+                                <openApiNullable>false</openApiNullable>
+                                <generateJsonIncludeAnnotations>true</generateJsonIncludeAnnotations>
+                                <optionalNonNullPropertyJsonInclude>NON_NULL</optionalNonNullPropertyJsonInclude>
+                                <generateJsonSetterNullsAnnotations>false</generateJsonSetterNullsAnnotations>
+                                <generateConstructorWithAllArgs>true</generateConstructorWithAllArgs>
+                            </configOptions>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>generate-inventory-models</id>
+                        <phase>generate-sources</phase>
+                        <goals><goal>generate</goal></goals>
+                        <configuration>
+                            <inputSpec>${project.basedir}/../inventory-service/src/main/openapi/swagger.yaml</inputSpec>
+                            <generatorName>spring</generatorName>
+                            <library>spring-boot</library>
+                            <output>${project.build.directory}/generated-sources/openapi-inventory-models</output>
+                            <modelPackage>com.project.order.generated.integration.inventory.model</modelPackage>
+                            <generateApis>false</generateApis>
+                            <generateSupportingFiles>false</generateSupportingFiles>
+                            <configOptions>
+                                <interfaceOnly>true</interfaceOnly>
+                                <useSpringBoot3>true</useSpringBoot3>
+                                <openApiNullable>false</openApiNullable>
+                                <generateJsonIncludeAnnotations>true</generateJsonIncludeAnnotations>
+                                <optionalNonNullPropertyJsonInclude>NON_NULL</optionalNonNullPropertyJsonInclude>
+                                <generateJsonSetterNullsAnnotations>false</generateJsonSetterNullsAnnotations>
+                                <generateConstructorWithAllArgs>true</generateConstructorWithAllArgs>
                             </configOptions>
                         </configuration>
                     </execution>

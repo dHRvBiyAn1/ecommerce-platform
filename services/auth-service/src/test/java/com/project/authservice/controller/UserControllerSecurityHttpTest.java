@@ -1,10 +1,10 @@
 package com.project.authservice.controller;
 
-import com.project.authservice.dto.response.UserProfileDto;
-import com.project.authservice.dto.AddressDto;
+import com.project.authservice.generated.model.UserProfileDto;
+import com.project.authservice.generated.model.AddressDto;
 import com.project.authservice.entity.User;
 import com.project.authservice.security.AuthenticatedUserValidator;
-import com.project.authservice.generated.mapper.AuthApiMapperImpl;
+import com.project.authservice.mapper.AuthApiMapper;
 import com.project.authservice.service.SellerApplicationService;
 import com.project.authservice.service.UserProfileService;
 import com.project.authservice.security.CustomOAuth2SuccessHandler;
@@ -52,7 +52,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.config.import=optional:file:/dev/null"
 })
 @Import({SecurityConfig.class, JwtAuthFilter.class, GlobalExceptionHandler.class, AuthenticatedUserValidator.class,
-        AuthApiMapperImpl.class,
+        AuthApiMapper.class,
         UserControllerSecurityHttpTest.JwtTestConfig.class})
 @ExtendWith(OutputCaptureExtension.class)
 class UserControllerSecurityHttpTest {

@@ -1,7 +1,7 @@
 package com.project.authservice.service;
 
-import com.project.authservice.dto.request.UserUpdateRequest;
-import com.project.authservice.dto.response.UserProfileDto;
+import com.project.authservice.generated.model.UserUpdateRequest;
+import com.project.authservice.generated.model.UserProfileDto;
 import com.project.authservice.entity.AuthProvider;
 import com.project.authservice.entity.User;
 import com.project.authservice.mapper.AddressMapper;
@@ -32,11 +32,11 @@ public class UserProfileService {
     @Transactional
     public UserProfileDto updateProfile(UUID userId, UserUpdateRequest request) {
         User user = findUser(userId);
-        if (request.displayName() != null) user.setDisplayName(request.displayName());
-        if (request.imageUrl() != null) user.setImageUrl(request.imageUrl());
-        if (request.phone() != null) user.setPhone(request.phone());
-        if (request.shippingAddress() != null) user.setShippingAddress(addressMapper.toEntity(request.shippingAddress()));
-        if (request.billingAddress() != null) user.setBillingAddress(addressMapper.toEntity(request.billingAddress()));
+        if (request.getDisplayName() != null) user.setDisplayName(request.getDisplayName());
+        if (request.getImageUrl() != null) user.setImageUrl(request.getImageUrl());
+        if (request.getPhone() != null) user.setPhone(request.getPhone());
+        if (request.getShippingAddress() != null) user.setShippingAddress(addressMapper.toEntity(request.getShippingAddress()));
+        if (request.getBillingAddress() != null) user.setBillingAddress(addressMapper.toEntity(request.getBillingAddress()));
         return toDto(userRepository.save(user));
     }
 

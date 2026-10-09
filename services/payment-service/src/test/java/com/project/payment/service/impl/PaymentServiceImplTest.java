@@ -1,12 +1,13 @@
 package com.project.payment.service.impl;
 
+import com.project.common.web.Responses;
 import com.project.payment.exception.PaymentException;
 import com.project.payment.application.mapper.PaymentMapper;
-import com.project.payment.api.dto.request.PaymentRequest;
-import com.project.payment.api.dto.request.PaymentWebhookRequest;
+import com.project.payment.generated.model.PaymentRequest;
+import com.project.payment.generated.model.PaymentWebhookRequest;
 import com.project.payment.client.OrderClient;
-import com.project.payment.client.dto.OrderSummary;
-import com.project.common.dto.ApiResponse;
+import com.project.payment.generated.integration.order.model.OrderResponse;
+import com.project.common.generated.model.ResponseEnvelope;
 import com.project.payment.application.validator.PaymentOrderValidator;
 import com.project.payment.application.validator.PaymentTransitionValidator;
 import com.project.payment.model.Payment;
@@ -91,7 +92,7 @@ class PaymentServiceImplTest {
 
         verify(gateway).refund(eq(payment), eq(new BigDecimal("70.00")), eq("customer request"), any());
         assertThat(payment.getRefundedAmount()).isEqualByComparingTo("100.00");
-        assertThat(response.status()).isEqualTo(PaymentStatus.REFUNDED);
+        assertThat(response.getStatus()).isEqualTo(com.project.payment.generated.model.PaymentStatus.REFUNDED);
     }
 
     @Test
@@ -146,7 +147,7 @@ class PaymentServiceImplTest {
 
         var response = service.processPayment("payment-1");
 
-        assertThat(response.status()).isEqualTo(PaymentStatus.COMPLETED);
+        assertThat(response.getStatus()).isEqualTo(com.project.payment.generated.model.PaymentStatus.COMPLETED);
         verify(gateway).confirm(payment);
     }
 
@@ -172,8 +173,7 @@ class PaymentServiceImplTest {
     @Test
     void createPaymentUsesAuthoritativeOrderAmountAndCurrency() {
         UUID userId = UUID.randomUUID();
-        when(orderClient.getOrder("order-1")).thenReturn(ApiResponse.success(new OrderSummary(
-                "order-1", "ORD-100", userId, "PENDING", new BigDecimal("125.50"), "USD")));
+        when(orderClient.getOrder("order-1")).thenReturn(Responses.success(new OrderResponse().id("order-1").orderNumber("ORD-100").userId(userId).status(com.project.payment.generated.integration.order.model.OrderResponse.StatusEnum.fromValue("PENDING")).totalAmount(new BigDecimal("125.50")).currency("USD")));
         when(paymentRepository.findByOrderId("order-1")).thenReturn(Optional.empty());
         when(paymentRepository.insert(any(Payment.class))).thenAnswer(invocation -> {
             Payment payment = invocation.getArgument(0);
@@ -192,18 +192,17 @@ class PaymentServiceImplTest {
 
         var response = service.createPayment(request, userId, "customer@example.com", null);
 
-        assertThat(response.payment().orderNumber()).isEqualTo("ORD-100");
-        assertThat(response.payment().amount()).isEqualByComparingTo("125.50");
-        assertThat(response.payment().currency()).isEqualTo("USD");
-        assertThat(response.payment().status()).isEqualTo(PaymentStatus.PENDING);
-        assertThat(response.clientSecret()).isEqualTo("client-secret");
+        assertThat(response.getPayment().getOrderNumber()).isEqualTo("ORD-100");
+        assertThat(response.getPayment().getAmount()).isEqualByComparingTo("125.50");
+        assertThat(response.getPayment().getCurrency()).isEqualTo("USD");
+        assertThat(response.getPayment().getStatus()).isEqualTo(com.project.payment.generated.model.PaymentStatus.PENDING);
+        assertThat(response.getClientSecret()).isEqualTo("client-secret");
     }
 
     @Test
     void blankCreateKeyIsReplacedWithGeneratedDurableIdentity() {
         UUID userId = UUID.randomUUID();
-        when(orderClient.getOrder("order-1")).thenReturn(ApiResponse.success(new OrderSummary(
-                "order-1", "ORD-100", userId, "PENDING", new BigDecimal("100.00"), "USD")));
+        when(orderClient.getOrder("order-1")).thenReturn(Responses.success(new OrderResponse().id("order-1").orderNumber("ORD-100").userId(userId).status(com.project.payment.generated.integration.order.model.OrderResponse.StatusEnum.fromValue("PENDING")).totalAmount(new BigDecimal("100.00")).currency("USD")));
         when(paymentRepository.findByOrderId("order-1")).thenReturn(Optional.empty());
         when(paymentRepository.insert(any(Payment.class))).thenAnswer(invocation -> {
             Payment payment = invocation.getArgument(0);
@@ -218,7 +217,7 @@ class PaymentServiceImplTest {
         var response = service.createPayment(new PaymentRequest("order-1", null, "CARD", null, null, "checkout"),
                 userId, "customer@example.com", "   ");
 
-        assertThat(response.clientSecret()).isEqualTo("client-secret");
+        assertThat(response.getClientSecret()).isEqualTo("client-secret");
         org.mockito.ArgumentCaptor<PaymentOperation> operation = org.mockito.ArgumentCaptor.forClass(PaymentOperation.class);
         verify(operationRepository).insert(operation.capture());
         assertThat(operation.getValue().getIdempotencyKey()).isNotBlank().isNotEqualTo("   ");
@@ -253,7 +252,7 @@ class PaymentServiceImplTest {
         var response = service.handlePaymentWebhook("PAY-1", new PaymentWebhookRequest(
                 "PAY-1", "intent-1", "FAILED", "declined"));
 
-        assertThat(response.status()).isEqualTo(PaymentStatus.FAILED);
+        assertThat(response.getStatus()).isEqualTo(com.project.payment.generated.model.PaymentStatus.FAILED);
         assertThat(payment.getFailureReason()).isEqualTo("declined");
         verify(outboxRepository).insert(any(com.project.payment.model.PaymentOutboxEvent.class));
     }
@@ -267,7 +266,7 @@ class PaymentServiceImplTest {
 
         var response = service.refundPayment("payment-1", "customer request", null, null);
 
-        assertThat(response.status()).isEqualTo(PaymentStatus.REFUNDED);
+        assertThat(response.getStatus()).isEqualTo(com.project.payment.generated.model.PaymentStatus.REFUNDED);
         assertThat(payment.getRefundedAmount()).isEqualByComparingTo("100.00");
         verify(gateway).refund(eq(payment), eq(new BigDecimal("100.00")), eq("customer request"), any());
     }
@@ -281,7 +280,7 @@ class PaymentServiceImplTest {
         var response = service.refundPayment(
                 "payment-1", "customer request", new BigDecimal("25.00"), "partial-refund");
 
-        assertThat(response.status()).isEqualTo(PaymentStatus.PARTIALLY_REFUNDED);
+        assertThat(response.getStatus()).isEqualTo(com.project.payment.generated.model.PaymentStatus.PARTIALLY_REFUNDED);
         assertThat(payment.getRefundedAmount()).isEqualByComparingTo("25.00");
         verify(gateway).refund(eq(payment), eq(new BigDecimal("25.00")), eq("customer request"), eq("partial-refund"));
     }
@@ -295,7 +294,7 @@ class PaymentServiceImplTest {
 
         var response = service.processPayment("payment-1");
 
-        assertThat(response.status()).isEqualTo(PaymentStatus.FAILED);
+        assertThat(response.getStatus()).isEqualTo(com.project.payment.generated.model.PaymentStatus.FAILED);
         assertThat(payment.getFailureReason()).isEqualTo("Gateway declined");
     }
 
@@ -372,7 +371,7 @@ class PaymentServiceImplTest {
         var response = service.handlePaymentWebhook("PAY-1", new PaymentWebhookRequest(
                 "PAY-1", "intent-1", "CANCELLED", null));
 
-        assertThat(response.status()).isEqualTo(PaymentStatus.CANCELLED);
+        assertThat(response.getStatus()).isEqualTo(com.project.payment.generated.model.PaymentStatus.CANCELLED);
         assertThatThrownBy(() -> service.handlePaymentWebhook("PAY-1", new PaymentWebhookRequest(
                 "PAY-1", "intent-1", "PROCESSING", null)))
                 .isInstanceOf(PaymentException.class).hasMessage("Unknown webhook status: PROCESSING");
@@ -381,8 +380,7 @@ class PaymentServiceImplTest {
     @Test
     void createPaymentReusesExistingPaymentForItsOwnerWithoutCallingGateway() {
         UUID userId = UUID.randomUUID();
-        when(orderClient.getOrder("order-1")).thenReturn(ApiResponse.success(new OrderSummary(
-                "order-1", "ORD-1", userId, "PENDING", new BigDecimal("100.00"), "USD")));
+        when(orderClient.getOrder("order-1")).thenReturn(Responses.success(new OrderResponse().id("order-1").orderNumber("ORD-1").userId(userId).status(com.project.payment.generated.integration.order.model.OrderResponse.StatusEnum.fromValue("PENDING")).totalAmount(new BigDecimal("100.00")).currency("USD")));
         Payment existing = Payment.builder().id("payment-1").orderId("order-1").orderNumber("ORD-1")
                 .userId(userId).status(PaymentStatus.PENDING).amount(new BigDecimal("100.00")).currency("USD").build();
         when(paymentRepository.findByOrderId("order-1")).thenReturn(Optional.of(existing));
@@ -391,16 +389,15 @@ class PaymentServiceImplTest {
                 new PaymentRequest("order-1", null, "CARD", null, null, "checkout"),
                 userId, "customer@example.com", "create-key");
 
-        assertThat(response.payment().id()).isEqualTo("payment-1");
-        assertThat(response.clientSecret()).isNull();
+        assertThat(response.getPayment().getId()).isEqualTo("payment-1");
+        assertThat(response.getClientSecret()).isNull();
         verify(gateway, never()).createIntent(any());
     }
 
     @Test
     void createPaymentRejectsAnExistingPaymentOwnedByAnotherUser() {
         UUID requester = UUID.randomUUID();
-        when(orderClient.getOrder("order-1")).thenReturn(ApiResponse.success(new OrderSummary(
-                "order-1", "ORD-1", requester, "PENDING", new BigDecimal("100.00"), "USD")));
+        when(orderClient.getOrder("order-1")).thenReturn(Responses.success(new OrderResponse().id("order-1").orderNumber("ORD-1").userId(requester).status(com.project.payment.generated.integration.order.model.OrderResponse.StatusEnum.fromValue("PENDING")).totalAmount(new BigDecimal("100.00")).currency("USD")));
         when(paymentRepository.findByOrderId("order-1")).thenReturn(Optional.of(Payment.builder()
                 .id("payment-1").orderId("order-1").userId(UUID.randomUUID()).status(PaymentStatus.PENDING).build()));
 
@@ -424,7 +421,7 @@ class PaymentServiceImplTest {
         var response = service.handleStripeWebhook(
                 "evt-failed", "payment_intent.payment_failed", "PAY-1", failed);
 
-        assertThat(response.status()).isEqualTo(PaymentStatus.FAILED);
+        assertThat(response.getStatus()).isEqualTo(com.project.payment.generated.model.PaymentStatus.FAILED);
         assertThat(payment.getFailureReason()).isEqualTo("declined");
         assertThatThrownBy(() -> service.handleStripeWebhook(
                 "evt-wrong", "payment_intent.payment_failed", "PAY-1",
@@ -443,7 +440,7 @@ class PaymentServiceImplTest {
         var response = service.handleStripeWebhook("evt-lower", "payment_intent.succeeded", "PAY-1",
                 new PaymentWebhookRequest("PAY-1", "intent-1", "succeeded", null));
 
-        assertThat(response.status()).isEqualTo(PaymentStatus.COMPLETED);
+        assertThat(response.getStatus()).isEqualTo(com.project.payment.generated.model.PaymentStatus.COMPLETED);
     }
 
     @Test
@@ -464,8 +461,7 @@ class PaymentServiceImplTest {
     @Test
     void createPaymentRaceReturnsThePersistedPaymentWinner() {
         UUID userId = UUID.randomUUID();
-        when(orderClient.getOrder("order-1")).thenReturn(ApiResponse.success(new OrderSummary(
-                "order-1", "ORD-1", userId, "PENDING", new BigDecimal("100.00"), "USD")));
+        when(orderClient.getOrder("order-1")).thenReturn(Responses.success(new OrderResponse().id("order-1").orderNumber("ORD-1").userId(userId).status(com.project.payment.generated.integration.order.model.OrderResponse.StatusEnum.fromValue("PENDING")).totalAmount(new BigDecimal("100.00")).currency("USD")));
         Payment winner = Payment.builder().id("payment-winner").orderId("order-1").orderNumber("ORD-1")
                 .createOperationId("other-operation").userId(userId).status(PaymentStatus.PENDING)
                 .amount(new BigDecimal("100.00")).currency("USD").build();
@@ -475,16 +471,15 @@ class PaymentServiceImplTest {
         var response = service.createPayment(new PaymentRequest("order-1", null, "CARD", null, null, "checkout"),
                 userId, "customer@example.com", "create-key");
 
-        assertThat(response.payment().id()).isEqualTo("payment-winner");
-        assertThat(response.clientSecret()).isNull();
+        assertThat(response.getPayment().getId()).isEqualTo("payment-winner");
+        assertThat(response.getClientSecret()).isNull();
         verify(gateway, never()).createIntent(any());
     }
 
     @Test
     void createReplayRecoversTransactionAndEmitsItsDurableInitiatedEvent() {
         UUID userId = UUID.randomUUID();
-        when(orderClient.getOrder("order-1")).thenReturn(ApiResponse.success(new OrderSummary(
-                "order-1", "ORD-1", userId, "PENDING", new BigDecimal("100.00"), "USD")));
+        when(orderClient.getOrder("order-1")).thenReturn(Responses.success(new OrderResponse().id("order-1").orderNumber("ORD-1").userId(userId).status(com.project.payment.generated.integration.order.model.OrderResponse.StatusEnum.fromValue("PENDING")).totalAmount(new BigDecimal("100.00")).currency("USD")));
         PaymentOperation operation = PaymentOperation.builder().id("operation-1").operation("CREATE")
                 .userId(userId).idempotencyKey("create-key").orderId("order-1").paymentId("payment-1")
                 .status("GATEWAY_STARTED").build();
@@ -500,7 +495,7 @@ class PaymentServiceImplTest {
         var response = service.createPayment(new PaymentRequest("order-1", null, "CARD", null, null, "checkout"),
                 userId, "customer@example.com", "create-key");
 
-        assertThat(response.payment().id()).isEqualTo("payment-1");
+        assertThat(response.getPayment().getId()).isEqualTo("payment-1");
         verify(outboxRepository).insert(any(com.project.payment.model.PaymentOutboxEvent.class));
         verify(gateway, never()).createIntent(any());
     }
@@ -508,8 +503,7 @@ class PaymentServiceImplTest {
     @Test
     void createReplayWithPersistedSnapshotOnlyCompletesItsOutboxPhase() {
         UUID userId = UUID.randomUUID();
-        when(orderClient.getOrder("order-1")).thenReturn(ApiResponse.success(new OrderSummary(
-                "order-1", "ORD-1", userId, "PENDING", new BigDecimal("100.00"), "USD")));
+        when(orderClient.getOrder("order-1")).thenReturn(Responses.success(new OrderResponse().id("order-1").orderNumber("ORD-1").userId(userId).status(com.project.payment.generated.integration.order.model.OrderResponse.StatusEnum.fromValue("PENDING")).totalAmount(new BigDecimal("100.00")).currency("USD")));
         PaymentOperation operation = PaymentOperation.builder().id("operation-snapshotted").operation("CREATE")
                 .userId(userId).idempotencyKey("snapshot-key").orderId("order-1").paymentId("payment-1")
                 .status("APPLIED").outboxId("outbox-1").eventType("INITIATED")
@@ -531,8 +525,7 @@ class PaymentServiceImplTest {
     @Test
     void createReplayRecoversPersistedGatewayFailureWithoutRetryingTheProvider() {
         UUID userId = UUID.randomUUID();
-        when(orderClient.getOrder("order-1")).thenReturn(ApiResponse.success(new OrderSummary(
-                "order-1", "ORD-1", userId, "PENDING", new BigDecimal("100.00"), "USD")));
+        when(orderClient.getOrder("order-1")).thenReturn(Responses.success(new OrderResponse().id("order-1").orderNumber("ORD-1").userId(userId).status(com.project.payment.generated.integration.order.model.OrderResponse.StatusEnum.fromValue("PENDING")).totalAmount(new BigDecimal("100.00")).currency("USD")));
         PaymentOperation operation = PaymentOperation.builder().id("operation-failed").operation("CREATE")
                 .userId(userId).idempotencyKey("failed-key").orderId("order-1").paymentId("payment-1")
                 .status("GATEWAY_STARTED").build();
@@ -548,7 +541,7 @@ class PaymentServiceImplTest {
         var response = service.createPayment(new PaymentRequest("order-1", null, "CARD", null, null, "checkout"),
                 userId, "customer@example.com", "failed-key");
 
-        assertThat(response.payment().status()).isEqualTo(PaymentStatus.FAILED);
+        assertThat(response.getPayment().getStatus()).isEqualTo(com.project.payment.generated.model.PaymentStatus.FAILED);
         verify(outboxRepository).insert(any(com.project.payment.model.PaymentOutboxEvent.class));
         verify(gateway, never()).createIntent(any());
     }
@@ -597,7 +590,7 @@ class PaymentServiceImplTest {
 
         var response = service.refundPayment("payment-1", "customer request", new BigDecimal("25.00"), "refund-key");
 
-        assertThat(response.status()).isEqualTo(PaymentStatus.PARTIALLY_REFUNDED);
+        assertThat(response.getStatus()).isEqualTo(com.project.payment.generated.model.PaymentStatus.PARTIALLY_REFUNDED);
         verify(outboxRepository).insert(any(com.project.payment.model.PaymentOutboxEvent.class));
         verify(gateway, never()).refund(any(), any(), any(), any());
     }

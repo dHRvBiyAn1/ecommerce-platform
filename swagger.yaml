@@ -4895,6 +4895,7 @@ components:
         gstin:
           pattern: ^[0-9A-Z]{15}$|^$
           type: string
+          x-pattern-message: GSTIN must be 15 alphanumeric characters
         contactPhone:
           pattern: ^\+?[0-9 ()-]{6,20}$
           type: string
@@ -4906,6 +4907,7 @@ components:
         bankAccountLast4:
           pattern: ^[0-9]{4}$|^$
           type: string
+          x-pattern-message: Last-4 of bank account must be 4 digits
         notes:
           maxLength: 4000
           minLength: 0
@@ -5233,6 +5235,8 @@ components:
           type: integer
           format: int32
           minimum: 0
+          default: 0
+          x-setter-extra-annotation: '@com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.SKIP)'
           description: Zero removes the line item; positive values set its quantity.
     coupon_CouponRequest:
       type: object
