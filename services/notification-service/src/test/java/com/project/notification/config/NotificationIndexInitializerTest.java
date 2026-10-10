@@ -34,8 +34,8 @@ class NotificationIndexInitializerTest {
 
     ArgumentCaptor<Index> notificationIndex = ArgumentCaptor.forClass(Index.class);
     ArgumentCaptor<Index> deliveryIndex = ArgumentCaptor.forClass(Index.class);
-    verify(notificationIndexes, times(1)).ensureIndex(notificationIndex.capture());
-    verify(deliveryIndexes, times(3)).ensureIndex(deliveryIndex.capture());
+    verify(notificationIndexes, times(1)).createIndex(notificationIndex.capture());
+    verify(deliveryIndexes, times(3)).createIndex(deliveryIndex.capture());
 
     assertThat(notificationIndex.getValue().getIndexKeys()).containsEntry("sourceEventId", 1);
     assertThat(notificationIndex.getValue().getIndexOptions())

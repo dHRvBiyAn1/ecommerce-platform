@@ -6,37 +6,29 @@ import com.project.authservice.entity.User;
 import com.project.authservice.generated.model.UserProfileDto;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
+import org.mapstruct.Mapper;
 
-@Component
-@RequiredArgsConstructor
-public class UserMapper {
-  private final AddressMapper addressMapper;
+@Mapper(
+    componentModel = "spring",
+    uses = AddressMapper.class,
+    injectionStrategy = org.mapstruct.InjectionStrategy.CONSTRUCTOR,
+    implementationPackage = "com.project.authservice.generated.mapper")
+public abstract class UserMapper {
+  @org.mapstruct.Mapping(target = "roles", source = "user.roles", qualifiedByName = "roleNames")
+  @org.mapstruct.Mapping(
+      target = "permissions",
+      source = "user.roles",
+      qualifiedByName = "permissionNames")
+  public abstract UserProfileDto toDto(User user, boolean hasPassword);
 
-  public UserProfileDto toDto(User user, boolean hasPassword) {
-    if (user == null) return null;
-    return new UserProfileDto()
-        .id(user.getId())
-        .email(user.getEmail())
-        .displayName(user.getDisplayName())
-        .imageUrl(user.getImageUrl())
-        .phone(user.getPhone())
-        .active(user.isActive())
-        .createdAt(user.getCreatedAt())
-        .roles(mapRoleNames(user.getRoles()))
-        .permissions(mapPermissionNames(user.getRoles()))
-        .shippingAddress(addressMapper.toDto(user.getShippingAddress()))
-        .billingAddress(addressMapper.toDto(user.getBillingAddress()))
-        .hasPassword(hasPassword);
-  }
-
-  private Set<String> mapRoleNames(Set<Role> roles) {
+  @org.mapstruct.Named("roleNames")
+  protected Set<String> mapRoleNames(Set<Role> roles) {
     if (roles == null) return Set.of();
     return Set.copyOf(roles.stream().map(Role::getName).collect(Collectors.toSet()));
   }
 
-  private Set<String> mapPermissionNames(Set<Role> roles) {
+  @org.mapstruct.Named("permissionNames")
+  protected Set<String> mapPermissionNames(Set<Role> roles) {
     if (roles == null) return Set.of();
     return Set.copyOf(
         roles.stream()

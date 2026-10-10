@@ -12,7 +12,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class SellerApplicationMapperTest {
-  private final SellerApplicationMapper mapper = new SellerApplicationMapper(new AddressMapper());
+  private final SellerApplicationMapper mapper =
+      new com.project.authservice.generated.mapper.SellerApplicationMapperImpl(
+          new com.project.authservice.generated.mapper.AddressMapperImpl());
 
   @Test
   void mapsApplicationAndResolvedUserToGeneratedResponse() {

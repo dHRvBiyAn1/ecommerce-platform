@@ -12,12 +12,12 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;
+import org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.mongodb.MongoDBContainer;
 
 @DataMongoTest
 @EnabledIfSystemProperty(named = "cart.mongo.integration", matches = "true")
@@ -30,7 +30,7 @@ class CartAuditingMongoTest {
 
   @DynamicPropertySource
   static void mongoProperties(DynamicPropertyRegistry registry) {
-    registry.add("spring.data.mongodb.uri", mongo::getReplicaSetUrl);
+    registry.add("spring.mongodb.uri", mongo::getReplicaSetUrl);
   }
 
   @Test

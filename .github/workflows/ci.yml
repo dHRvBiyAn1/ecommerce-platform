@@ -158,9 +158,9 @@ jobs:
       - name: Check backend coverage baseline
         run: bash scripts/check-jacoco-baseline.sh coverage-baseline/backend-modules.json
 
-      - name: Verify explicit Mongo integration suites
+      - name: Verify explicit database and search integration suites
         run: |
-          PRODUCT_MONGO_INTEGRATION=true ./mvnw -B -ntp -pl services/product-service -am verify
+          PRODUCT_MONGO_INTEGRATION=true PRODUCT_ELASTICSEARCH_INTEGRATION=true ./mvnw -B -ntp -pl services/product-service -am verify
           ./mvnw -B -ntp -pl services/cart-service -am verify -Dcart.mongo.integration=true
           ./mvnw -B -ntp -pl services/notification-service -am verify -Dnotification.mongo.integration=true
 

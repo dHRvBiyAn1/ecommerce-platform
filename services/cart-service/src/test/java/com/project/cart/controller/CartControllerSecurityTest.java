@@ -20,11 +20,11 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(
@@ -40,11 +40,11 @@ class CartControllerSecurityTest {
 
   @Autowired private MockMvc mockMvc;
 
-  @MockBean private CartService cartService;
+  @MockitoBean private CartService cartService;
 
-  @MockBean private JwtDecoder jwtDecoder;
+  @MockitoBean private JwtDecoder jwtDecoder;
 
-  @MockBean(name = "mongoMappingContext")
+  @MockitoBean(name = "mongoMappingContext")
   private MongoMappingContext mongoMappingContext;
 
   @Test

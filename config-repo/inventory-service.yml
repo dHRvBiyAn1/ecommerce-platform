@@ -2,9 +2,11 @@ server:
   port: 8083
 
 spring:
+  mongodb:
+    representation:
+      uuid: java_legacy
+    uri: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@${MONGO_HOST}:${MONGO_PORT}/inventory_db?authSource=admin
   data:
-    mongodb:
-      uri: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@${MONGO_HOST}:${MONGO_PORT}/inventory_db?authSource=admin
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}

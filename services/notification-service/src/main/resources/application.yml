@@ -1,4 +1,7 @@
 spring:
+  mongodb:
+    representation:
+      uuid: java_legacy
   application:
     name: notification-service
   threads:
@@ -13,3 +16,7 @@ spring:
       mail.smtp.connectiontimeout: 25000
       mail.smtp.timeout: 25000
       mail.smtp.writetimeout: 25000
+
+springdoc:
+  api-docs:
+    version: OPENAPI_3_0

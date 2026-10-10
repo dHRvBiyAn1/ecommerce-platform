@@ -2,9 +2,11 @@ server:
   port: 8086
 
 spring:
+  mongodb:
+    representation:
+      uuid: java_legacy
+    uri: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@${MONGO_HOST}:${MONGO_PORT}/notification_db?authSource=admin
   data:
-    mongodb:
-      uri: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@${MONGO_HOST}:${MONGO_PORT}/notification_db?authSource=admin
   mail:
     host: ${SMTP_HOST}
     port: ${SMTP_PORT}

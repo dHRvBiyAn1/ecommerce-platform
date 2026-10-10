@@ -4375,49 +4375,49 @@ components:
           maxLength: 120
           type: string
           x-not-null-message: Full name is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Full name is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Full name is required")'
           x-size-message: Full name must not exceed 120 characters
           x-jackson-json-include-policy: ALWAYS
         phone:
           pattern: ^\+?[0-9 ()-]{6,20}$
           type: string
           x-not-null-message: Phone number is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Phone number is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Phone number is required")'
           x-pattern-message: Invalid phone number
           x-jackson-json-include-policy: ALWAYS
         street:
           maxLength: 200
           type: string
           x-not-null-message: Street address is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Street address is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Street address is required")'
           x-size-message: Street address must not exceed 200 characters
           x-jackson-json-include-policy: ALWAYS
         city:
           maxLength: 80
           type: string
           x-not-null-message: City is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "City is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "City is required")'
           x-size-message: City must not exceed 80 characters
           x-jackson-json-include-policy: ALWAYS
         state:
           maxLength: 80
           type: string
           x-not-null-message: State/Province is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "State/Province is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "State/Province is required")'
           x-size-message: State must not exceed 80 characters
           x-jackson-json-include-policy: ALWAYS
         zipCode:
           maxLength: 20
           type: string
           x-not-null-message: Zip/Postal code is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Zip/Postal code is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Zip/Postal code is required")'
           x-size-message: Zip code must not exceed 20 characters
           x-jackson-json-include-policy: ALWAYS
         country:
           maxLength: 80
           type: string
           x-not-null-message: Country is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Country is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Country is required")'
           x-size-message: Country must not exceed 80 characters
           x-jackson-json-include-policy: ALWAYS
     auth_ApiResponseListRole:
@@ -4625,13 +4625,13 @@ components:
         oldPassword:
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
         newPassword:
           maxLength: 100
           minLength: 6
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
     auth_CreateRoleRequest:
       required:
       - name
@@ -4641,7 +4641,7 @@ components:
           pattern: ^ROLE_[A-Z_]+$
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
           x-pattern-message: Role name must match ROLE_[A-Z_]+
     auth_ErrorResponse:
       type: object
@@ -4843,20 +4843,20 @@ components:
           format: email
           x-not-null-message: Email is required
           x-email-message: Email must be valid
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Email is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Email is required")'
         password:
           maxLength: 128
           minLength: 10
           type: string
           x-not-null-message: Password is required
           x-size-message: Password must be 10-128 characters
-          x-field-extra-annotation: "@jakarta.validation.constraints.NotBlank(message = \"Password is required\")\n@jakarta.validation.constraints.Pattern.List({\n    @jakarta.validation.constraints.Pattern(regexp = \".*[A-Z].*\", message = \"Password must contain an uppercase letter\"),\n    @jakarta.validation.constraints.Pattern(regexp = \".*[a-z].*\", message = \"Password must contain a lowercase letter\"),\n    @jakarta.validation.constraints.Pattern(regexp = \".*\\\\d.*\", message = \"Password must contain a digit\")\n})\n"
+          x-field-extra-annotation: "@jakarta.validation.constraints.Pattern(regexp = \"[\\\\s\\\\S]*[^\\\\x00-\\\\x20][\\\\s\\\\S]*\", message = \"Password is required\")\n@jakarta.validation.constraints.Pattern.List({\n    @jakarta.validation.constraints.Pattern(regexp = \".*[A-Z].*\", message = \"Password must contain an uppercase letter\"),\n    @jakarta.validation.constraints.Pattern(regexp = \".*[a-z].*\", message = \"Password must contain a lowercase letter\"),\n    @jakarta.validation.constraints.Pattern(regexp = \".*\\\\d.*\", message = \"Password must contain a digit\")\n})\n"
         displayName:
           maxLength: 80
           minLength: 2
           type: string
           x-not-null-message: Display name is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Display name is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Display name is required")'
     auth_RejectApplicationRequest:
       required:
       - reason
@@ -4866,7 +4866,7 @@ components:
           maxLength: 4000
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
     auth_Role:
       type: object
       properties:
@@ -4891,7 +4891,7 @@ components:
           maxLength: 180
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
         gstin:
           pattern: ^[0-9A-Z]{15}$|^$
           type: string
@@ -4900,7 +4900,7 @@ components:
           pattern: ^\+?[0-9 ()-]{6,20}$
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
           x-pattern-message: Invalid phone number
         pickupAddress:
           $ref: '#/components/schemas/auth_AddressDto'
@@ -5110,7 +5110,7 @@ components:
           minLength: 1
           x-not-null-message: must not be blank
           x-size-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
           description: Product identifier.
         quantity:
           type: integer
@@ -5129,7 +5129,7 @@ components:
           minLength: 1
           x-not-null-message: must not be blank
           x-size-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
           description: Coupon code.
       required:
       - code
@@ -5247,7 +5247,7 @@ components:
           maxLength: 64
           pattern: ^[A-Z0-9_-]+$
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
           x-size-message: size must be between 0 and 64
           x-pattern-message: Code must be uppercase alphanumeric, dashes, or underscores
           description: Unique coupon code. Create/update accepts uppercase letters, digits, underscores, and hyphens.
@@ -5321,7 +5321,7 @@ components:
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
           x-size-message: size must be between 0 and 64
           x-pattern-message: Coupon code contains unsupported characters
         userId:
@@ -5333,7 +5333,7 @@ components:
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
           x-size-message: size must be between 0 and 64
           x-pattern-message: Order ID contains unsupported characters
         subtotal:
@@ -5346,7 +5346,7 @@ components:
           maxLength: 3
           pattern: ^[A-Za-z]{3}$
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
       required:
       - code
       - userId
@@ -5458,7 +5458,7 @@ components:
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
           x-size-message: size must be between 0 and 64
           x-pattern-message: Coupon code contains unsupported characters
         userId:
@@ -5470,7 +5470,7 @@ components:
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
           x-size-message: size must be between 0 and 64
           x-pattern-message: Order ID contains unsupported characters
       required:
@@ -5574,7 +5574,7 @@ components:
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
           x-size-message: size must be between 0 and 64
           x-pattern-message: Coupon code contains unsupported characters
         userId:
@@ -5586,7 +5586,7 @@ components:
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
           x-size-message: size must be between 0 and 64
           x-pattern-message: Order ID contains unsupported characters
         discountAmount:
@@ -5607,7 +5607,7 @@ components:
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
           x-size-message: size must be between 0 and 64
           x-pattern-message: Coupon code contains unsupported characters
         userId:
@@ -5684,7 +5684,7 @@ components:
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
           x-not-null-message: Product ID is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Product ID is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Product ID is required")'
           x-size-message: Product ID must not exceed 64 characters
           x-pattern-message: Product ID contains unsupported characters
           description: Product identifier.
@@ -5694,7 +5694,7 @@ components:
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
           x-not-null-message: SKU is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "SKU is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "SKU is required")'
           x-size-message: SKU must not exceed 64 characters
           x-pattern-message: SKU contains unsupported characters
           description: Stock keeping unit.
@@ -5844,7 +5844,7 @@ components:
           maxLength: 64
           pattern: ^[A-Za-z0-9_-]+$
           x-not-null-message: Order ID is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Order ID is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Order ID is required")'
           x-size-message: Order ID must not exceed 64 characters
           x-pattern-message: Order ID contains unsupported characters
           description: Order owning the reservation.
@@ -6144,29 +6144,29 @@ components:
       properties:
         fullName:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Full name is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Full name is required")'
           x-not-null-message: Full name is required
         phone:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Phone is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Phone is required")'
           x-not-null-message: Phone is required
         street:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Street is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Street is required")'
           x-not-null-message: Street is required
         city:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "City is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "City is required")'
           x-not-null-message: City is required
         state:
           type: string
         zipCode:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Zip code is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Zip code is required")'
           x-not-null-message: Zip code is required
         country:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Country is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Country is required")'
           x-not-null-message: Country is required
     order_BillingAddressResponse:
       type: object
@@ -6238,7 +6238,7 @@ components:
       properties:
         productId:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Product ID is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Product ID is required")'
           x-not-null-message: Product ID is required
         quantity:
           minimum: 1
@@ -6304,7 +6304,7 @@ components:
           type: string
         paymentMethod:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Payment method is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Payment method is required")'
           x-not-null-message: Payment method is required
     order_OrderResponse:
       type: object
@@ -6474,29 +6474,29 @@ components:
       properties:
         fullName:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Full name is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Full name is required")'
           x-not-null-message: Full name is required
         phone:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Phone is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Phone is required")'
           x-not-null-message: Phone is required
         street:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Street is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Street is required")'
           x-not-null-message: Street is required
         city:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "City is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "City is required")'
           x-not-null-message: City is required
         state:
           type: string
         zipCode:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Zip code is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Zip code is required")'
           x-not-null-message: Zip code is required
         country:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Country is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Country is required")'
           x-not-null-message: Country is required
     order_ShippingAddressResponse:
       type: object
@@ -6654,7 +6654,7 @@ components:
         orderId:
           type: string
           maxLength: 100
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Order ID is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Order ID is required")'
           x-not-null-message: Order ID is required
           x-size-message: Order ID must not exceed 100 characters
         orderNumber:
@@ -6664,7 +6664,7 @@ components:
         paymentMethod:
           type: string
           maxLength: 50
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Payment method is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Payment method is required")'
           x-not-null-message: Payment method is required
           x-size-message: Payment method must not exceed 50 characters
         amount:
@@ -6784,7 +6784,7 @@ components:
           type: string
           minLength: 1
           maxLength: 100
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Payment reference is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Payment reference is required")'
           x-not-null-message: Payment reference is required
         transactionId:
           type: string
@@ -6793,7 +6793,7 @@ components:
           type: string
           minLength: 1
           maxLength: 30
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Status is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Status is required")'
           x-not-null-message: Status is required
         failureReason:
           type: string
@@ -6806,7 +6806,7 @@ components:
         reason:
           type: string
           maxLength: 500
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Refund reason is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Refund reason is required")'
           x-not-null-message: Refund reason is required
           x-size-message: Refund reason must not exceed 500 characters
         amount:
@@ -6822,7 +6822,7 @@ components:
         name:
           type: string
           x-not-null-message: Category name is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Category name is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Category name is required")'
         description:
           type: string
         parentCategoryId:
@@ -6950,17 +6950,17 @@ components:
         sku:
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
         name:
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
         description:
           type: string
         categoryId:
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
         price:
           type: number
           minimum: 0

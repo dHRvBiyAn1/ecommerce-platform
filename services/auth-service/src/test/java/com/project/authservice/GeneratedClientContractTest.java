@@ -49,13 +49,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
-import org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration;
-import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
+import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration;
+import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration;
+import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
+import org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestComponent;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -65,6 +64,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
@@ -88,27 +88,27 @@ class GeneratedClientContractTest {
 
   @LocalServerPort private int serverPort;
 
-  @MockBean private AuthService authService;
+  @MockitoBean private AuthService authService;
 
-  @MockBean private ClientCredentialsService clientCredentialsService;
+  @MockitoBean private ClientCredentialsService clientCredentialsService;
 
-  @MockBean private JwtService jwtService;
+  @MockitoBean private JwtService jwtService;
 
-  @MockBean private TokenBlacklistService tokenBlacklistService;
+  @MockitoBean private TokenBlacklistService tokenBlacklistService;
 
-  @MockBean private CustomOAuth2SuccessHandler oAuth2SuccessHandler;
+  @MockitoBean private CustomOAuth2SuccessHandler oAuth2SuccessHandler;
 
-  @MockBean private UserRepository userRepository;
+  @MockitoBean private UserRepository userRepository;
 
-  @MockBean private RoleRepository roleRepository;
+  @MockitoBean private RoleRepository roleRepository;
 
-  @MockBean private PermissionRepository permissionRepository;
+  @MockitoBean private PermissionRepository permissionRepository;
 
-  @MockBean private UserProfileService userProfileService;
+  @MockitoBean private UserProfileService userProfileService;
 
-  @MockBean private SellerApplicationService sellerApplicationService;
+  @MockitoBean private SellerApplicationService sellerApplicationService;
 
-  @MockBean private KeyManager keyManager;
+  @MockitoBean private KeyManager keyManager;
 
   @Autowired
   @Qualifier("requestMappingHandlerMapping")
@@ -206,7 +206,7 @@ class GeneratedClientContractTest {
     assertThat(response.getTokenType().getValue()).isEqualTo("Bearer");
     assertThat(response.getExpiresIn()).isEqualTo(300L);
     assertThat(response.getScope()).isEqualTo("inventory.write");
-    assertThat(responseEntity.getHeaders().containsKey(HttpHeaders.SET_COOKIE)).isFalse();
+    assertThat(responseEntity.getHeaders().containsHeader(HttpHeaders.SET_COOKIE)).isFalse();
     assertThat(client.lastUri.get().getRawQuery()).isNull();
     verify(clientCredentialsService).issue("order-service", "service-secret", "inventory.write");
   }
@@ -773,18 +773,20 @@ class GeneratedClientContractTest {
     var jacksonConverter =
         restTemplate.getMessageConverters().stream()
             .filter(
-                org.springframework.http.converter.json.MappingJackson2HttpMessageConverter.class
+                org.springframework.http.converter.json.JacksonJsonHttpMessageConverter.class
                     ::isInstance)
             .map(
-                org.springframework.http.converter.json.MappingJackson2HttpMessageConverter.class
-                    ::cast)
+                org.springframework.http.converter.json.JacksonJsonHttpMessageConverter.class::cast)
             .findFirst()
             .orElseThrow();
-    jacksonConverter.setObjectMapper(
-        jacksonConverter
-            .getObjectMapper()
-            .copy()
-            .registerModule(new org.openapitools.jackson.nullable.JsonNullableModule()));
+    restTemplate.getMessageConverters().remove(jacksonConverter);
+    restTemplate
+        .getMessageConverters()
+        .add(
+            new org.springframework.http.converter.json.JacksonJsonHttpMessageConverter(
+                tools.jackson.databind.json.JsonMapper.builder()
+                    .addModule(new org.openapitools.jackson.nullable.JsonNullableJackson3Module())
+                    .build()));
     ClientHttpRequestInterceptor uriRecorder =
         (request, body, execution) -> {
           lastUri.set(request.getURI());
@@ -804,7 +806,7 @@ class GeneratedClientContractTest {
       exclude = {
         DataSourceAutoConfiguration.class,
         HibernateJpaAutoConfiguration.class,
-        RedisAutoConfiguration.class,
+        DataRedisAutoConfiguration.class,
         KafkaAutoConfiguration.class
       })
   @Import({
@@ -845,11 +847,11 @@ class GeneratedOAuthRedirectClientTest {
 
   @LocalServerPort private int serverPort;
 
-  @MockBean private JwtService jwtService;
+  @MockitoBean private JwtService jwtService;
 
-  @MockBean private TokenBlacklistService tokenBlacklistService;
+  @MockitoBean private TokenBlacklistService tokenBlacklistService;
 
-  @MockBean private CustomOAuth2SuccessHandler oAuth2SuccessHandler;
+  @MockitoBean private CustomOAuth2SuccessHandler oAuth2SuccessHandler;
 
   @Test
   void configuredProviderRedirectsToItsAuthorizationEndpointWithoutNetworkAccess() {
@@ -886,7 +888,7 @@ class GeneratedOAuthRedirectClientTest {
       exclude = {
         DataSourceAutoConfiguration.class,
         HibernateJpaAutoConfiguration.class,
-        RedisAutoConfiguration.class,
+        DataRedisAutoConfiguration.class,
         KafkaAutoConfiguration.class
       })
   @Import({SecurityConfig.class, JwtAuthFilter.class, OAuthTestConfiguration.class})

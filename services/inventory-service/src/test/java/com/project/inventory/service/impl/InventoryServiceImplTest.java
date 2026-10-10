@@ -9,7 +9,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.project.common.exception.ValidationException;
-import com.project.inventory.application.mapper.InventoryMapper;
 import com.project.inventory.application.validator.InventoryValidator;
 import com.project.inventory.domain.model.InventoryItem;
 import com.project.inventory.domain.model.ReservationStatus;
@@ -52,7 +51,7 @@ class InventoryServiceImplTest {
             mongoTemplate,
             redisTemplate,
             kafkaTemplate,
-            new InventoryMapper(),
+            new com.project.inventory.generated.mapper.InventoryMapperImpl(),
             new InventoryValidator());
   }
 

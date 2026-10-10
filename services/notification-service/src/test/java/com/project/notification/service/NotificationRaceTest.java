@@ -8,7 +8,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.project.notification.application.mapper.NotificationMapper;
 import com.project.notification.application.validator.NotificationAccessValidator;
 import com.project.notification.generated.model.NotificationResponse;
 import com.project.notification.model.Notification;
@@ -68,7 +67,7 @@ class NotificationRaceTest {
             repository,
             deliveryRepository,
             emailService,
-            new NotificationMapper(),
+            new com.project.notification.generated.mapper.NotificationMapperImpl(),
             new NotificationAccessValidator());
 
     NotificationResponse response =
@@ -125,7 +124,7 @@ class NotificationRaceTest {
             repository,
             deliveryRepository,
             emailService,
-            new NotificationMapper(),
+            new com.project.notification.generated.mapper.NotificationMapperImpl(),
             new NotificationAccessValidator());
     CountDownLatch start = new CountDownLatch(1);
     ExecutorService executor = Executors.newFixedThreadPool(2);

@@ -10,9 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.web.Responses;
-import com.project.payment.application.mapper.PaymentMapper;
 import com.project.payment.application.validator.PaymentOrderValidator;
 import com.project.payment.application.validator.PaymentTransitionValidator;
 import com.project.payment.client.OrderClient;
@@ -81,11 +79,11 @@ class PaymentServiceImplTest {
             receiptRepository,
             outboxRepository,
             gateway,
-            new PaymentMapper(),
+            new com.project.payment.generated.mapper.PaymentMapperImpl(),
             orderClient,
             new PaymentOrderValidator(),
             new PaymentTransitionValidator(),
-            new ObjectMapper().findAndRegisterModules());
+            tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build());
   }
 
   @Test
@@ -140,11 +138,11 @@ class PaymentServiceImplTest {
             receiptRepository,
             outboxRepository,
             gateway,
-            new PaymentMapper(),
+            new com.project.payment.generated.mapper.PaymentMapperImpl(),
             orderClient,
             new PaymentOrderValidator(),
             transitions,
-            new ObjectMapper().findAndRegisterModules());
+            tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build());
 
     assertThatThrownBy(() -> service.refundPayment("payment-1", "customer request", null, null))
         .isInstanceOf(PaymentException.class);

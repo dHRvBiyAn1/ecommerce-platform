@@ -32,12 +32,12 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
-import org.springframework.boot.autoconfigure.http.HttpMessageConverters;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.cloud.openfeign.support.FeignHttpMessageConverters;
 import org.springframework.cloud.openfeign.support.SpringDecoder;
 import org.springframework.cloud.openfeign.support.SpringEncoder;
 import org.springframework.cloud.openfeign.support.SpringMvcContract;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 
 class CouponClientIntegrationTest {
 
@@ -83,13 +83,24 @@ class CouponClientIntegrationTest {
               definition -> definition.setPrimary(true))
           .run(
               context -> {
-                HttpMessageConverters converters =
-                    new HttpMessageConverters(new MappingJackson2HttpMessageConverter());
+                var emptyBeans = new StaticListableBeanFactory();
+                var converters =
+                    new FeignHttpMessageConverters(
+                        emptyBeans.getBeanProvider(
+                            org.springframework.boot.http.converter.autoconfigure
+                                .ClientHttpMessageConvertersCustomizer.class),
+                        emptyBeans.getBeanProvider(
+                            org.springframework.cloud.openfeign.support
+                                .HttpMessageConverterCustomizer.class));
+                var converterBeans =
+                    new StaticListableBeanFactory(java.util.Map.of("converters", converters));
+                var converterProvider =
+                    converterBeans.getBeanProvider(FeignHttpMessageConverters.class);
                 CouponClient client =
                     Feign.builder()
                         .contract(new SpringMvcContract())
-                        .encoder(new SpringEncoder(() -> converters))
-                        .decoder(new SpringDecoder(() -> converters))
+                        .encoder(new SpringEncoder(converterProvider))
+                        .decoder(new SpringDecoder(converterProvider))
                         .requestInterceptor(context.getBean(feign.RequestInterceptor.class))
                         .target(
                             CouponClient.class,

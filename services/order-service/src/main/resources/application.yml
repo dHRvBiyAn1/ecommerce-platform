@@ -1,4 +1,7 @@
 spring:
+  mongodb:
+    representation:
+      uuid: java_legacy
   application:
     name: order-service
   threads:
@@ -11,3 +14,7 @@ spring:
       auto-index-creation: true
   config:
     import: optional:configserver:http://config-server:8888
+
+springdoc:
+  api-docs:
+    version: OPENAPI_3_0

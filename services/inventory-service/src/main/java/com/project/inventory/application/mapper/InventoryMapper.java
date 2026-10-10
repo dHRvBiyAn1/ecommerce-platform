@@ -2,22 +2,15 @@ package com.project.inventory.application.mapper;
 
 import com.project.inventory.domain.model.InventoryItem;
 import com.project.inventory.generated.model.InventoryResponse;
-import org.springframework.stereotype.Component;
+import org.mapstruct.Mapper;
 
-@Component
-public class InventoryMapper {
-  public InventoryResponse toResponse(InventoryItem item) {
-    return new InventoryResponse()
-        .id(item.getId())
-        .productId(item.getProductId())
-        .sku(item.getSku())
-        .quantity(item.getQuantity())
-        .reservedQuantity(item.getReservedQuantity())
-        .availableQuantity(item.getQuantity() - item.getReservedQuantity())
-        .lowStockThreshold(item.getLowStockThreshold())
-        .location(item.getLocation())
-        .lastRestockedAt(item.getLastRestockedAt())
-        .createdAt(item.getCreatedAt())
-        .updatedAt(item.getUpdatedAt());
-  }
+@Mapper(
+    componentModel = "spring",
+    implementationPackage = "com.project.inventory.generated.mapper",
+    unmappedTargetPolicy = org.mapstruct.ReportingPolicy.ERROR)
+public interface InventoryMapper {
+  @org.mapstruct.Mapping(
+      target = "availableQuantity",
+      expression = "java(item.getQuantity() - item.getReservedQuantity())")
+  InventoryResponse toResponse(InventoryItem item);
 }

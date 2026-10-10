@@ -13,7 +13,7 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 
 @Configuration
 public class KafkaConfig {
@@ -34,7 +34,7 @@ public class KafkaConfig {
   @Bean
   public ConsumerFactory<String, Object> consumerFactory() {
     Map<String, Object> props = KafkaConsumerProps.defaults(bootstrapServers, "payment-service");
-    props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.project.common.event");
+    props.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, "com.project.common.event");
     return new DefaultKafkaConsumerFactory<>(props);
   }
 

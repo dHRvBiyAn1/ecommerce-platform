@@ -7,10 +7,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.constant.Permissions;
 import com.project.common.exception.GlobalExceptionHandler;
-import com.project.payment.application.mapper.PaymentMapper;
 import com.project.payment.application.validator.PaymentAccessValidator;
 import com.project.payment.config.SecurityConfig;
 import com.project.payment.generated.model.PaymentInitiationResponse;
@@ -42,15 +40,16 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestComponent;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext;
+import org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
+import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest(
     classes = PaymentGeneratedClientHttpTest.TestApplication.class,
@@ -79,9 +78,9 @@ class PaymentGeneratedClientHttpTest {
   @Qualifier("requestMappingHandlerMapping")
   private RequestMappingHandlerMapping handlerMapping;
 
-  @MockBean private PaymentService paymentService;
+  @MockitoBean private PaymentService paymentService;
 
-  @MockBean private JwtDecoder jwtDecoder;
+  @MockitoBean private JwtDecoder jwtDecoder;
 
   private PaymentsApi api;
 
@@ -312,7 +311,9 @@ class PaymentGeneratedClientHttpTest {
   void rawStripeWebhookAuthenticatesTheExactBytesWithTheStripeSdk() throws Exception {
     long timestamp = Instant.now().getEpochSecond();
     byte[] body =
-        ("{ \"id\":\"evt-raw\", \"object\":\"event\", \"api_version\":\"2026-04-22.dahlia\", "
+        ("{ \"id\":\"evt-raw\", \"object\":\"event\", \"api_version\":\""
+                + com.stripe.Stripe.API_VERSION
+                + "\", "
                 + "\"type\":\"payment_intent.succeeded\", \"data\":{\"object\":{\"id\":\"pi-raw\", "
                 + "\"object\":\"payment_intent\", \"metadata\":{\"paymentReference\":\"ref-raw\"}}}}")
             .getBytes(StandardCharsets.UTF_8);
@@ -419,18 +420,18 @@ class PaymentGeneratedClientHttpTest {
   @TestComponent
   @EnableAutoConfiguration(
       excludeName = {
-        "org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.mongo.MongoRepositoriesAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration",
-        "org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration",
+        "org.springframework.boot.mongodb.autoconfigure.MongoAutoConfiguration",
+        "org.springframework.boot.data.mongodb.autoconfigure.DataMongoAutoConfiguration",
+        "org.springframework.boot.data.mongodb.autoconfigure.DataMongoRepositoriesAutoConfiguration",
+        "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration",
+        "org.springframework.boot.data.redis.autoconfigure.DataRedisRepositoriesAutoConfiguration",
+        "org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration",
         "org.springframework.cloud.netflix.eureka.EurekaClientAutoConfiguration"
       })
   @Import({
     PaymentController.class,
     SecurityConfig.class,
-    PaymentMapper.class,
+    com.project.payment.generated.mapper.PaymentMapperImpl.class,
     PaymentAccessValidator.class,
     GlobalExceptionHandler.class
   })

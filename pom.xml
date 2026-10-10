@@ -8,7 +8,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.5</version>
+        <version>4.1.1</version>
         <relativePath/>
     </parent>
 
@@ -37,29 +37,22 @@
 
     <properties>
         <java.version>21</java.version>
-        <openapi-generator.version>7.25.0</openapi-generator.version>
-        <jackson-databind-nullable.version>0.2.6</jackson-databind-nullable.version>
+        <openapi-generator.version>7.26.0</openapi-generator.version>
+        <jackson-databind-nullable.version>0.2.12</jackson-databind-nullable.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <spring-cloud.version>2023.0.3</spring-cloud.version>
-        <spring-kafka.version>3.2.4</spring-kafka.version>
-        <jjwt.version>0.12.6</jjwt.version>
+        <spring-cloud.version>2025.1.3</spring-cloud.version>
+        <jjwt.version>0.13.0</jjwt.version>
         <mapstruct.version>1.6.3</mapstruct.version>
-        <lombok.version>1.18.46</lombok.version>
-        <stripe-java.version>32.1.0</stripe-java.version>
-        <testcontainers.version>1.20.3</testcontainers.version>
-        <jacoco.version>0.8.12</jacoco.version>
-        <cyclonedx.version>2.8.2</cyclonedx.version>
-        <springdoc-openapi.version>2.6.0</springdoc-openapi.version>
-        <micrometer-tracing.version>1.3.5</micrometer-tracing.version>
-        <opentelemetry.version>1.43.0</opentelemetry.version>
-        <loki-logback.version>1.5.2</loki-logback.version>
-        <bucket4j.version>8.19.0</bucket4j.version>
-        <totp.version>1.7.1</totp.version>
-        <commons-codec.version>1.17.1</commons-codec.version>
+        <lombok.version>1.18.48</lombok.version>
+        <stripe-java.version>34.0.0</stripe-java.version>
+        <jacoco.version>0.8.15</jacoco.version>
+        <cyclonedx.version>2.9.3</cyclonedx.version>
+        <springdoc-openapi.version>3.1.1</springdoc-openapi.version>
+        <bucket4j.version>8.21.0</bucket4j.version>
 
-        <shedlock.version>5.13.0</shedlock.version>
-        <caffeine.version>3.1.8</caffeine.version>
+        <shedlock.version>7.10.1</shedlock.version>
+        <caffeine.version>3.3.0</caffeine.version>
 
         <sonar-maven-plugin.version>5.8.0.7211</sonar-maven-plugin.version>
         <sonar.projectKey>dHRvBiyAn1_ecommerce-platform</sonar.projectKey>
@@ -120,11 +113,6 @@
                 <artifactId>mapstruct</artifactId>
                 <version>${mapstruct.version}</version>
             </dependency>
-            <dependency>
-                <groupId>org.mapstruct</groupId>
-                <artifactId>mapstruct-processor</artifactId>
-                <version>${mapstruct.version}</version>
-            </dependency>
 
             <dependency>
                 <groupId>com.stripe</groupId>
@@ -138,11 +126,6 @@
                 <version>${springdoc-openapi.version}</version>
             </dependency>
 
-            <dependency>
-                <groupId>com.github.loki4j</groupId>
-                <artifactId>loki-logback-appender</artifactId>
-                <version>${loki-logback.version}</version>
-            </dependency>
 
             <dependency>
                 <groupId>com.bucket4j</groupId>
@@ -155,17 +138,7 @@
                 <version>${bucket4j.version}</version>
             </dependency>
 
-            <dependency>
-                <groupId>dev.samstevens.totp</groupId>
-                <artifactId>totp-spring-boot-starter</artifactId>
-                <version>${totp.version}</version>
-            </dependency>
 
-            <dependency>
-                <groupId>commons-codec</groupId>
-                <artifactId>commons-codec</artifactId>
-                <version>${commons-codec.version}</version>
-            </dependency>
 
             <dependency>
                 <groupId>net.javacrumbs.shedlock</groupId>
@@ -183,13 +156,6 @@
                 <version>${caffeine.version}</version>
             </dependency>
 
-            <dependency>
-                <groupId>org.testcontainers</groupId>
-                <artifactId>testcontainers-bom</artifactId>
-                <version>${testcontainers.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -202,13 +168,14 @@
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
-                <version>2.44.0.BETA4</version>
+                <version>3.10.4</version>
                 <configuration>
                     <java>
                         <removeUnusedImports />
                         <importOrder />
                         <googleJavaFormat>
-                            <version>1.22.0</version>
+                            <!-- 1.37 changes the Style API; Spotless 3.10.4 expects the enum. -->
+                            <version>1.36.1</version>
                             <style>GOOGLE</style>
                         </googleJavaFormat>
                     </java>
@@ -265,6 +232,8 @@
                             <hideGenerationTimestamp>true</hideGenerationTimestamp>
                             <dateLibrary>java8</dateLibrary>
                             <useJakartaEe>true</useJakartaEe>
+                            <useSpringBoot4>true</useSpringBoot4>
+                            <useJackson3>true</useJackson3>
                         </configOptions>
                     </configuration>
                 </plugin>
@@ -339,6 +308,11 @@
                     <configuration>
                         <release>${java.version}</release>
                         <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok-mapstruct-binding</artifactId>
+                                <version>0.2.0</version>
+                            </path>
                             <path>
                                 <groupId>org.projectlombok</groupId>
                                 <artifactId>lombok</artifactId>

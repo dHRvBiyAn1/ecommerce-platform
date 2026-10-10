@@ -6,48 +6,48 @@ spring:
     dispatch-options-request: true
   cloud:
     gateway:
-      mvc:
-        routes:
-          - id: auth-service
-            uri: lb://auth-service
-            predicates:
-              - Path=/api/auth/**, /api/users/**, /api/user/**, /api/admin/**, /oauth2/**, /login/oauth2/**, /.well-known/**
+      server:
+        webmvc:
+          routes:
+            - id: auth-service
+              uri: lb://auth-service
+              predicates:
+                - Path=/api/auth/**, /api/users/**, /api/user/**, /api/admin/**, /oauth2/**, /login/oauth2/**, /.well-known/**
 
-          - id: product-service
-            uri: lb://product-service
-            predicates:
-              - Path=/api/v1/products/**, /api/v1/categories/**
+            - id: product-service
+              uri: lb://product-service
+              predicates:
+                - Path=/api/v1/products/**, /api/v1/categories/**
 
-          - id: inventory-service
-            uri: lb://inventory-service
-            predicates:
-              - Path=/api/v1/inventory/**
+            - id: inventory-service
+              uri: lb://inventory-service
+              predicates:
+                - Path=/api/v1/inventory/**
 
-          - id: order-service
-            uri: lb://order-service
-            predicates:
-              - Path=/api/v1/orders/**
+            - id: order-service
+              uri: lb://order-service
+              predicates:
+                - Path=/api/v1/orders/**
 
-          - id: payment-service
-            uri: lb://payment-service
-            predicates:
-              - Path=/api/v1/payments/**
+            - id: payment-service
+              uri: lb://payment-service
+              predicates:
+                - Path=/api/v1/payments/**
 
-          - id: notification-service
-            uri: lb://notification-service
-            predicates:
-              - Path=/api/v1/notifications/**
+            - id: notification-service
+              uri: lb://notification-service
+              predicates:
+                - Path=/api/v1/notifications/**
 
-          - id: cart-service
-            uri: lb://cart-service
-            predicates:
-              - Path=/api/v1/cart/**
+            - id: cart-service
+              uri: lb://cart-service
+              predicates:
+                - Path=/api/v1/cart/**
 
-          - id: coupon-service
-            uri: lb://coupon-service
-            predicates:
-              - Path=/api/v1/coupons/**
-
+            - id: coupon-service
+              uri: lb://coupon-service
+              predicates:
+                - Path=/api/v1/coupons/**
 # Bucket4j-based rate limiting; tunable per route via headers and IP/user.
 gateway:
   forwarded:

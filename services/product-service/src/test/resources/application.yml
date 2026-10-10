@@ -5,6 +5,8 @@ spring:
     config:
       enabled: false
   mongodb:
+    representation:
+      uuid: java_legacy
     uri: mongodb://root:root@localhost:27017/product_db?authSource=admin
   data:
     redis:
@@ -12,4 +14,4 @@ spring:
       port: 6379
   autoconfigure:
     exclude:
-      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      - org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration

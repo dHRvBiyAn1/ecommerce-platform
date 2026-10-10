@@ -2,10 +2,12 @@ package com.project.common.security;
 
 import java.util.Arrays;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -21,9 +23,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 /**
  * Drop-in OAuth2 resource server configuration for backend services.
  *
- * <p>Enable in any service by adding {@code spring-boot-starter-oauth2-resource-server} to its POM
- * and ensuring it scans this package. Each service can override the {@code SecurityFilterChain}
- * bean if it needs custom rules; this default protects everything except actuator and OpenAPI docs.
+ * <p>Enable in any service by adding {@code spring-boot-starter-security-oauth2-resource-server} to
+ * its POM. Each service can override the {@code SecurityFilterChain} bean if it needs custom rules;
+ * this default protects everything except actuator and OpenAPI docs.
  *
  * <p>Configuration (in config-server):
  *
@@ -36,7 +38,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  *             jwk-set-uri: http://auth-service:8081/.well-known/jwks.json
  * </pre>
  */
-@Configuration
+@AutoConfiguration(
+    beforeName = "org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration")
+@ConditionalOnMissingBean(SecurityFilterChain.class)
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @EnableMethodSecurity(prePostEnabled = true)
 @ConditionalOnClass(
     name =

@@ -42,15 +42,15 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.http.HttpHeaders;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(
@@ -72,13 +72,13 @@ class UserControllerSecurityHttpTest {
 
   @Autowired private MockMvc mockMvc;
 
-  @MockBean private TokenBlacklistService blacklist;
+  @MockitoBean private TokenBlacklistService blacklist;
 
-  @MockBean private UserProfileService userProfileService;
+  @MockitoBean private UserProfileService userProfileService;
 
-  @MockBean private SellerApplicationService sellerApplicationService;
+  @MockitoBean private SellerApplicationService sellerApplicationService;
 
-  @MockBean private CustomOAuth2SuccessHandler oAuth2SuccessHandler;
+  @MockitoBean private CustomOAuth2SuccessHandler oAuth2SuccessHandler;
 
   @Test
   void serviceJwtSubjectIsRejectedBeforeUserProfileParsesPrincipalAsUuid() throws Exception {

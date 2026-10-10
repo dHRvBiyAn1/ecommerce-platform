@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 class PaymentMapperTest {
 
-  private final PaymentMapper mapper = new PaymentMapper();
+  private final PaymentMapper mapper = new com.project.payment.generated.mapper.PaymentMapperImpl();
 
   @Test
   void mapsNullLegacyRefundAmountAsZero() {

@@ -17,12 +17,12 @@ import org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(value = ProductController.class, properties = "spring.cloud.config.enabled=false")
@@ -40,11 +40,11 @@ class ProductOpenApiContractTest {
 
   @Autowired private MockMvc mockMvc;
 
-  @MockBean private ProductService productService;
+  @MockitoBean private ProductService productService;
 
-  @MockBean private CategoryService categoryService;
+  @MockitoBean private CategoryService categoryService;
 
-  @MockBean private JwtDecoder jwtDecoder;
+  @MockitoBean private JwtDecoder jwtDecoder;
 
   @Test
   void apiDocsDescribePublicCatalogAndSecuredSellerMutationErrors() throws Exception {

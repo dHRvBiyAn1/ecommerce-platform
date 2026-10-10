@@ -14,11 +14,11 @@ import org.springdoc.core.properties.SpringDocConfigProperties;
 import org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(
@@ -31,7 +31,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @Import({
   com.project.payment.config.SecurityConfig.class,
   com.project.common.exception.GlobalExceptionHandler.class,
-  com.project.payment.application.mapper.PaymentMapper.class,
+  com.project.payment.generated.mapper.PaymentMapperImpl.class,
   SpringDocConfiguration.class,
   SpringDocWebMvcConfiguration.class,
   SpringDocSecurityConfiguration.class,
@@ -43,14 +43,14 @@ class PaymentOpenApiContractTest {
 
   @Autowired private MockMvc mockMvc;
 
-  @MockBean private com.project.payment.service.PaymentService paymentService;
+  @MockitoBean private com.project.payment.service.PaymentService paymentService;
 
-  @MockBean
+  @MockitoBean
   private com.project.payment.application.validator.PaymentAccessValidator accessValidator;
 
-  @MockBean private JwtDecoder jwtDecoder;
+  @MockitoBean private JwtDecoder jwtDecoder;
 
-  @MockBean(name = "mongoMappingContext")
+  @MockitoBean(name = "mongoMappingContext")
   private MongoMappingContext mongoMappingContext;
 
   @Test

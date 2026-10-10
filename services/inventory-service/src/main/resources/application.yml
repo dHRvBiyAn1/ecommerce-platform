@@ -1,4 +1,7 @@
 spring:
+  mongodb:
+    representation:
+      uuid: java_legacy
   application:
     name: inventory-service
   threads:
@@ -8,3 +11,7 @@ spring:
     keep-alive: true
   config:
     import: optional:configserver:http://config-server:8888
+
+springdoc:
+  api-docs:
+    version: OPENAPI_3_0

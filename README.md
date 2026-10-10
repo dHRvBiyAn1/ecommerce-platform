@@ -150,10 +150,11 @@ reactor dependencies from the root, use
 Project principles are in [constitution.md](constitution.md); contribution and
 verification instructions are in [Agents.md](Agents.md).
 
-- The backend is a Java 21 Maven reactor using Spring Boot 3.3.5 and Spring Cloud
-  2023.0.3. Config Server supplies service configuration; Eureka handles service
+- The backend is a Java 21 Maven reactor using Spring Boot 4.1.1 and Spring Cloud
+  2025.1.3. Config Server supplies service configuration; Eureka handles service
   discovery. The migration and rollout guide is in
-  [Java 21 migration](docs/java21-migration.md).
+  [Java 21 migration](docs/java21-migration.md) and
+  [Spring Boot 4 dependency migration](docs/spring-boot4-migration.md).
 - PostgreSQL with Flyway owns authentication and coupon records. MongoDB stores
   catalog, inventory, cart, order, payment, and notification documents; product
   search uses Elasticsearch with MongoDB fallback. Redis supports token

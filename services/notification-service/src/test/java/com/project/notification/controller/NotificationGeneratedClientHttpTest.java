@@ -9,9 +9,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.exception.GlobalExceptionHandler;
-import com.project.notification.application.mapper.NotificationMapper;
 import com.project.notification.application.validator.NotificationAccessValidator;
 import com.project.notification.config.SecurityConfig;
 import com.project.notification.generated.model.NotificationResponse;
@@ -38,9 +36,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestComponent;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.test.mock.mockito.SpyBean;
-import org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext;
+import org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
@@ -50,6 +46,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest(
     classes = NotificationGeneratedClientHttpTest.TestApplication.class,
@@ -74,15 +73,15 @@ class NotificationGeneratedClientHttpTest {
 
   @Autowired private ObjectMapper objectMapper;
 
-  @MockBean private NotificationRepository repository;
+  @MockitoBean private NotificationRepository repository;
 
-  @MockBean private NotificationDeliveryRepository deliveryRepository;
+  @MockitoBean private NotificationDeliveryRepository deliveryRepository;
 
-  @MockBean private EmailService emailService;
+  @MockitoBean private EmailService emailService;
 
-  @MockBean private JwtDecoder jwtDecoder;
+  @MockitoBean private JwtDecoder jwtDecoder;
 
-  @SpyBean private NotificationService notificationService;
+  @MockitoSpyBean private NotificationService notificationService;
 
   private NotificationsApi ownerApi;
   private final HttpClient httpClient = HttpClient.newHttpClient();
@@ -118,7 +117,9 @@ class NotificationGeneratedClientHttpTest {
     assertThat(objectMapper.readTree(rawHistory.body()).path("data").path("content").get(0))
         .isEqualTo(
             objectMapper.readTree(
-                objectMapper.writeValueAsBytes(new NotificationMapper().toResponse(notification))));
+                objectMapper.writeValueAsBytes(
+                    new com.project.notification.generated.mapper.NotificationMapperImpl()
+                        .toResponse(notification))));
     verify(repository, times(2))
         .findByUserIdOrderByCreatedAtDesc(
             eq(OWNER), eq(PageRequest.of(1, 5, Sort.by(Sort.Order.desc("createdAt")))));
@@ -312,18 +313,18 @@ class NotificationGeneratedClientHttpTest {
   @TestComponent
   @EnableAutoConfiguration(
       excludeName = {
-        "org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.mongo.MongoRepositoriesAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration",
-        "org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration",
+        "org.springframework.boot.mongodb.autoconfigure.MongoAutoConfiguration",
+        "org.springframework.boot.data.mongodb.autoconfigure.DataMongoAutoConfiguration",
+        "org.springframework.boot.data.mongodb.autoconfigure.DataMongoRepositoriesAutoConfiguration",
+        "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration",
+        "org.springframework.boot.data.redis.autoconfigure.DataRedisRepositoriesAutoConfiguration",
+        "org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration",
         "org.springframework.cloud.netflix.eureka.EurekaClientAutoConfiguration"
       })
   @Import({
     NotificationController.class,
     SecurityConfig.class,
-    NotificationMapper.class,
+    com.project.notification.generated.mapper.NotificationMapperImpl.class,
     NotificationService.class,
     NotificationAccessValidator.class,
     GlobalExceptionHandler.class

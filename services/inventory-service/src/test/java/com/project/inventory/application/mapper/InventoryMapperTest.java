@@ -7,7 +7,8 @@ import com.project.inventory.generated.model.InventoryResponse;
 import org.junit.jupiter.api.Test;
 
 class InventoryMapperTest {
-  private final InventoryMapper mapper = new InventoryMapper();
+  private final InventoryMapper mapper =
+      new com.project.inventory.generated.mapper.InventoryMapperImpl();
 
   @Test
   void calculatesAvailableQuantityFromPhysicalAndReservedStock() {

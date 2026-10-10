@@ -8,7 +8,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.exception.GlobalExceptionHandler;
 import com.project.product_service.application.mapper.ProductApiMapper;
 import com.project.product_service.config.SecurityConfig;
@@ -36,8 +35,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestComponent;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext;
+import org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
@@ -49,8 +47,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
+import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest(
     classes = ProductGeneratedClientHttpTest.TestApplication.class,
@@ -78,11 +78,11 @@ class ProductGeneratedClientHttpTest {
   @Qualifier("requestMappingHandlerMapping")
   private RequestMappingHandlerMapping handlerMapping;
 
-  @MockBean private ProductService productService;
+  @MockitoBean private ProductService productService;
 
-  @MockBean private CategoryService categoryService;
+  @MockitoBean private CategoryService categoryService;
 
-  @MockBean private JwtDecoder jwtDecoder;
+  @MockitoBean private JwtDecoder jwtDecoder;
 
   private ProductsApi productsApi;
   private CategoriesApi categoriesApi;
@@ -203,7 +203,7 @@ class ProductGeneratedClientHttpTest {
                  "price":10.00,"stockQuantity":1}
                 """;
     var explicitEmpty = objectMapper.readTree(body);
-    ((com.fasterxml.jackson.databind.node.ObjectNode) explicitEmpty).putObject("attributes");
+    ((tools.jackson.databind.node.ObjectNode) explicitEmpty).putObject("attributes");
     var http = java.net.http.HttpClient.newHttpClient();
     for (String payload : List.of(body, objectMapper.writeValueAsString(explicitEmpty))) {
       var response =
@@ -464,14 +464,14 @@ class ProductGeneratedClientHttpTest {
   @TestComponent
   @EnableAutoConfiguration(
       excludeName = {
-        "org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.mongo.MongoRepositoriesAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchRepositoriesAutoConfiguration",
-        "org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration",
+        "org.springframework.boot.mongodb.autoconfigure.MongoAutoConfiguration",
+        "org.springframework.boot.data.mongodb.autoconfigure.DataMongoAutoConfiguration",
+        "org.springframework.boot.data.mongodb.autoconfigure.DataMongoRepositoriesAutoConfiguration",
+        "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration",
+        "org.springframework.boot.data.redis.autoconfigure.DataRedisRepositoriesAutoConfiguration",
+        "org.springframework.boot.data.elasticsearch.autoconfigure.DataElasticsearchAutoConfiguration",
+        "org.springframework.boot.data.elasticsearch.autoconfigure.DataElasticsearchRepositoriesAutoConfiguration",
+        "org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration",
         "org.springframework.cloud.netflix.eureka.EurekaClientAutoConfiguration"
       })
   @Import({

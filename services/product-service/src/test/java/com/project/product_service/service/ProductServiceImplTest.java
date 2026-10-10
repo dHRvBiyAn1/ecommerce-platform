@@ -318,7 +318,7 @@ class ProductServiceImplTest {
     Product product = product("product-1", sellerId);
     product.setAttributes(Map.of("color", "red", "size", "M"));
     when(products.findById("product-1")).thenReturn(Optional.of(product));
-    var mapper = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules();
+    var mapper = tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build();
     String body =
         """
                 {"sku":"SKU-1","name":"Edited desk","categoryId":"category-1",
@@ -334,7 +334,7 @@ class ProductServiceImplTest {
     assertEquals("Edited desk", product.getName());
 
     var explicitEmptyBody = mapper.readTree(body);
-    ((com.fasterxml.jackson.databind.node.ObjectNode) explicitEmptyBody).putObject("attributes");
+    ((tools.jackson.databind.node.ObjectNode) explicitEmptyBody).putObject("attributes");
     ProductRequest clear = mapper.treeToValue(explicitEmptyBody, ProductRequest.class);
     clear.setSellerId(sellerId);
     ProductResponse cleared = service.updateProduct("product-1", clear, false);

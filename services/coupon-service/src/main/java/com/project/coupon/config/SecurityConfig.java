@@ -1,6 +1,5 @@
 package com.project.coupon.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.constant.ErrorCode;
 import com.project.common.security.JwtAuthenticationConverter;
 import com.project.common.web.Responses;
@@ -17,6 +16,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 @EnableWebSecurity

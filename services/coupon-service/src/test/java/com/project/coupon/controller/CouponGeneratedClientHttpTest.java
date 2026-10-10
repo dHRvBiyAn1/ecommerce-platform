@@ -8,7 +8,6 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.exception.GlobalExceptionHandler;
 import com.project.coupon.config.SecurityConfig;
 import com.project.coupon.exception.CouponReservationConflictException;
@@ -33,8 +32,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestComponent;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext;
+import org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
@@ -45,8 +43,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
+import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest(
     classes = CouponGeneratedClientHttpTest.TestApplication.class,
@@ -79,9 +79,9 @@ class CouponGeneratedClientHttpTest {
 
   @Autowired private com.project.coupon.mapper.CouponApiMapper apiMapper;
 
-  @MockBean private CouponService couponService;
+  @MockitoBean private CouponService couponService;
 
-  @MockBean private JwtDecoder jwtDecoder;
+  @MockitoBean private JwtDecoder jwtDecoder;
 
   private CouponsApi customerApi;
   private CouponsApi readServiceApi;
@@ -473,10 +473,10 @@ class CouponGeneratedClientHttpTest {
   @TestComponent
   @EnableAutoConfiguration(
       excludeName = {
-        "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration",
-        "org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration",
-        "org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration",
-        "org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration",
+        "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
+        "org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration",
+        "org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration",
+        "org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration",
         "org.springframework.cloud.netflix.eureka.EurekaClientAutoConfiguration"
       })
   @Import({

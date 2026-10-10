@@ -6,8 +6,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.constant.ErrorCode;
 import com.project.common.generated.model.ErrorResponse;
 import jakarta.validation.ConstraintViolationException;
@@ -33,6 +31,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 class GlobalExceptionHandlerContractTest {
 
@@ -217,7 +217,8 @@ class GlobalExceptionHandlerContractTest {
 
     @org.springframework.web.bind.annotation.GetMapping("/missing-resource")
     void missingResource() throws NoResourceFoundException {
-      throw new NoResourceFoundException(HttpMethod.GET, "/missing-resource");
+      throw new NoResourceFoundException(
+          HttpMethod.GET, "/missing-resource", "No static resource /missing-resource.");
     }
   }
 

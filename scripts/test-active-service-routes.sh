@@ -33,12 +33,12 @@ routes = {}
 route = None
 for line in (root / "config-repo/api-gateway.yml").read_text().splitlines():
     stripped = line.strip()
-    if line.startswith("          - id: "):
+    if line.startswith("            - id: "):
         route = stripped.removeprefix("- id: ")
         routes[route] = {}
-    elif route and line.startswith("            uri: "):
+    elif route and line.startswith("              uri: "):
         routes[route]["uri"] = stripped.removeprefix("uri: ")
-    elif route and line.startswith("              - Path="):
+    elif route and line.startswith("                - Path="):
         routes[route]["predicate"] = stripped.removeprefix("- ")
     elif line and not line.startswith(" "):
         route = None

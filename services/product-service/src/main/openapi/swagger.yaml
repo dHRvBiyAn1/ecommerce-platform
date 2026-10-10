@@ -1064,17 +1064,17 @@ components:
         sku:
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
         name:
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
         description:
           type: string
         categoryId:
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
         price:
           type: number
           minimum: 0
@@ -1163,7 +1163,7 @@ components:
         name:
           type: string
           x-not-null-message: Category name is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Category name is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Category name is required")'
         description:
           type: string
         parentCategoryId:

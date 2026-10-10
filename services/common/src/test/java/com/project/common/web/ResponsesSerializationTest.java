@@ -2,8 +2,6 @@ package com.project.common.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.project.common.generated.model.ErrorResponse;
 import java.util.List;
 import java.util.Map;
@@ -11,11 +9,12 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import tools.jackson.databind.ObjectMapper;
 
 class ResponsesSerializationTest {
   @Test
   void serializesNullDataAsAnExplicitEnvelopeField() throws Exception {
-    ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+    ObjectMapper mapper = tools.jackson.databind.json.JsonMapper.builder().build();
 
     String json = mapper.writeValueAsString(Responses.success(null));
 
@@ -69,7 +68,7 @@ class ResponsesSerializationTest {
     assertThat(response.getError()).isEqualTo("Bad Request");
     assertThat(response.getFieldErrors()).containsEntry("quantity", "Quantity must be at least 1");
     assertThat(response.getTimestamp()).isNotNull();
-    var mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+    var mapper = tools.jackson.databind.json.JsonMapper.builder().build();
     var json = mapper.readTree(mapper.writeValueAsString(response));
     assertThat(json.get("traceId").asText()).isEqualTo("request-id");
     var withoutFields =

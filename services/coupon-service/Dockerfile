@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/root/.m2,sharing=locked \
 FROM build AS layers
 WORKDIR /work
 RUN cp /workspace/services/coupon-service/target/coupon-service-*.jar app.jar \
- && java -Djarmode=layertools -jar app.jar extract --destination /work/extracted
+ && java -Djarmode=tools -jar app.jar extract --layers --launcher --destination /work/extracted
 
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app

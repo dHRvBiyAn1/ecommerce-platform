@@ -9,7 +9,6 @@ import static org.mockito.Mockito.when;
 
 import com.project.common.exception.ForbiddenOperationException;
 import com.project.common.exception.ResourceNotFoundException;
-import com.project.notification.application.mapper.NotificationMapper;
 import com.project.notification.application.validator.NotificationAccessValidator;
 import com.project.notification.generated.model.NotificationResponse;
 import com.project.notification.model.Notification;
@@ -41,7 +40,7 @@ class NotificationServiceTest {
             repository,
             deliveryRepository,
             emailService,
-            new NotificationMapper(),
+            new com.project.notification.generated.mapper.NotificationMapperImpl(),
             new NotificationAccessValidator());
   }
 

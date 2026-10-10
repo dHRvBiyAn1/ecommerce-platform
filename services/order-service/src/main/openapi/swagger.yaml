@@ -446,29 +446,29 @@ components:
       properties:
         fullName:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Full name is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Full name is required")'
           x-not-null-message: Full name is required
         phone:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Phone is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Phone is required")'
           x-not-null-message: Phone is required
         street:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Street is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Street is required")'
           x-not-null-message: Street is required
         city:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "City is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "City is required")'
           x-not-null-message: City is required
         state:
           type: string
         zipCode:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Zip code is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Zip code is required")'
           x-not-null-message: Zip code is required
         country:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Country is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Country is required")'
           x-not-null-message: Country is required
     OrderItemRequest:
       required:
@@ -478,7 +478,7 @@ components:
       properties:
         productId:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Product ID is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Product ID is required")'
           x-not-null-message: Product ID is required
         quantity:
           minimum: 1
@@ -509,7 +509,7 @@ components:
           type: string
         paymentMethod:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Payment method is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Payment method is required")'
           x-not-null-message: Payment method is required
     ShippingAddressRequest:
       required:
@@ -523,29 +523,29 @@ components:
       properties:
         fullName:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Full name is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Full name is required")'
           x-not-null-message: Full name is required
         phone:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Phone is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Phone is required")'
           x-not-null-message: Phone is required
         street:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Street is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Street is required")'
           x-not-null-message: Street is required
         city:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "City is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "City is required")'
           x-not-null-message: City is required
         state:
           type: string
         zipCode:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Zip code is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Zip code is required")'
           x-not-null-message: Zip code is required
         country:
           type: string
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Country is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Country is required")'
           x-not-null-message: Country is required
     ApiResponseOrderResponse:
       type: object

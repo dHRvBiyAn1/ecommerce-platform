@@ -26,7 +26,7 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-oauth2-client</artifactId>
+            <artifactId>spring-boot-starter-security-oauth2-client</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -38,7 +38,7 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -57,13 +57,13 @@
             <artifactId>spring-cloud-starter-config</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.springframework.kafka</groupId>
-            <artifactId>spring-kafka</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-kafka</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -84,11 +84,6 @@
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.mapstruct</groupId>
-            <artifactId>mapstruct-processor</artifactId>
-            <scope>provided</scope>
-        </dependency>
 
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
@@ -105,8 +100,6 @@
             <scope>runtime</scope>
         </dependency>
 
-
-
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
@@ -119,28 +112,28 @@
 
         <!-- Test -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-test</artifactId>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.openapitools</groupId>
             <artifactId>jackson-databind-nullable</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -182,7 +175,7 @@
                             </additionalProperties>
                             <configOptions>
                                 <interfaceOnly>true</interfaceOnly>
-                                <useSpringBoot3>true</useSpringBoot3>
+                                <useSpringBoot4>true</useSpringBoot4>
                                 <useTags>true</useTags>
                                 <skipDefaultInterface>true</skipDefaultInterface>
                                 <useBeanValidation>true</useBeanValidation>
@@ -203,7 +196,6 @@
                         <configuration>
                             <generatorName>java</generatorName>
                             <library>resttemplate</library>
-                            <templateDirectory>${project.basedir}/src/main/openapi/templates</templateDirectory>
                             <output>${project.build.directory}/generated-test-sources/openapi</output>
                             <addCompileSourceRoot>false</addCompileSourceRoot>
                             <addTestCompileSourceRoot>true</addTestCompileSourceRoot>

@@ -13,7 +13,9 @@ import org.junit.jupiter.api.Test;
 
 class UserMapperTest {
 
-  private final UserMapper mapper = new UserMapper(new AddressMapper());
+  private final UserMapper mapper =
+      new com.project.authservice.generated.mapper.UserMapperImpl(
+          new com.project.authservice.generated.mapper.AddressMapperImpl());
 
   @Test
   void mapsResolvedPasswordStateAndDefensivelyImmutableAuthorities() {

@@ -522,7 +522,7 @@ components:
           maxLength: 64
           pattern: "^[A-Za-z0-9_-]+$"
           x-not-null-message: Product ID is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Product ID is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Product ID is required")'
           x-size-message: Product ID must not exceed 64 characters
           x-pattern-message: Product ID contains unsupported characters
           description: Product identifier.
@@ -532,7 +532,7 @@ components:
           maxLength: 64
           pattern: "^[A-Za-z0-9_-]+$"
           x-not-null-message: SKU is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "SKU is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "SKU is required")'
           x-size-message: SKU must not exceed 64 characters
           x-pattern-message: SKU contains unsupported characters
           description: Stock keeping unit.
@@ -572,7 +572,7 @@ components:
           maxLength: 64
           pattern: "^[A-Za-z0-9_-]+$"
           x-not-null-message: Order ID is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Order ID is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Order ID is required")'
           x-size-message: Order ID must not exceed 64 characters
           x-pattern-message: Order ID contains unsupported characters
           description: Order owning the reservation.

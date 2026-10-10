@@ -2,7 +2,6 @@ package com.project.authservice.contracts;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.authservice.generated.model.AssignRolesRequest;
 import com.project.authservice.generated.model.RegistrationRequest;
 import com.project.authservice.generated.model.UpdateRolePermissionsRequest;
@@ -11,6 +10,7 @@ import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 
 class AuthGeneratedModelContractTest {
   private final ObjectMapper objectMapper = new ObjectMapper();
@@ -41,7 +41,10 @@ class AuthGeneratedModelContractTest {
 
   @Test
   void generatedAdminModelsRejectBlankAndNullListElements() {
-    assertThat(validator.validate(new AssignRolesRequest(List.of("")))).isNotEmpty();
+    for (String blank : List.of("", " ", "\u0000\t\n")) {
+      assertThat(validator.validate(new AssignRolesRequest(List.of(blank)))).isNotEmpty();
+      assertThat(validator.validate(new UpdateRolePermissionsRequest(List.of(blank)))).isNotEmpty();
+    }
     assertThat(validator.validate(new UpdateRolePermissionsRequest(List.of("")))).isNotEmpty();
     assertThat(
             validator.validate(new AssignRolesRequest(java.util.Collections.singletonList(null))))

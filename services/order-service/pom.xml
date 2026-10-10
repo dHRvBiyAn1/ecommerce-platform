@@ -34,7 +34,7 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -42,7 +42,7 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+            <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -73,8 +73,8 @@
             <artifactId>spring-cloud-starter-loadbalancer</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.springframework.kafka</groupId>
-            <artifactId>spring-kafka</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-kafka</artifactId>
         </dependency>
 
         <dependency>
@@ -111,28 +111,28 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-mongodb</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-test</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>mongodb</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>kafka</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -166,7 +166,7 @@
                             <configOptions>
                                 <interfaceOnly>true</interfaceOnly>
                                 <generateConstructorWithAllArgs>true</generateConstructorWithAllArgs>
-                                <useSpringBoot3>true</useSpringBoot3>
+                                <useSpringBoot4>true</useSpringBoot4>
                                 <useTags>true</useTags>
                                 <skipDefaultInterface>true</skipDefaultInterface>
                                 <useBeanValidation>true</useBeanValidation>
@@ -191,7 +191,7 @@
                             <generateSupportingFiles>false</generateSupportingFiles>
                             <configOptions>
                                 <interfaceOnly>true</interfaceOnly>
-                                <useSpringBoot3>true</useSpringBoot3>
+                                <useSpringBoot4>true</useSpringBoot4>
                                 <openApiNullable>false</openApiNullable>
                                 <generateJsonIncludeAnnotations>true</generateJsonIncludeAnnotations>
                                 <optionalNonNullPropertyJsonInclude>NON_NULL</optionalNonNullPropertyJsonInclude>
@@ -214,7 +214,7 @@
                             <generateSupportingFiles>false</generateSupportingFiles>
                             <configOptions>
                                 <interfaceOnly>true</interfaceOnly>
-                                <useSpringBoot3>true</useSpringBoot3>
+                                <useSpringBoot4>true</useSpringBoot4>
                                 <openApiNullable>false</openApiNullable>
                                 <generateJsonIncludeAnnotations>true</generateJsonIncludeAnnotations>
                                 <optionalNonNullPropertyJsonInclude>NON_NULL</optionalNonNullPropertyJsonInclude>
@@ -237,7 +237,7 @@
                             <generateSupportingFiles>false</generateSupportingFiles>
                             <configOptions>
                                 <interfaceOnly>true</interfaceOnly>
-                                <useSpringBoot3>true</useSpringBoot3>
+                                <useSpringBoot4>true</useSpringBoot4>
                                 <openApiNullable>false</openApiNullable>
                                 <generateJsonIncludeAnnotations>true</generateJsonIncludeAnnotations>
                                 <optionalNonNullPropertyJsonInclude>NON_NULL</optionalNonNullPropertyJsonInclude>

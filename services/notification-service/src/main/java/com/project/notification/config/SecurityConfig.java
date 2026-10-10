@@ -1,6 +1,5 @@
 package com.project.notification.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.security.JwtAuthenticationConverter;
 import java.util.Map;
 import org.springframework.context.annotation.Bean;
@@ -15,6 +14,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 @EnableWebSecurity

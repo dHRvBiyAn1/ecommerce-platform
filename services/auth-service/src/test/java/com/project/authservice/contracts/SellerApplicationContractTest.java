@@ -2,8 +2,6 @@ package com.project.authservice.contracts;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.project.authservice.generated.model.AddressDto;
 import com.project.authservice.generated.model.RejectApplicationRequest;
 import com.project.authservice.generated.model.SellerApplicationRequest;
@@ -20,13 +18,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import tools.jackson.databind.ObjectMapper;
 
 class SellerApplicationContractTest {
 
   private final ObjectMapper objectMapper =
-      new ObjectMapper()
-          .findAndRegisterModules()
-          .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+      tools.jackson.databind.json.JsonMapper.builder()
+          .disable(tools.jackson.databind.cfg.DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
+          .disable(tools.jackson.databind.MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
+          .build();
   private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
   @Test

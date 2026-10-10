@@ -7,9 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.web.Responses;
-import com.project.payment.application.mapper.PaymentMapper;
 import com.project.payment.application.validator.PaymentOrderValidator;
 import com.project.payment.application.validator.PaymentTransitionValidator;
 import com.project.payment.client.OrderClient;
@@ -28,6 +26,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import tools.jackson.databind.ObjectMapper;
 
 class PaymentInitiationContractTest {
 
@@ -42,7 +41,10 @@ class PaymentInitiationContractTest {
             .status(com.project.payment.model.PaymentStatus.PENDING)
             .amount(new BigDecimal("10.00"))
             .build();
-    String json = new ObjectMapper().writeValueAsString(new PaymentMapper().toResponse(payment));
+    String json =
+        new ObjectMapper()
+            .writeValueAsString(
+                new com.project.payment.generated.mapper.PaymentMapperImpl().toResponse(payment));
     assertThat(json).doesNotContain("clientSecret");
   }
 
@@ -117,11 +119,11 @@ class PaymentInitiationContractTest {
             Mockito.mock(WebhookReceiptRepository.class),
             Mockito.mock(PaymentOutboxRepository.class),
             gateway,
-            new PaymentMapper(),
+            new com.project.payment.generated.mapper.PaymentMapperImpl(),
             orderClient,
             new PaymentOrderValidator(),
             new PaymentTransitionValidator(),
-            new ObjectMapper().findAndRegisterModules());
+            tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build());
 
     Throwable forbidden =
         catchThrowable(

@@ -30,9 +30,9 @@ without generating business API interfaces.
 
 ## Frozen build configuration
 
-Keep Java 21, Maven 3.9.12, Spring Boot 3.3.5, Springdoc 2.6.0 and the existing
-managed Jackson versions. The root POM manages OpenAPI Generator 7.25.0 and
-Jackson nullable 0.2.6; services activate their executions. Nullable support is
+Keep Java 21 and Maven 3.9.12. The current build uses Spring Boot 4.1.1,
+Springdoc 3.1.1 and BOM-managed Jackson 3.1.5. The root POM manages OpenAPI Generator 7.26.0 and
+Jackson nullable 0.2.12; services activate their executions. Nullable support is
 only a test dependency. Contract tools use Spectral 6.17.0 through `npx` and
 PyYAML 6.0.3 in a local Python environment. No standalone generator CLI download
 or global Python installation is required.
@@ -52,7 +52,7 @@ generated API/model documentation. Required generation is independent of
 `skipTests`. Ordinary `./mvnw test` and `./mvnw verify` generate and compile both
 outputs. Generated Java must never be edited or committed.
 
-Server options are `interfaceOnly=true`, `useSpringBoot3=true`, `useTags=true`,
+Server options are `interfaceOnly=true`, `useSpringBoot4=true`, `useJackson3=true`, `useTags=true`,
 `skipDefaultInterface=true`, `useBeanValidation=true`, `openApiNullable=false`,
 `generateJsonIncludeAnnotations=true`,
 `optionalNonNullPropertyJsonInclude=NON_NULL`, and
@@ -94,13 +94,14 @@ Preserve legacy missing/null/blank validation, messages, primitive defaults,
 pagination defaults, ordering, and null/omitted serialization. The shared Spring
 `notNull.mustache` supports `x-not-null-message`; other supported schema message
 extensions preserve pattern, size and numeric messages. This overrides only the
-required-field validation template. Legacy `@NotBlank` constraints use the native
-`x-field-extra-annotation` extension, preserving Hibernate's trim-based handling
-of multiline and control characters; a generic whitespace regex is not equivalent.
-The shared `nullableDataType.mustache` wraps the unmodified 7.25.0
+required-field validation template. Legacy blank constraints use standard `@Pattern` plus required-field `@NotNull`
+through `x-field-extra-annotation`. The pattern rejects strings containing only
+characters U+0000 through U+0020, retaining the former trim-based handling of
+multiline and control characters under Hibernate Validator 9.
+The shared `nullableDataType.mustache` wraps the upstream generator
 JavaSpring partial with an opt-in `x-not-blank-items: true` branch for string lists.
-Auth's roles and permissions retain `List<@NotBlank String>`, including null-item
-rejection; item-level extra annotations are ignored by the upstream template.
+Auth's roles and permissions use item-level `@NotNull` and the same trim-compatible
+`@Pattern`, including null-item rejection and the original validation message; item-level extra annotations are ignored by the upstream template.
 Other models use the upstream branch. A pinned `beanValidationCore.mustache` override adds only the missing
 `x-email-message` support, preserving custom email validation messages. Review
 these partials when upgrading the generator.
@@ -133,12 +134,9 @@ pass null query arguments and populated form arguments so credentials stay out
 of URLs. OAuth routes remain Spring Security filter handlers. Public JWKS output
 is mapped without changing key generation.
 
-Auth's RestTemplate 7.25.0 template calls a Spring 6.2 header API unavailable in
-the project's Spring 6.1.14. Its pinned local template changes only two
-`HttpHeaders.headerSet()` calls to `entrySet()`; provenance is beside the
-[override](../services/auth-service/src/main/openapi/templates/README.md).
-Review that small compatibility patch when upgrading the generator. The native
-form template is unsuitable for this token contract, so auth uses RestTemplate.
+Auth uses the upstream RestTemplate template with Spring 7's `headerSet()` API;
+the obsolete Spring 6.1 compatibility override has been removed. The native form
+template is unsuitable for this token contract, so auth uses RestTemplate.
 
 Payment webhooks retain unparsed request bodies and signature verification ahead
 of JSON parsing. Their exact-byte tests use JDK HTTP instead of generated object
@@ -239,8 +237,8 @@ Embedded test configurations use explicitly selected plain `@Configuration` plus
 `@TestComponent`, avoiding extra application roots and component-scan leakage.
 Native clients use host/port plus a path-only base path; RestTemplate uses the
 full base URL and JDK request factory so error bodies remain observable. Auth's
-supplied RestTemplate client registers `JsonNullableModule` on a copy of its
-Jackson converter's mapper: the upstream JSON converter does not register it
+supplied RestTemplate client installs a Jackson 3 converter built with
+`JsonNullableJackson3Module`: the upstream JSON converter does not register it
 itself. This supports populated nullable nested fields without changing the
 application's ObjectMapper or adding a runtime dependency.
 

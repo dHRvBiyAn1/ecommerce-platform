@@ -1,4 +1,7 @@
 spring:
+  mongodb:
+    representation:
+      uuid: java_legacy
   application:
     name: payment-service
   threads:
@@ -11,3 +14,7 @@ spring:
   data:
     mongodb:
       auto-index-creation: true
+
+springdoc:
+  api-docs:
+    version: OPENAPI_3_0

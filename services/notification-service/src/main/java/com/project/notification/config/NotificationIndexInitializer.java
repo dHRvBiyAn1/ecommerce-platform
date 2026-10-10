@@ -19,13 +19,13 @@ public class NotificationIndexInitializer {
   public void initialize() {
     mongoTemplate
         .indexOps(Notification.class)
-        .ensureIndex(new Index().on("sourceEventId", Sort.Direction.ASC).unique().sparse());
+        .createIndex(new Index().on("sourceEventId", Sort.Direction.ASC).unique().sparse());
     mongoTemplate
         .indexOps(NotificationDelivery.class)
-        .ensureIndex(new Index().on("notificationId", Sort.Direction.ASC).unique());
+        .createIndex(new Index().on("notificationId", Sort.Direction.ASC).unique());
     mongoTemplate
         .indexOps(NotificationDelivery.class)
-        .ensureIndex(
+        .createIndex(
             new Index()
                 .on("deliveredAt", Sort.Direction.ASC)
                 .on("attempts", Sort.Direction.ASC)
@@ -34,7 +34,7 @@ public class NotificationIndexInitializer {
                 .on("createdAt", Sort.Direction.ASC));
     mongoTemplate
         .indexOps(NotificationDelivery.class)
-        .ensureIndex(
+        .createIndex(
             new Index()
                 .on("deliveredAt", Sort.Direction.ASC)
                 .on("reconciledAt", Sort.Direction.ASC));

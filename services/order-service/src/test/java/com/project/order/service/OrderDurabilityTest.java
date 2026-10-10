@@ -8,7 +8,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.order.application.mapper.OrderMapperImpl;
 import com.project.order.application.validator.OrderRequestValidator;
 import com.project.order.client.CouponClient;
@@ -47,6 +46,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
+import tools.jackson.databind.ObjectMapper;
 
 class OrderDurabilityTest {
 
@@ -992,7 +992,7 @@ class OrderDurabilityTest {
   }
 
   private ObjectMapper objectMapper() {
-    return new ObjectMapper().findAndRegisterModules();
+    return tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build();
   }
 
   private final class RepositoryHarness {

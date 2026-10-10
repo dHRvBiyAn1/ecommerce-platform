@@ -31,14 +31,14 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestComponent;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext;
+import org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
@@ -63,9 +63,9 @@ class CartGeneratedClientHttpTest {
   @Qualifier("requestMappingHandlerMapping")
   private RequestMappingHandlerMapping handlerMapping;
 
-  @MockBean private CartService cartService;
+  @MockitoBean private CartService cartService;
 
-  @MockBean private JwtDecoder jwtDecoder;
+  @MockitoBean private JwtDecoder jwtDecoder;
 
   private CartApi api;
 
@@ -318,12 +318,12 @@ class CartGeneratedClientHttpTest {
   @TestComponent
   @EnableAutoConfiguration(
       excludeName = {
-        "org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.mongo.MongoRepositoriesAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration",
-        "org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration",
+        "org.springframework.boot.mongodb.autoconfigure.MongoAutoConfiguration",
+        "org.springframework.boot.data.mongodb.autoconfigure.DataMongoAutoConfiguration",
+        "org.springframework.boot.data.mongodb.autoconfigure.DataMongoRepositoriesAutoConfiguration",
+        "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration",
+        "org.springframework.boot.data.redis.autoconfigure.DataRedisRepositoriesAutoConfiguration",
+        "org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration",
         "org.springframework.cloud.netflix.eureka.EurekaClientAutoConfiguration"
       })
   @Import({CartController.class, SecurityConfig.class, GlobalExceptionHandler.class})

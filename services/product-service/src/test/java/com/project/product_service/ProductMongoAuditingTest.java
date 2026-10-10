@@ -10,10 +10,10 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;
+import org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.MongoDBContainer;
+import org.testcontainers.mongodb.MongoDBContainer;
 
 @DataMongoTest
 @EnabledIfEnvironmentVariable(named = "PRODUCT_MONGO_INTEGRATION", matches = "true")
@@ -26,7 +26,7 @@ class ProductMongoAuditingTest {
   @DynamicPropertySource
   static void mongoProperties(DynamicPropertyRegistry registry) {
     MONGO.start();
-    registry.add("spring.data.mongodb.uri", MONGO::getReplicaSetUrl);
+    registry.add("spring.mongodb.uri", MONGO::getReplicaSetUrl);
   }
 
   @AfterAll

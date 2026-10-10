@@ -470,7 +470,7 @@ components:
         orderId:
           type: string
           maxLength: 100
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Order ID is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Order ID is required")'
           x-not-null-message: Order ID is required
           x-size-message: Order ID must not exceed 100 characters
         orderNumber:
@@ -480,7 +480,7 @@ components:
         paymentMethod:
           type: string
           maxLength: 50
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Payment method is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Payment method is required")'
           x-not-null-message: Payment method is required
           x-size-message: Payment method must not exceed 50 characters
         amount:
@@ -504,7 +504,7 @@ components:
         reason:
           type: string
           maxLength: 500
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Refund reason is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Refund reason is required")'
           x-not-null-message: Refund reason is required
           x-size-message: Refund reason must not exceed 500 characters
         amount:
@@ -692,7 +692,7 @@ components:
           type: string
           minLength: 1
           maxLength: 100
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Payment reference is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Payment reference is required")'
           x-not-null-message: Payment reference is required
         transactionId:
           type: string
@@ -701,7 +701,7 @@ components:
           type: string
           minLength: 1
           maxLength: 30
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Status is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Status is required")'
           x-not-null-message: Status is required
         failureReason:
           type: string

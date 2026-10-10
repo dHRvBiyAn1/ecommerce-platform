@@ -1,12 +1,11 @@
 package com.project.common.kafka;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Standard Kafka producer config every service can extend. Defaults to idempotent producers with
@@ -21,8 +20,8 @@ public final class KafkaProducerProps {
     Map<String, Object> props = new HashMap<>();
     props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
     props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-    props.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
+    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonSerializer.class);
+    props.put(JacksonJsonSerializer.ADD_TYPE_INFO_HEADERS, false);
     props.put(ProducerConfig.ACKS_CONFIG, "all");
     props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
     props.put(ProducerConfig.RETRIES_CONFIG, Integer.MAX_VALUE);
@@ -33,9 +32,8 @@ public final class KafkaProducerProps {
   }
 
   public static ObjectMapper objectMapper() {
-    ObjectMapper om = new ObjectMapper();
-    om.registerModule(new JavaTimeModule());
-    om.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-    return om;
+    return tools.jackson.databind.json.JsonMapper.builder()
+        .disable(tools.jackson.databind.cfg.DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
+        .build();
   }
 }

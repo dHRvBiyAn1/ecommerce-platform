@@ -23,7 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;
+import org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
@@ -35,9 +35,9 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.index.TextIndexDefinition.TextIndexDefinitionBuilder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.mongodb.MongoDBContainer;
 
 @Testcontainers
 @DataMongoTest
@@ -61,7 +61,7 @@ class ProductMongoIntegrationTest {
 
   @DynamicPropertySource
   static void mongoProperties(DynamicPropertyRegistry registry) {
-    registry.add("spring.data.mongodb.uri", MONGO::getReplicaSetUrl);
+    registry.add("spring.mongodb.uri", MONGO::getReplicaSetUrl);
   }
 
   @BeforeEach
@@ -69,7 +69,7 @@ class ProductMongoIntegrationTest {
     products.deleteAll();
     template
         .indexOps(Product.class)
-        .ensureIndex(
+        .createIndex(
             new TextIndexDefinitionBuilder().onField("name").onField("description").build());
     sellerId = UUID.randomUUID();
     productsCache = cacheManager.getCache("products");

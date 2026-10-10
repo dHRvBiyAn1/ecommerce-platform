@@ -27,8 +27,8 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.test.context.TestComponent;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
-import org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.Ordered;
@@ -98,12 +98,12 @@ class Java21ThreadingHttpTest {
   @TestConfiguration(proxyBeanMethods = false)
   @EnableAutoConfiguration(
       excludeName = {
-        "org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.mongo.MongoRepositoriesAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration",
-        "org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration",
-        "org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration",
+        "org.springframework.boot.mongodb.autoconfigure.MongoAutoConfiguration",
+        "org.springframework.boot.data.mongodb.autoconfigure.DataMongoAutoConfiguration",
+        "org.springframework.boot.data.mongodb.autoconfigure.DataMongoRepositoriesAutoConfiguration",
+        "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration",
+        "org.springframework.boot.data.redis.autoconfigure.DataRedisRepositoriesAutoConfiguration",
+        "org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration",
         "org.springframework.cloud.netflix.eureka.EurekaClientAutoConfiguration"
       })
   @Import({ThreadController.class, TestSecurityConfiguration.class, TraceScopeConfiguration.class})

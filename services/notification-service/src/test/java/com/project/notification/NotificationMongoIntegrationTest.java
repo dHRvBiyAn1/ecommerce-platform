@@ -7,7 +7,6 @@ import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
-import com.project.notification.application.mapper.NotificationMapper;
 import com.project.notification.application.validator.NotificationAccessValidator;
 import com.project.notification.config.NotificationIndexInitializer;
 import com.project.notification.model.Notification;
@@ -33,9 +32,9 @@ import org.mockito.Mockito;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.repository.support.MongoRepositoryFactory;
-import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.mongodb.MongoDBContainer;
 
 @Testcontainers
 class NotificationMongoIntegrationTest {
@@ -267,7 +266,7 @@ class NotificationMongoIntegrationTest {
             notifications,
             deliveries,
             emailService,
-            new NotificationMapper(),
+            new com.project.notification.generated.mapper.NotificationMapperImpl(),
             new NotificationAccessValidator());
 
     var page = service.listForUser(owner, PageRequest.of(0, 20));

@@ -32,9 +32,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @Testcontainers
 @SpringBootTest(
@@ -49,7 +49,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class CouponLifecycleConcurrencyTest {
 
   @Container
-  static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+  static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
 
   static {
     POSTGRES.start();

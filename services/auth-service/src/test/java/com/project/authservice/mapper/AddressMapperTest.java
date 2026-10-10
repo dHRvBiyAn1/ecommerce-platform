@@ -8,7 +8,8 @@ import org.junit.jupiter.api.Test;
 
 class AddressMapperTest {
 
-  private final AddressMapper mapper = new AddressMapper();
+  private final AddressMapper mapper =
+      new com.project.authservice.generated.mapper.AddressMapperImpl();
 
   @Test
   void mapsBothDirectionsWithoutDependencies() {

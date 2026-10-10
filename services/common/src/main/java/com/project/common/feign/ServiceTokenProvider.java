@@ -57,10 +57,10 @@ public class ServiceTokenProvider {
           throw new IllegalStateException(
               "Auth service returned an invalid service token response");
       case ServiceTokenResponse(
-          String accessToken,
-          String tokenType,
-          long expiresIn,
-          String scope) -> {
+              String accessToken,
+              String tokenType,
+              long expiresIn,
+              String scope) -> {
         if (accessToken == null
             || accessToken.isBlank()
             || !"Bearer".equalsIgnoreCase(tokenType)

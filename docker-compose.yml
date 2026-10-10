@@ -85,7 +85,7 @@ services:
       retries: 5
 
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.0@sha256:076ffdc200a51895a220a3c5f4692c73bd6d192ad6bd8db641ded4d2114c7e7b
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.5@sha256:b146294881f6bf3961a1d9e952ad5751f68fe0cc816d7e9b8ebf4891fddd9d05
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
@@ -93,7 +93,7 @@ services:
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ports: ["9200:9200"]
     volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
+      - elasticsearch_data_v9:/usr/share/elasticsearch/data
     deploy:
       resources:
         limits:
@@ -681,7 +681,8 @@ secrets:
 volumes:
   postgres_data:
   mongo_data:
-  elasticsearch_data:
+  # Keep the old Elasticsearch 8 volume intact; rebuild search indexes from MongoDB.
+  elasticsearch_data_v9:
   grafana_data:
   tempo_data:
   kafka_data:

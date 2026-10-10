@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
@@ -32,21 +31,21 @@ import org.bson.UuidRepresentation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;
+import org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.repository.support.MongoRepositoryFactory;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.mongodb.MongoDBContainer;
 
 @DataMongoTest(
     properties = {
       "spring.cloud.config.enabled=false",
       "spring.data.mongodb.auto-index-creation=true",
-      "spring.data.mongodb.uuid-representation=standard"
+      "spring.mongodb.representation.uuid=standard"
     })
 @Testcontainers
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -58,7 +57,7 @@ class OrderMongoIntegrationTest {
 
   @DynamicPropertySource
   static void mongoProperties(DynamicPropertyRegistry registry) {
-    registry.add("spring.data.mongodb.uri", () -> MONGO.getReplicaSetUrl(DATABASE));
+    registry.add("spring.mongodb.uri", () -> MONGO.getReplicaSetUrl(DATABASE));
   }
 
   @Autowired private OrderRepository orders;
@@ -166,7 +165,7 @@ class OrderMongoIntegrationTest {
         coupons,
         new OrderMapperImpl(),
         new OrderRequestValidator(),
-        new ObjectMapper().findAndRegisterModules());
+        tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build());
   }
 
   private static OrderRequest request() {

@@ -27,13 +27,16 @@ public final class CookieUtils {
     if (cookies == null) return;
     for (Cookie c : cookies) {
       if (c.getName().equals(name)) {
-        c.setValue("");
-        c.setPath("/");
-        c.setMaxAge(0);
-        c.setHttpOnly(true);
-        c.setSecure(true);
-        c.setAttribute("SameSite", "Strict");
-        response.addCookie(c);
+        response.addHeader(
+            org.springframework.http.HttpHeaders.SET_COOKIE,
+            org.springframework.http.ResponseCookie.from(name, "")
+                .path("/")
+                .maxAge(java.time.Duration.ZERO)
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .build()
+                .toString());
         return;
       }
     }

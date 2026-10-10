@@ -20,14 +20,14 @@ import com.project.payment.service.PaymentService;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(
@@ -40,19 +40,19 @@ import org.springframework.test.web.servlet.MockMvc;
 @Import({
   com.project.payment.config.SecurityConfig.class,
   GlobalExceptionHandler.class,
-  com.project.payment.application.mapper.PaymentMapper.class
+  com.project.payment.generated.mapper.PaymentMapperImpl.class
 })
 class PaymentControllerSecurityTest {
 
   @Autowired private MockMvc mockMvc;
 
-  @MockBean private PaymentService paymentService;
+  @MockitoBean private PaymentService paymentService;
 
-  @MockBean private PaymentAccessValidator accessValidator;
+  @MockitoBean private PaymentAccessValidator accessValidator;
 
-  @MockBean private JwtDecoder jwtDecoder;
+  @MockitoBean private JwtDecoder jwtDecoder;
 
-  @MockBean(name = "mongoMappingContext")
+  @MockitoBean(name = "mongoMappingContext")
   private MongoMappingContext mongoMappingContext;
 
   @Autowired private org.springframework.security.web.FilterChainProxy securityFilters;

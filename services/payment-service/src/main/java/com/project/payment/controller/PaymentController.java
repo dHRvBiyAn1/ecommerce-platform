@@ -192,8 +192,7 @@ public class PaymentController implements PaymentsApi {
     PaymentWebhookRequest payload;
     try {
       payload =
-          new com.fasterxml.jackson.databind.ObjectMapper()
-              .readValue(rawBody, PaymentWebhookRequest.class);
+          new tools.jackson.databind.ObjectMapper().readValue(rawBody, PaymentWebhookRequest.class);
     } catch (Exception e) {
       throw new PaymentException("Invalid webhook payload");
     }

@@ -5,8 +5,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.authservice.entity.RefreshToken;
 import com.project.authservice.entity.User;
 import com.project.authservice.repository.RefreshTokenRepository;
@@ -34,17 +32,19 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @Testcontainers
 @SpringBootTest(
@@ -64,7 +64,7 @@ class AuthPostgresIntegrationTest {
   private static final String DB_APPLICATION_NAME = "task25-refresh-concurrency";
 
   @Container
-  static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+  static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
 
   @Autowired private MockMvc mockMvc;
 
@@ -78,9 +78,9 @@ class AuthPostgresIntegrationTest {
 
   @Autowired private DataSource dataSource;
 
-  @MockBean private UserEventPublisher userEventPublisher;
+  @MockitoBean private UserEventPublisher userEventPublisher;
 
-  @MockBean private TokenBlacklistService tokenBlacklistService;
+  @MockitoBean private TokenBlacklistService tokenBlacklistService;
 
   @DynamicPropertySource
   static void databaseProperties(DynamicPropertyRegistry registry) {

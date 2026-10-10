@@ -1,7 +1,5 @@
 package com.project.payment.service.impl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.event.PaymentEvent;
 import com.project.common.exception.ResourceNotFoundException;
 import com.project.payment.application.mapper.PaymentMapper;
@@ -34,6 +32,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -716,7 +716,7 @@ public class PaymentServiceImpl implements PaymentService {
   private String payload(PaymentEvent.Type type, Payment payment) {
     try {
       return objectMapper.writeValueAsString(toEvent(type, payment));
-    } catch (JsonProcessingException exception) {
+    } catch (JacksonException exception) {
       throw new IllegalStateException("Unable to snapshot payment event", exception);
     }
   }

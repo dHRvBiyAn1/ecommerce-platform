@@ -1,7 +1,5 @@
 package com.project.order.kafka;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.constant.Topics;
 import com.project.common.event.OrderEvent;
 import com.project.order.model.Order;
@@ -15,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 @Slf4j
 @Service
@@ -28,7 +28,7 @@ public class OrderEventPublisher {
     final OrderEvent event;
     try {
       event = objectMapper.readValue(outboxEvent.getPayload(), OrderEvent.class);
-    } catch (JsonProcessingException exception) {
+    } catch (JacksonException exception) {
       return CompletableFuture.failedFuture(exception);
     }
     return kafkaTemplate
@@ -54,7 +54,7 @@ public class OrderEventPublisher {
             .build();
     try {
       return objectMapper.writeValueAsString(event);
-    } catch (JsonProcessingException exception) {
+    } catch (JacksonException exception) {
       throw new IllegalStateException("Unable to snapshot legacy order event", exception);
     }
   }

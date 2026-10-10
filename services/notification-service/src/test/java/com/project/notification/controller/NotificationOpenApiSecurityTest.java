@@ -22,13 +22,13 @@ import org.springdoc.core.properties.SpringDocConfigProperties;
 import org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(
@@ -42,7 +42,7 @@ import org.springframework.test.web.servlet.MockMvc;
   SecurityConfig.class,
   NotificationOpenApiConfiguration.class,
   GlobalExceptionHandler.class,
-  com.project.notification.application.mapper.NotificationMapper.class,
+  com.project.notification.generated.mapper.NotificationMapperImpl.class,
   SpringDocConfiguration.class,
   SpringDocWebMvcConfiguration.class,
   SpringDocSecurityConfiguration.class,
@@ -56,11 +56,11 @@ class NotificationOpenApiSecurityTest {
 
   @Autowired private MockMvc mockMvc;
 
-  @MockBean private NotificationService notificationService;
+  @MockitoBean private NotificationService notificationService;
 
-  @MockBean private JwtDecoder jwtDecoder;
+  @MockitoBean private JwtDecoder jwtDecoder;
 
-  @MockBean(name = "mongoMappingContext")
+  @MockitoBean(name = "mongoMappingContext")
   private MongoMappingContext mongoMappingContext;
 
   @Autowired private org.springframework.security.web.FilterChainProxy securityFilters;

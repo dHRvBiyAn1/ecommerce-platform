@@ -14,7 +14,7 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 
 @Configuration
 public class KafkaConfig {
@@ -41,7 +41,7 @@ public class KafkaConfig {
     Map<String, Object> props =
         KafkaConsumerProps.defaults(bootstrapServers, "order-service-payments");
     // Resolve every payload to PaymentEvent regardless of type-info headers
-    props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, PaymentEvent.class.getName());
+    props.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, PaymentEvent.class.getName());
     return new DefaultKafkaConsumerFactory<>(props);
   }
 

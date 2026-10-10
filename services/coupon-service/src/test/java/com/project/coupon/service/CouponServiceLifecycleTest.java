@@ -18,7 +18,6 @@ import com.project.coupon.generated.model.CouponReservationRequest;
 import com.project.coupon.generated.model.CouponReservationResponse;
 import com.project.coupon.generated.model.CouponTransitionRequest;
 import com.project.coupon.generated.model.RedeemCouponRequest;
-import com.project.coupon.mapper.CouponMapper;
 import com.project.coupon.repository.CouponRedemptionRepository;
 import com.project.coupon.repository.CouponRepository;
 import java.math.BigDecimal;
@@ -51,7 +50,11 @@ class CouponServiceLifecycleTest {
 
   @BeforeEach
   void setUp() {
-    service = new CouponService(couponRepository, redemptionRepository, new CouponMapper());
+    service =
+        new CouponService(
+            couponRepository,
+            redemptionRepository,
+            new com.project.coupon.generated.mapper.CouponMapperImpl());
     userId = UUID.randomUUID();
     coupon =
         Coupon.builder()

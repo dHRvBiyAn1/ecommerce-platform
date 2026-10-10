@@ -8,7 +8,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.exception.ForbiddenOperationException;
 import com.project.order.application.mapper.OrderMapperImpl;
 import com.project.order.application.validator.OrderRequestValidator;
@@ -43,6 +42,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
+import tools.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceImplTest {
@@ -67,7 +67,7 @@ class OrderServiceImplTest {
             couponClient,
             new OrderMapperImpl(),
             new OrderRequestValidator(),
-            new ObjectMapper().findAndRegisterModules());
+            tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build());
   }
 
   @Test

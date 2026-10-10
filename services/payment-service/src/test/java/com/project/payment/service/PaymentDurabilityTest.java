@@ -8,11 +8,9 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.event.PaymentEvent;
 import com.project.common.web.Responses;
 import com.project.payment.PaymentServiceApplication;
-import com.project.payment.application.mapper.PaymentMapper;
 import com.project.payment.application.validator.PaymentOrderValidator;
 import com.project.payment.application.validator.PaymentTransitionValidator;
 import com.project.payment.client.OrderClient;
@@ -62,6 +60,7 @@ import org.springframework.kafka.support.SendResult;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionOperations;
+import tools.jackson.databind.ObjectMapper;
 
 class PaymentDurabilityTest {
 
@@ -587,7 +586,9 @@ class PaymentDurabilityTest {
     PaymentOutboxRelay relay =
         new PaymentOutboxRelay(
             persistence.outboxRepository,
-            new PaymentEventPublisher(kafka, new ObjectMapper().findAndRegisterModules()));
+            new PaymentEventPublisher(
+                kafka,
+                tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build()));
 
     relay.relayEvents();
     relay.relayEvents();
@@ -630,7 +631,9 @@ class PaymentDurabilityTest {
     PaymentOutboxRelay relay =
         new PaymentOutboxRelay(
             persistence.outboxRepository,
-            new PaymentEventPublisher(kafka, new ObjectMapper().findAndRegisterModules()));
+            new PaymentEventPublisher(
+                kafka,
+                tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build()));
 
     relay.relayEvents();
     relay.relayEvents();
@@ -838,7 +841,9 @@ class PaymentDurabilityTest {
     PaymentOutboxRelay relay =
         new PaymentOutboxRelay(
             persistence.outboxRepository,
-            new PaymentEventPublisher(kafka, new ObjectMapper().findAndRegisterModules()));
+            new PaymentEventPublisher(
+                kafka,
+                tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build()));
 
     relay.relayEvents();
     PaymentOutboxEvent firstLease = persistence.outbox("outbox-1");
@@ -887,7 +892,9 @@ class PaymentDurabilityTest {
 
     new PaymentOutboxRelay(
             persistence.outboxRepository,
-            new PaymentEventPublisher(kafka, new ObjectMapper().findAndRegisterModules()))
+            new PaymentEventPublisher(
+                kafka,
+                tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build()))
         .relayEvents();
 
     assertThat(published).containsExactly("early-time", "a-earlier");
@@ -905,11 +912,11 @@ class PaymentDurabilityTest {
         persistence.receiptRepository,
         persistence.outboxRepository,
         gateway,
-        new PaymentMapper(),
+        new com.project.payment.generated.mapper.PaymentMapperImpl(),
         orderClient,
         new PaymentOrderValidator(),
         new PaymentTransitionValidator(),
-        new ObjectMapper().findAndRegisterModules());
+        tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build());
   }
 
   private PaymentGateway gateway() {
@@ -986,7 +993,9 @@ class PaymentDurabilityTest {
     String metadata = reference == null ? "{}" : "{\"paymentReference\":\"" + reference + "\"}";
     return "{\"id\":\""
         + id
-        + "\",\"object\":\"event\",\"api_version\":\"2026-04-22.dahlia\",\"type\":\""
+        + "\",\"object\":\"event\",\"api_version\":\""
+        + com.stripe.Stripe.API_VERSION
+        + "\",\"type\":\""
         + type
         + "\",\"data\":{\"object\":{\"id\":\""
         + intentId
@@ -996,7 +1005,8 @@ class PaymentDurabilityTest {
   }
 
   private static final class Persistence {
-    private final ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
+    private final ObjectMapper mapper =
+        tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build();
     private final List<Payment> payments = new ArrayList<>();
     private final List<PaymentOperation> operations = new ArrayList<>();
     private final List<WebhookReceipt> receipts = new ArrayList<>();

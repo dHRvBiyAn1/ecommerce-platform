@@ -2,7 +2,6 @@ package com.project.authservice;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.authservice.generated.model.AddressDto;
 import com.project.authservice.mapper.UserMapper;
 import jakarta.validation.Validation;
@@ -11,11 +10,13 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 
 class AuthNormalizationSliceRedTest {
 
   private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
-  private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+  private final ObjectMapper objectMapper =
+      tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build();
 
   @Test
   void addressDtoUsesDatabaseAlignedLimits() {
@@ -61,7 +62,11 @@ class AuthNormalizationSliceRedTest {
     var profile = new com.project.authservice.generated.model.UserProfileDto();
     assertThat(profile.getRoles()).isEmpty();
     assertThat(profile.getPermissions()).isEmpty();
-    assertThat(objectMapper.readTree(objectMapper.writeValueAsString(profile)).fieldNames())
+    assertThat(
+            objectMapper
+                .readTree(objectMapper.writeValueAsString(profile))
+                .propertyNames()
+                .iterator())
         .toIterable()
         .containsExactlyInAnyOrder(
             "id",

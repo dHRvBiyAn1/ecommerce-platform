@@ -37,8 +37,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -46,6 +45,7 @@ import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(
@@ -61,13 +61,13 @@ class ProductControllerSecurityTest {
 
   @Autowired private MockMvc mockMvc;
 
-  @MockBean private ProductService productService;
+  @MockitoBean private ProductService productService;
 
-  @MockBean private CategoryService categoryService;
+  @MockitoBean private CategoryService categoryService;
 
-  @MockBean private JwtDecoder jwtDecoder;
+  @MockitoBean private JwtDecoder jwtDecoder;
 
-  @MockBean(name = "mongoMappingContext")
+  @MockitoBean(name = "mongoMappingContext")
   private MongoMappingContext mongoMappingContext;
 
   @Autowired private org.springframework.security.web.FilterChainProxy securityFilters;

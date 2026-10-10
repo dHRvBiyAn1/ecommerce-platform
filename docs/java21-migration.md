@@ -1,5 +1,9 @@
 # Java 21 migration and rollout
 
+The later [Spring Boot 4 dependency migration](spring-boot4-migration.md) updates
+the framework and library versions. The dependency retention notes below describe
+the original Java 21 migration; its runtime validation requirements still apply.
+
 The backend now targets Java 21. The migration standardizes the build, CI, and
 service images on Java 21 and selectively adopts Java 21 language and runtime
 features. Virtual threads remain opt-in per application so product and cart

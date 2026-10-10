@@ -1,7 +1,5 @@
 package com.project.order.service.impl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.event.OrderEvent;
 import com.project.common.exception.ForbiddenOperationException;
 import com.project.common.exception.ResourceNotFoundException;
@@ -48,6 +46,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 @Slf4j
 @Service
@@ -552,7 +552,7 @@ public class OrderServiceImpl implements OrderService {
             .build();
     try {
       return objectMapper.writeValueAsString(event);
-    } catch (JsonProcessingException exception) {
+    } catch (JacksonException exception) {
       throw new IllegalStateException("Unable to snapshot order event", exception);
     }
   }

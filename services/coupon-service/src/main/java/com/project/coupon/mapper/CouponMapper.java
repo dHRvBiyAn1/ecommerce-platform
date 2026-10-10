@@ -7,10 +7,11 @@ import com.project.coupon.generated.model.CouponRequest;
 import com.project.coupon.generated.model.CouponReservationResponse;
 import com.project.coupon.generated.model.CouponResponse;
 import java.util.Locale;
-import org.springframework.stereotype.Component;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
-@Component
-public class CouponMapper {
+@Mapper(componentModel = "spring", implementationPackage = "com.project.coupon.generated.mapper")
+public abstract class CouponMapper {
 
   public Coupon toEntity(CouponRequest request) {
     return Coupon.builder()
@@ -44,36 +45,11 @@ public class CouponMapper {
     if (request.getActive() != null) coupon.setActive(request.getActive());
   }
 
-  public CouponResponse toResponse(Coupon coupon) {
-    return new CouponResponse()
-        .id(coupon.getId())
-        .code(coupon.getCode())
-        .description(coupon.getDescription())
-        .discountType(CouponResponse.DiscountTypeEnum.valueOf(coupon.getDiscountType().name()))
-        .discountValue(coupon.getDiscountValue())
-        .maxDiscountAmount(coupon.getMaxDiscountAmount())
-        .minOrderAmount(coupon.getMinOrderAmount())
-        .currency(coupon.getCurrency())
-        .validFrom(coupon.getValidFrom())
-        .validUntil(coupon.getValidUntil())
-        .usageLimit(coupon.getUsageLimit())
-        .usageCount(coupon.getUsageCount())
-        .reservedCount(coupon.getReservedCount())
-        .perUserLimit(coupon.getPerUserLimit())
-        .active(coupon.isActive())
-        .createdAt(coupon.getCreatedAt())
-        .updatedAt(coupon.getUpdatedAt());
-  }
+  public abstract CouponResponse toResponse(Coupon coupon);
 
-  public CouponReservationResponse toReservationResponse(CouponRedemption redemption) {
-    return new CouponReservationResponse()
-        .reservationId(redemption.getId())
-        .code(redemption.getCouponCode())
-        .userId(redemption.getUserId())
-        .orderId(redemption.getOrderId())
-        .discountAmount(redemption.getDiscountAmount())
-        .status(CouponReservationResponse.StatusEnum.valueOf(redemption.getStatus().name()));
-  }
+  @Mapping(target = "reservationId", source = "id")
+  @Mapping(target = "code", source = "couponCode")
+  public abstract CouponReservationResponse toReservationResponse(CouponRedemption redemption);
 
   public String normalizeCode(String code) {
     return code.trim().toUpperCase(Locale.ROOT);

@@ -112,6 +112,7 @@ public {{>sealed}}class {{classname}}{{#vendorExtensions.x-generic-type}}<{{{.}}
   /**
    * Constructor with only required parameters{{#generateConstructorWithAllArgs}}{{^vendorExtensions.x-java-all-args-constructor}} and all parameters{{/vendorExtensions.x-java-all-args-constructor}}{{/generateConstructorWithAllArgs}}
    */
+  @com.fasterxml.jackson.annotation.JsonCreator(mode = com.fasterxml.jackson.annotation.JsonCreator.Mode.DISABLED)
   public {{classname}}({{#requiredVars}}{{>nullableArgument_constructor}} {{name}}{{^-last}}, {{/-last}}{{/requiredVars}}) {
     {{#parent}}
     super({{#parentRequiredVars}}{{name}}{{^-last}}, {{/-last}}{{/parentRequiredVars}});
@@ -135,6 +136,7 @@ public {{>sealed}}class {{classname}}{{#vendorExtensions.x-generic-type}}<{{{.}}
   /**
    * Constructor with all args parameters
    */
+  @com.fasterxml.jackson.annotation.JsonCreator(mode = com.fasterxml.jackson.annotation.JsonCreator.Mode.DISABLED)
   public {{classname}}({{#vendorExtensions.x-java-all-args-constructor-vars}}{{>nullableArgument_constructor}} {{name}}{{^-last}}, {{/-last}}{{/vendorExtensions.x-java-all-args-constructor-vars}}) {
   {{#parent}}
       super({{#parentVars}}{{name}}{{^-last}}, {{/-last}}{{/parentVars}});

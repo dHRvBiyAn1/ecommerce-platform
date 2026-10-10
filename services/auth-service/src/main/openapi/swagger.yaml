@@ -1338,49 +1338,49 @@ components:
           maxLength: 120
           type: string
           x-not-null-message: Full name is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Full name is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Full name is required")'
           x-size-message: Full name must not exceed 120 characters
           x-jackson-json-include-policy: ALWAYS
         phone:
           pattern: "^\\+?[0-9 ()-]{6,20}$"
           type: string
           x-not-null-message: Phone number is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Phone number is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Phone number is required")'
           x-pattern-message: Invalid phone number
           x-jackson-json-include-policy: ALWAYS
         street:
           maxLength: 200
           type: string
           x-not-null-message: Street address is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Street address is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Street address is required")'
           x-size-message: Street address must not exceed 200 characters
           x-jackson-json-include-policy: ALWAYS
         city:
           maxLength: 80
           type: string
           x-not-null-message: City is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "City is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "City is required")'
           x-size-message: City must not exceed 80 characters
           x-jackson-json-include-policy: ALWAYS
         state:
           maxLength: 80
           type: string
           x-not-null-message: State/Province is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "State/Province is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "State/Province is required")'
           x-size-message: State must not exceed 80 characters
           x-jackson-json-include-policy: ALWAYS
         zipCode:
           maxLength: 20
           type: string
           x-not-null-message: Zip/Postal code is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Zip/Postal code is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Zip/Postal code is required")'
           x-size-message: Zip code must not exceed 20 characters
           x-jackson-json-include-policy: ALWAYS
         country:
           maxLength: 80
           type: string
           x-not-null-message: Country is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Country is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Country is required")'
           x-size-message: Country must not exceed 80 characters
           x-jackson-json-include-policy: ALWAYS
     UserUpdateRequest:
@@ -1496,7 +1496,7 @@ components:
           maxLength: 4000
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
     ApiResponseSellerApplicationResponse:
       type: object
       properties:
@@ -1647,7 +1647,7 @@ components:
           maxLength: 180
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
         gstin:
           pattern: "^[0-9A-Z]{15}$|^$"
           type: string
@@ -1656,7 +1656,7 @@ components:
           pattern: "^\\+?[0-9 ()-]{6,20}$"
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
           x-pattern-message: Invalid phone number
         pickupAddress:
           "$ref": "#/components/schemas/AddressDto"
@@ -1681,7 +1681,7 @@ components:
           format: email
           x-not-null-message: Email is required
           x-email-message: Email must be valid
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Email is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Email is required")'
         password:
           maxLength: 128
           minLength: 10
@@ -1689,7 +1689,7 @@ components:
           x-not-null-message: Password is required
           x-size-message: Password must be 10-128 characters
           x-field-extra-annotation: |
-            @jakarta.validation.constraints.NotBlank(message = "Password is required")
+            @jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Password is required")
             @jakarta.validation.constraints.Pattern.List({
                 @jakarta.validation.constraints.Pattern(regexp = ".*[A-Z].*", message = "Password must contain an uppercase letter"),
                 @jakarta.validation.constraints.Pattern(regexp = ".*[a-z].*", message = "Password must contain a lowercase letter"),
@@ -1700,7 +1700,7 @@ components:
           minLength: 2
           type: string
           x-not-null-message: Display name is required
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Display name is required")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "Display name is required")'
     ApiResponseVoid:
       type: object
       properties:
@@ -1731,13 +1731,13 @@ components:
         oldPassword:
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
         newPassword:
           maxLength: 100
           minLength: 6
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
     CreateRoleRequest:
       required:
       - name
@@ -1747,7 +1747,7 @@ components:
           pattern: "^ROLE_[A-Z_]+$"
           type: string
           x-not-null-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
           x-pattern-message: Role name must match ROLE_[A-Z_]+
     ApiResponsePageUserProfileDto:
       type: object

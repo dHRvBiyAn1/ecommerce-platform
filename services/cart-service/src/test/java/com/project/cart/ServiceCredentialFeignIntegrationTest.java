@@ -20,9 +20,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.mongodb.MongoDBContainer;
 
 @Testcontainers
 @SpringBootTest(
@@ -79,7 +79,7 @@ class ServiceCredentialFeignIntegrationTest {
 
   @DynamicPropertySource
   static void properties(DynamicPropertyRegistry registry) {
-    registry.add("spring.data.mongodb.uri", MONGO::getReplicaSetUrl);
+    registry.add("spring.mongodb.uri", MONGO::getReplicaSetUrl);
     registry.add(
         "service.auth.token-uri",
         () -> "http://localhost:" + AUTH_SERVER.getAddress().getPort() + "/api/auth/token");

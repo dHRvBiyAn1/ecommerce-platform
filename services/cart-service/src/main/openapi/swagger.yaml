@@ -244,7 +244,7 @@ components:
           minLength: 1
           x-not-null-message: must not be blank
           x-size-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
           description: Product identifier.
         quantity:
           type: integer
@@ -263,7 +263,7 @@ components:
           minLength: 1
           x-not-null-message: must not be blank
           x-size-message: must not be blank
-          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank'
+          x-field-extra-annotation: '@jakarta.validation.constraints.Pattern(regexp = "[\\s\\S]*[^\\x00-\\x20][\\s\\S]*", message = "must not be blank")'
           description: Coupon code.
       required:
       - code

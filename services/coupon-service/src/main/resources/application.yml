@@ -13,3 +13,7 @@ common:
   security:
     resource-server:
       enabled: false
+
+springdoc:
+  api-docs:
+    version: OPENAPI_3_0

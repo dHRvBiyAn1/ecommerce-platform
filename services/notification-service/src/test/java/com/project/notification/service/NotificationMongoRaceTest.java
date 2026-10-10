@@ -6,7 +6,6 @@ import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
-import com.project.notification.application.mapper.NotificationMapper;
 import com.project.notification.application.validator.NotificationAccessValidator;
 import com.project.notification.config.NotificationIndexInitializer;
 import com.project.notification.generated.model.NotificationResponse;
@@ -25,9 +24,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.repository.support.MongoRepositoryFactory;
-import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.mongodb.MongoDBContainer;
 
 @Testcontainers(disabledWithoutDocker = true)
 @EnabledIfSystemProperty(named = "notification.mongo.integration", matches = "true")
@@ -56,7 +55,7 @@ class NotificationMongoRaceTest {
               notificationRepository,
               deliveryRepository,
               null,
-              new NotificationMapper(),
+              new com.project.notification.generated.mapper.NotificationMapperImpl(),
               new NotificationAccessValidator());
 
       UUID userId = UUID.randomUUID();

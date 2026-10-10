@@ -3,9 +3,7 @@ package com.project.payment;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.constant.Topics;
-import com.project.payment.application.mapper.PaymentMapper;
 import com.project.payment.application.validator.PaymentOrderValidator;
 import com.project.payment.application.validator.PaymentTransitionValidator;
 import com.project.payment.client.OrderClient;
@@ -31,15 +29,15 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;
+import org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.KafkaContainer;
+import org.testcontainers.mongodb.MongoDBContainer;
 import org.testcontainers.utility.DockerImageName;
 
 @Testcontainers
@@ -62,7 +60,7 @@ class PaymentMongoKafkaIntegrationTest {
 
   @DynamicPropertySource
   static void properties(DynamicPropertyRegistry registry) {
-    registry.add("spring.data.mongodb.uri", MONGO::getReplicaSetUrl);
+    registry.add("spring.mongodb.uri", MONGO::getReplicaSetUrl);
   }
 
   @BeforeEach
@@ -94,11 +92,11 @@ class PaymentMongoKafkaIntegrationTest {
             receipts,
             outbox,
             mock(PaymentGateway.class),
-            new PaymentMapper(),
+            new com.project.payment.generated.mapper.PaymentMapperImpl(),
             mock(OrderClient.class),
             new PaymentOrderValidator(),
             new PaymentTransitionValidator(),
-            new ObjectMapper().findAndRegisterModules());
+            tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build());
     PaymentWebhookRequest webhook = new PaymentWebhookRequest("PAY-1", "pi-1", "COMPLETED", null);
 
     service.handleStripeWebhook("evt-1", "payment_intent.succeeded", "PAY-1", webhook);
@@ -115,7 +113,8 @@ class PaymentMongoKafkaIntegrationTest {
           new PaymentOutboxRelay(
               outbox,
               new PaymentEventPublisher(
-                  kafkaTemplate(), new ObjectMapper().findAndRegisterModules()));
+                  kafkaTemplate(),
+                  tools.jackson.databind.json.JsonMapper.builder().findAndAddModules().build()));
       relay.relayEvents();
       relay.relayEvents();
       Iterable<ConsumerRecord<String, String>> events =

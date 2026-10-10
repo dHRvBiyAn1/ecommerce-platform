@@ -51,7 +51,7 @@ Prefer clear, minimal changes and existing libraries over speculative abstractio
 Use typed boundaries, centralized exception handling, and SLF4J logging.
 
 Test changed business behavior and failure paths with the project's existing
-JUnit 5, Mockito, AssertJ, and frontend test tools. Maintain the checked-in coverage
+JUnit Jupiter, Mockito, AssertJ, and frontend test tools. Maintain the checked-in coverage
 baselines and critical-class thresholds; do not weaken them to accommodate a change.
 Choose verification proportional to the change and report any unverified behavior.
 Compilation, unit tests, and local smoke checks do not establish production readiness.

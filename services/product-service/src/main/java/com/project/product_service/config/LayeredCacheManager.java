@@ -1,8 +1,5 @@
 package com.project.product_service.config;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.project.product_service.generated.model.CategoryResponse;
 import com.project.product_service.generated.model.ProductResponse;
@@ -14,12 +11,14 @@ import java.util.function.Function;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.data.redis.core.RedisTemplate;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 public class LayeredCacheManager implements CacheManager {
 
   private final RedisTemplate<String, Object> redisTemplate;
   private final ObjectMapper cacheValueMapper =
-      new ObjectMapper().registerModule(new JavaTimeModule());
+      tools.jackson.databind.json.JsonMapper.builder().build();
   private final ConcurrentHashMap<String, Cache> caches = new ConcurrentHashMap<>();
 
   public LayeredCacheManager(RedisTemplate<String, Object> redisTemplate) {
