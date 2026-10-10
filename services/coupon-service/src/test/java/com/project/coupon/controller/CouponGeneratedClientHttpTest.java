@@ -144,7 +144,8 @@ class CouponGeneratedClientHttpTest {
         assertThat(reservation.getStatus()).isEqualTo(
                 com.project.coupon.generated.testclient.model.CouponReservationResponse.StatusEnum.RESERVED);
         verify(couponService).validate(argThat(request -> "SAVE10".equals(request.getCode())
-                && OWNER.equals(request.getUserId()) && new BigDecimal("75.00").equals(request.getSubtotal())
+                && OWNER.equals(request.getUserId()) && request.getSubtotal() != null
+                && request.getSubtotal().compareTo(new BigDecimal("75.00")) == 0
                 && "INR".equals(request.getCurrency())));
     }
 
@@ -203,7 +204,8 @@ class CouponGeneratedClientHttpTest {
         assertThat(denied.getResponseBody()).contains("FORBIDDEN");
         assertThat(serviceResult.getValid()).isTrue();
         verify(couponService).validate(argThat(request -> "SAVE10".equals(request.getCode())
-                && OTHER.equals(request.getUserId()) && new BigDecimal("10.00").equals(request.getSubtotal())
+                && OTHER.equals(request.getUserId()) && request.getSubtotal() != null
+                && request.getSubtotal().compareTo(new BigDecimal("10.00")) == 0
                 && request.getCurrency() == null));
     }
 

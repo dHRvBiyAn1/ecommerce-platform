@@ -222,6 +222,28 @@ class OrderDurabilityTest {
     }
 
     @Test
+    void persistedExpiredInProgressLeaseCanBeReclaimed() {
+        RepositoryHarness persistence = new RepositoryHarness();
+        Order order = recoverableOrder();
+        order.getSagaState().setNextAttemptAt(LocalDateTime.of(2000, 1, 1, 0, 0));
+        SagaState.Operation operation = order.getSagaState().getOperations().get(0);
+        operation.setStatus(SagaState.OperationStatus.IN_PROGRESS);
+        operation.setLeaseToken("stale-owner");
+        operation.setLeaseUntil(LocalDateTime.of(2000, 1, 1, 0, 0));
+        persistence.persist(order);
+        InventoryClient inventory = mock(InventoryClient.class);
+
+        service(persistence.repository(), availableProduct(), inventory).recoverOrders();
+
+        assertThat(persistence.stored().getSagaState().getOperations()).singleElement().satisfies(recovered -> {
+            assertThat(recovered.getStatus()).isEqualTo(SagaState.OperationStatus.COMPLETED);
+            assertThat(recovered.getLeaseToken()).isNull();
+            assertThat(recovered.getLeaseUntil()).isNull();
+        });
+        verify(inventory).reserve(any(), any());
+    }
+
+    @Test
     void completionConflictsConvergeWithoutRepeatingExternalOperation() {
         RepositoryHarness persistence = new RepositoryHarness();
         persistence.persist(recoverableOrder());
