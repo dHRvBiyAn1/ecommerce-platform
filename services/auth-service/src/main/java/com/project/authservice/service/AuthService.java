@@ -1,8 +1,7 @@
 package com.project.authservice.service;
 
-import com.project.authservice.dto.request.RegistrationRequest;
-import com.project.authservice.dto.TokenResponse;
-import com.project.authservice.dto.response.UserProfileDto;
+import com.project.authservice.generated.model.RegistrationRequest;
+import com.project.authservice.generated.model.UserProfileDto;
 import com.project.authservice.entity.AuthProvider;
 import com.project.authservice.entity.RefreshToken;
 import com.project.authservice.entity.Role;
@@ -19,7 +18,6 @@ import com.project.authservice.repository.UserRepository;
 import com.project.common.constant.Roles;
 import com.project.common.event.UserEvent;
 import jakarta.transaction.Transactional;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -56,15 +54,15 @@ public class AuthService {
      */
     @Transactional
     public UserProfileDto register(RegistrationRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
+        if (userRepository.existsByEmail(request.getEmail())) {
             throw new UserAlreadyExistsException("Email already in use");
         }
         Role customerRole = roleRepository.findByName(Roles.CUSTOMER)
                 .orElseThrow(() -> new IllegalStateException(Roles.CUSTOMER + " role missing"));
 
         User user = new User();
-        user.setEmail(request.email());
-        user.setDisplayName(request.displayName());
+        user.setEmail(request.getEmail());
+        user.setDisplayName(request.getDisplayName());
         user.setActive(true);
         user.getRoles().add(customerRole);
         user = userRepository.save(user);
@@ -72,7 +70,7 @@ public class AuthService {
         UserCredential credential = new UserCredential();
         credential.setUser(user);
         credential.setAuthProvider(AuthProvider.LOCAL);
-        credential.setPasswordHash(passwordEncoder.encode(request.password()));
+        credential.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         userCredentialRepository.save(credential);
 
         userEventPublisher.publish(UserEvent.userEventBuilder()
@@ -241,13 +239,16 @@ public class AuthService {
         return createTokenPair(user, UUID.randomUUID(), userAgent, ipAddress);
     }
 
-    @Getter
-    public static class TokenResponseWithRefresh extends TokenResponse {
+    public static class TokenResponseWithRefresh {
+        private final String accessToken;
         private final String refreshToken;
 
         public TokenResponseWithRefresh(String accessToken, String refreshToken) {
-            super(accessToken);
+            this.accessToken = accessToken;
             this.refreshToken = refreshToken;
         }
+
+        public String getAccessToken() { return accessToken; }
+        public String getRefreshToken() { return refreshToken; }
     }
 }

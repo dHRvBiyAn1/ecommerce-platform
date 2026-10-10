@@ -1,167 +1,116 @@
 package com.project.coupon.controller;
 
-import com.project.common.security.CurrentUser;
+import com.project.common.constant.Permissions;
+import com.project.common.constant.ServiceScopes;
 import com.project.common.exception.ForbiddenOperationException;
-import com.project.common.dto.ErrorResponse;
-import com.project.coupon.dto.CouponRequest;
-import com.project.coupon.dto.CouponReservationRequest;
-import com.project.coupon.dto.CouponReservationResponse;
-import com.project.coupon.dto.CouponResponse;
-import com.project.coupon.dto.CouponTransitionRequest;
-import com.project.coupon.dto.RedeemCouponRequest;
-import com.project.coupon.dto.ValidateCouponRequest;
-import com.project.coupon.dto.ValidateCouponResponse;
+import com.project.common.security.CurrentUser;
+import com.project.coupon.mapper.CouponApiMapper;
 import com.project.coupon.service.CouponService;
 import com.project.coupon.validation.CouponRequestValidator;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
+import com.project.coupon.generated.api.CouponsApi;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
-import static com.project.common.constant.Permissions.COUPONS_READ;
-import static com.project.common.constant.Permissions.COUPONS_WRITE;
-import static com.project.common.constant.ServiceScopes.AUTHORITY_COUPONS_READ;
-import static com.project.common.constant.ServiceScopes.AUTHORITY_COUPONS_WRITE;
-import static com.project.coupon.config.CouponOpenApiConfiguration.FORBIDDEN_ERROR;
-import static com.project.coupon.config.CouponOpenApiConfiguration.UNAUTHORIZED_ERROR;
-
 @RestController
-@RequestMapping("/api/v1/coupons")
 @RequiredArgsConstructor
-@Tag(name = "Coupons", description = "Coupon administration, validation, and checkout lifecycle")
-@SecurityRequirement(name = "bearerAuth")
-@ApiResponses({
-        @ApiResponse(responseCode = "401", ref = UNAUTHORIZED_ERROR,
-                content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-        @ApiResponse(responseCode = "403", ref = FORBIDDEN_ERROR,
-                content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Validation failed",
-                content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-})
-public class CouponController {
+public class CouponController implements CouponsApi {
 
     private final CouponService couponService;
     private final CouponRequestValidator requestValidator;
+    private final CouponApiMapper apiMapper;
 
-    // -------------------------- Admin CRUD --------------------------
-
-    @PostMapping
-    @PreAuthorize("hasRole('ADMIN') and hasAuthority('" + COUPONS_WRITE + "')")
-    @Operation(summary = "Create a coupon")
-    public ResponseEntity<CouponResponse> create(@Valid @RequestBody CouponRequest req) {
-        requestValidator.validateDefinition(req);
-        return new ResponseEntity<>(couponService.create(req), HttpStatus.CREATED);
+    @Override
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('" + Permissions.COUPONS_WRITE + "')")
+    public ResponseEntity<com.project.coupon.generated.model.CouponResponse> createCoupon(
+            com.project.coupon.generated.model.CouponRequest request) {
+        requestValidator.validateDefinition(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(couponService.create(request));
     }
 
-    @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') and hasAuthority('" + COUPONS_WRITE + "')")
-    @Operation(summary = "Update a coupon")
-    public ResponseEntity<CouponResponse> update(@PathVariable UUID id, @Valid @RequestBody CouponRequest req) {
-        requestValidator.validateDefinition(req);
-        return ResponseEntity.ok(couponService.update(id, req));
+    @Override
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('" + Permissions.COUPONS_WRITE + "')")
+    public ResponseEntity<com.project.coupon.generated.model.CouponResponse> updateCoupon(
+            UUID id, com.project.coupon.generated.model.CouponRequest request) {
+        requestValidator.validateDefinition(request);
+        return ResponseEntity.ok(couponService.update(id, request));
     }
 
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') and hasAuthority('" + COUPONS_WRITE + "')")
-    @Operation(summary = "Delete a coupon")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+    @Override
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('" + Permissions.COUPONS_WRITE + "')")
+    public ResponseEntity<Void> deleteCoupon(UUID id) {
         couponService.delete(id);
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('" + COUPONS_READ + "') or hasRole('ADMIN')")
-    @Operation(summary = "Get a coupon")
-    public ResponseEntity<CouponResponse> get(@PathVariable UUID id) {
+    @Override
+    @PreAuthorize("hasAuthority('" + Permissions.COUPONS_READ + "') or hasRole('ADMIN')")
+    public ResponseEntity<com.project.coupon.generated.model.CouponResponse> getCoupon(UUID id) {
         return ResponseEntity.ok(couponService.get(id));
     }
 
-    @GetMapping
-    @PreAuthorize("hasAuthority('" + COUPONS_READ + "') or hasRole('ADMIN')")
-    @Operation(summary = "List coupons")
-    public ResponseEntity<Page<CouponResponse>> list(
+    @Override
+    @PreAuthorize("hasAuthority('" + Permissions.COUPONS_READ + "') or hasRole('ADMIN')")
+    public ResponseEntity<com.project.coupon.generated.model.PageCouponResponse> listCoupons(
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(couponService.list(pageable));
+        return ResponseEntity.ok(apiMapper.toApi(couponService.list(pageable)));
     }
 
-    // -------------------------- Validate / redeem --------------------------
-
-    /**
-     * Called by cart-service when the customer applies a coupon code. Any
-     * authenticated user may call it for their own validation.
-     */
-    @PostMapping("/validate")
-    @PreAuthorize("isAuthenticated() and (!T(com.project.common.security.CurrentUser).isService() or hasAuthority('" + AUTHORITY_COUPONS_READ + "'))")
-    @Operation(summary = "Validate a coupon without reserving it")
-    public ResponseEntity<ValidateCouponResponse> validate(@Valid @RequestBody ValidateCouponRequest req) {
-        requestValidator.validateValidation(req);
-        validateActor(req.userId(), AUTHORITY_COUPONS_READ);
-        return ResponseEntity.ok(couponService.validate(req));
+    @Override
+    @PreAuthorize("isAuthenticated() and (!T(com.project.common.security.CurrentUser).isService() or hasAuthority('"
+            + ServiceScopes.AUTHORITY_COUPONS_READ + "'))")
+    public ResponseEntity<com.project.coupon.generated.model.ValidateCouponResponse> validateCoupon(
+            com.project.coupon.generated.model.ValidateCouponRequest request) {
+        requestValidator.validateValidation(request);
+        validateActor(request.getUserId(), ServiceScopes.AUTHORITY_COUPONS_READ);
+        return ResponseEntity.ok(couponService.validate(request));
     }
 
-    @PostMapping("/reserve")
-    @PreAuthorize("isAuthenticated() and (!T(com.project.common.security.CurrentUser).isService() or hasAuthority('" + AUTHORITY_COUPONS_WRITE + "'))")
-    @Operation(summary = "Reserve coupon capacity for an order")
-    public ResponseEntity<CouponReservationResponse> reserve(
-            @Valid @RequestBody CouponReservationRequest req) {
-        requestValidator.validateReservation(req);
-        validateActor(req.userId(), AUTHORITY_COUPONS_WRITE);
-        return ResponseEntity.ok(couponService.reserve(req));
+    @Override
+    @PreAuthorize("isAuthenticated() and (!T(com.project.common.security.CurrentUser).isService() or hasAuthority('"
+            + ServiceScopes.AUTHORITY_COUPONS_WRITE + "'))")
+    public ResponseEntity<com.project.coupon.generated.model.CouponReservationResponse> reserveCoupon(
+            com.project.coupon.generated.model.CouponReservationRequest request) {
+        requestValidator.validateReservation(request);
+        validateActor(request.getUserId(), ServiceScopes.AUTHORITY_COUPONS_WRITE);
+        return ResponseEntity.ok(couponService.reserve(request));
     }
 
-    @PostMapping("/commit")
-    @PreAuthorize("isAuthenticated() and (!T(com.project.common.security.CurrentUser).isService() or hasAuthority('" + AUTHORITY_COUPONS_WRITE + "'))")
-    @Operation(summary = "Commit an order's coupon reservation after checkout succeeds")
-    public ResponseEntity<CouponReservationResponse> commit(
-            @Valid @RequestBody CouponTransitionRequest req) {
-        requestValidator.validateTransition(req);
-        validateActor(req.userId(), AUTHORITY_COUPONS_WRITE);
-        return ResponseEntity.ok(couponService.commit(req));
+    @Override
+    @PreAuthorize("isAuthenticated() and (!T(com.project.common.security.CurrentUser).isService() or hasAuthority('"
+            + ServiceScopes.AUTHORITY_COUPONS_WRITE + "'))")
+    public ResponseEntity<com.project.coupon.generated.model.CouponReservationResponse> commitCouponReservation(
+            com.project.coupon.generated.model.CouponTransitionRequest request) {
+        requestValidator.validateTransition(request);
+        validateActor(request.getUserId(), ServiceScopes.AUTHORITY_COUPONS_WRITE);
+        return ResponseEntity.ok(couponService.commit(request));
     }
 
-    @PostMapping("/release")
-    @PreAuthorize("isAuthenticated() and (!T(com.project.common.security.CurrentUser).isService() or hasAuthority('" + AUTHORITY_COUPONS_WRITE + "'))")
-    @Operation(summary = "Release an order's coupon reservation after checkout fails")
-    public ResponseEntity<CouponReservationResponse> release(
-            @Valid @RequestBody CouponTransitionRequest req) {
-        requestValidator.validateTransition(req);
-        validateActor(req.userId(), AUTHORITY_COUPONS_WRITE);
-        return ResponseEntity.ok(couponService.release(req));
+    @Override
+    @PreAuthorize("isAuthenticated() and (!T(com.project.common.security.CurrentUser).isService() or hasAuthority('"
+            + ServiceScopes.AUTHORITY_COUPONS_WRITE + "'))")
+    public ResponseEntity<com.project.coupon.generated.model.CouponReservationResponse> releaseCouponReservation(
+            com.project.coupon.generated.model.CouponTransitionRequest request) {
+        requestValidator.validateTransition(request);
+        validateActor(request.getUserId(), ServiceScopes.AUTHORITY_COUPONS_WRITE);
+        return ResponseEntity.ok(couponService.release(request));
     }
 
-    /**
-     * Called by order-service after a payment is captured. Atomically
-     * increments usageCount and records a redemption row.
-     */
-    @PostMapping("/redeem")
-    @PreAuthorize("isAuthenticated() and (!T(com.project.common.security.CurrentUser).isService() or hasAuthority('" + AUTHORITY_COUPONS_WRITE + "'))")
-    @Operation(summary = "Directly commit a coupon for backward-compatible post-payment callers")
-    public ResponseEntity<ValidateCouponResponse> redeem(@Valid @RequestBody RedeemCouponRequest req) {
-        requestValidator.validateRedemption(req);
-        validateActor(req.userId(), AUTHORITY_COUPONS_WRITE);
-        return ResponseEntity.ok(couponService.redeem(req));
+    @Override
+    @PreAuthorize("isAuthenticated() and (!T(com.project.common.security.CurrentUser).isService() or hasAuthority('"
+            + ServiceScopes.AUTHORITY_COUPONS_WRITE + "'))")
+    public ResponseEntity<com.project.coupon.generated.model.ValidateCouponResponse> redeemCoupon(
+            com.project.coupon.generated.model.RedeemCouponRequest request) {
+        requestValidator.validateRedemption(request);
+        validateActor(request.getUserId(), ServiceScopes.AUTHORITY_COUPONS_WRITE);
+        return ResponseEntity.ok(couponService.redeem(request));
     }
 
     private void validateActor(UUID claimedUserId, String requiredScope) {
@@ -173,4 +122,5 @@ public class CouponController {
         }
         requestValidator.validateActor(claimedUserId, CurrentUser.requireId(), CurrentUser.isAdmin());
     }
+
 }

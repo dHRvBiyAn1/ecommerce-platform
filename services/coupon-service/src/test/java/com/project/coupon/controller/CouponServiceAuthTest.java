@@ -1,7 +1,6 @@
 package com.project.coupon.controller;
 
 import com.project.common.exception.ForbiddenOperationException;
-import com.project.coupon.dto.*;
 import com.project.coupon.service.CouponService;
 import com.project.coupon.validation.CouponRequestValidator;
 import org.junit.jupiter.api.AfterEach;
@@ -34,10 +33,11 @@ class CouponServiceAuthTest {
     private static final String OTHER = "00000000-0000-0000-0000-000000000002";
 
     @Configuration
-    @EnableMethodSecurity
+    @EnableMethodSecurity(proxyTargetClass = true)
     static class Config {
         @Bean CouponController controller() {
-            return new CouponController(mock(CouponService.class), new CouponRequestValidator());
+            return new CouponController(mock(CouponService.class), new CouponRequestValidator(),
+                    new com.project.coupon.generated.mapper.CouponApiMapperImpl());
         }
     }
 
@@ -86,11 +86,16 @@ class CouponServiceAuthTest {
         }
         org.assertj.core.api.ThrowableAssert.ThrowingCallable call = () -> {
             var response = switch (endpoint) {
-                case "validate" -> controller.validate(new ValidateCouponRequest("SAVE10", OWNER, BigDecimal.TEN, "INR"));
-                case "reserve" -> controller.reserve(new CouponReservationRequest("SAVE10", OWNER, "order-1", BigDecimal.TEN, "INR"));
-                case "commit" -> controller.commit(new CouponTransitionRequest("SAVE10", OWNER, "order-1"));
-                case "release" -> controller.release(new CouponTransitionRequest("SAVE10", OWNER, "order-1"));
-                default -> controller.redeem(new RedeemCouponRequest("SAVE10", OWNER, "order-1", BigDecimal.ONE));
+                case "validate" -> controller.validateCoupon(new com.project.coupon.generated.model.ValidateCouponRequest()
+                        .code("SAVE10").userId(OWNER).subtotal(BigDecimal.TEN).currency("INR"));
+                case "reserve" -> controller.reserveCoupon(new com.project.coupon.generated.model.CouponReservationRequest()
+                        .code("SAVE10").userId(OWNER).orderId("order-1").subtotal(BigDecimal.TEN).currency("INR"));
+                case "commit" -> controller.commitCouponReservation(new com.project.coupon.generated.model.CouponTransitionRequest()
+                        .code("SAVE10").userId(OWNER).orderId("order-1"));
+                case "release" -> controller.releaseCouponReservation(new com.project.coupon.generated.model.CouponTransitionRequest()
+                        .code("SAVE10").userId(OWNER).orderId("order-1"));
+                default -> controller.redeemCoupon(new com.project.coupon.generated.model.RedeemCouponRequest()
+                        .code("SAVE10").userId(OWNER).orderId("order-1").discountAmount(BigDecimal.ONE));
             };
             assertThat(response.getStatusCode().value()).isEqualTo(200);
         };

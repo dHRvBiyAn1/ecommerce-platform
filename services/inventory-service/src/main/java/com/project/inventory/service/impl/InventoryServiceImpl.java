@@ -5,8 +5,8 @@ import com.project.common.event.InventoryEvent;
 import com.project.common.exception.DuplicateResourceException;
 import com.project.common.exception.ResourceNotFoundException;
 import com.project.common.exception.ValidationException;
-import com.project.inventory.api.dto.request.InventoryRequest;
-import com.project.inventory.api.dto.response.InventoryResponse;
+import com.project.inventory.generated.model.InventoryRequest;
+import com.project.inventory.generated.model.InventoryResponse;
 import com.project.inventory.application.mapper.InventoryMapper;
 import com.project.inventory.application.validator.InventoryValidator;
 import com.project.inventory.domain.model.InventoryItem;
@@ -79,20 +79,21 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public InventoryResponse createInventory(InventoryRequest request) {
-        if (inventoryRepository.findByProductId(request.productId()).isPresent()) {
-            throw new DuplicateResourceException("Inventory exists for product " + request.productId());
+        if (inventoryRepository.findByProductId(request.getProductId()).isPresent()) {
+            throw new DuplicateResourceException("Inventory exists for product " + request.getProductId());
         }
-        if (inventoryRepository.findBySku(request.sku()).isPresent()) {
-            throw new DuplicateResourceException("Inventory exists for sku " + request.sku());
+        if (inventoryRepository.findBySku(request.getSku()).isPresent()) {
+            throw new DuplicateResourceException("Inventory exists for sku " + request.getSku());
         }
         InventoryItem item = new InventoryItem();
-        item.setProductId(request.productId());
-        item.setSku(request.sku());
-        item.setQuantity(request.quantity());
+        item.setProductId(request.getProductId());
+        item.setSku(request.getSku());
+        item.setQuantity(valueOrZero(request.getQuantity()));
         item.setReservedQuantity(0);
-        item.setLowStockThreshold(request.lowStockThreshold() > 0 ? request.lowStockThreshold() : 10);
-        item.setLocation(request.location());
-        if (request.quantity() > 0) item.setLastRestockedAt(LocalDateTime.now());
+        item.setLowStockThreshold(valueOrZero(request.getLowStockThreshold()) > 0
+                ? request.getLowStockThreshold() : 10);
+        item.setLocation(request.getLocation());
+        if (valueOrZero(request.getQuantity()) > 0) item.setLastRestockedAt(LocalDateTime.now());
         item = inventoryRepository.save(item);
         cacheItem(item);
         publish(InventoryEvent.Type.INVENTORY_CREATED, item, item.getQuantity(), null);
@@ -105,11 +106,13 @@ public class InventoryServiceImpl implements InventoryService {
         InventoryItem item = inventoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory", id));
         inventoryValidator.validateUpdate(item, request);
-        int delta = request.quantity() - item.getQuantity();
-        item.setSku(request.sku());
-        item.setQuantity(request.quantity());
-        item.setLowStockThreshold(request.lowStockThreshold() > 0 ? request.lowStockThreshold() : 10);
-        item.setLocation(request.location());
+        int quantity = valueOrZero(request.getQuantity());
+        int delta = quantity - item.getQuantity();
+        item.setSku(request.getSku());
+        item.setQuantity(quantity);
+        item.setLowStockThreshold(valueOrZero(request.getLowStockThreshold()) > 0
+                ? request.getLowStockThreshold() : 10);
+        item.setLocation(request.getLocation());
         if (delta > 0) item.setLastRestockedAt(LocalDateTime.now());
         item = inventoryRepository.save(item);
         cacheItem(item);
@@ -297,7 +300,7 @@ public class InventoryServiceImpl implements InventoryService {
     public boolean isInStock(String productId, int quantity) {
         try {
             InventoryResponse r = getByProductId(productId);
-            return quantity > 0 && r.availableQuantity() >= quantity;
+            return quantity > 0 && r.getAvailableQuantity() >= quantity;
         } catch (ResourceNotFoundException e) {
             return false;
         }
@@ -312,6 +315,10 @@ public class InventoryServiceImpl implements InventoryService {
 
     private StockReservation reservation(InventoryItem item, String orderId) {
         return item.getReservations() == null ? null : item.getReservations().get(orderId);
+    }
+
+    private int valueOrZero(Integer value) {
+        return value == null ? 0 : value;
     }
 
     private StockReservation requireReservation(InventoryItem item, String orderId, int quantity) {

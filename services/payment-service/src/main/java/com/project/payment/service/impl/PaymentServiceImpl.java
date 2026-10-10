@@ -4,15 +4,15 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.event.PaymentEvent;
 import com.project.common.exception.ResourceNotFoundException;
-import com.project.payment.api.dto.request.PaymentRequest;
-import com.project.payment.api.dto.request.PaymentWebhookRequest;
-import com.project.payment.api.dto.response.PaymentInitiationResponse;
-import com.project.payment.api.dto.response.PaymentResponse;
+import com.project.payment.generated.model.PaymentRequest;
+import com.project.payment.generated.model.PaymentWebhookRequest;
+import com.project.payment.generated.model.PaymentInitiationResponse;
+import com.project.payment.generated.model.PaymentResponse;
 import com.project.payment.application.mapper.PaymentMapper;
 import com.project.payment.application.validator.PaymentOrderValidator;
 import com.project.payment.application.validator.PaymentTransitionValidator;
 import com.project.payment.client.OrderClient;
-import com.project.payment.client.dto.OrderSummary;
+import com.project.payment.generated.integration.order.model.OrderResponse;
 import com.project.payment.exception.PaymentException;
 import com.project.payment.model.Payment;
 import com.project.payment.model.PaymentOperation;
@@ -56,9 +56,9 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     public PaymentInitiationResponse createPayment(PaymentRequest request, UUID userId, String userEmail,
                                                    String idempotencyKey) {
-        OrderSummary order = validateOrder(request, userId);
+        OrderResponse order = validateOrder(request, userId);
         String durableKey = hasKey(idempotencyKey) ? idempotencyKey : UUID.randomUUID().toString();
-        OperationClaim claim = claimOperation("CREATE", userId, durableKey, request.orderId(), null, null);
+        OperationClaim claim = claimOperation("CREATE", userId, durableKey, request.getOrderId(), null, null);
         PaymentOperation operation = claim.operation();
 
         if (!claim.created() && operation.getPaymentId() != null) {
@@ -117,21 +117,21 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private PaymentChoice insertOrFindPayment(PaymentRequest request, UUID userId, String userEmail,
-                                              OrderSummary order, String operationId) {
+                                              OrderResponse order, String operationId) {
         for (int attempt = 0; attempt < MAX_OPTIMISTIC_ATTEMPTS; attempt++) {
-            Payment existing = paymentRepository.findByOrderId(request.orderId()).orElse(null);
+            Payment existing = paymentRepository.findByOrderId(request.getOrderId()).orElse(null);
             if (existing != null) return owned(existing, userId, false);
             try {
                 Payment inserted = paymentRepository.insert(Payment.builder()
                         .paymentReference("PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
-                        .orderId(request.orderId()).orderNumber(order.orderNumber()).userId(userId).userEmail(userEmail)
-                        .status(PaymentStatus.PENDING).paymentMethod(request.paymentMethod()).amount(order.totalAmount())
-                        .currency(order.currency()).description(request.description()).retryCount(0)
+                        .orderId(request.getOrderId()).orderNumber(order.getOrderNumber()).userId(userId).userEmail(userEmail)
+                        .status(PaymentStatus.PENDING).paymentMethod(request.getPaymentMethod()).amount(order.getTotalAmount())
+                        .currency(order.getCurrency()).description(request.getDescription()).retryCount(0)
                         .createOperationId(operationId).createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now())
                         .build());
                 return new PaymentChoice(inserted, true);
             } catch (DuplicateKeyException exception) {
-                existing = paymentRepository.findByOrderId(request.orderId()).orElse(null);
+                existing = paymentRepository.findByOrderId(request.getOrderId()).orElse(null);
                 if (existing != null) return owned(existing, userId, false);
             }
         }
@@ -145,8 +145,8 @@ public class PaymentServiceImpl implements PaymentService {
         return new PaymentChoice(payment, created);
     }
 
-    private OrderSummary validateOrder(PaymentRequest request, UUID userId) {
-        var response = orderClient.getOrder(request.orderId());
+    private OrderResponse validateOrder(PaymentRequest request, UUID userId) {
+        var response = orderClient.getOrder(request.getOrderId());
         return orderValidator.validateForPayment(response == null ? null : response.getData(), userId);
     }
 
@@ -246,15 +246,15 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public PaymentResponse handlePaymentWebhook(String paymentReference, PaymentWebhookRequest webhook) {
-        String eventId = UUID.nameUUIDFromBytes((paymentReference + "|" + webhook.transactionId() + "|"
-                + webhook.status() + "|" + webhook.failureReason()).getBytes(StandardCharsets.UTF_8)).toString();
-        return handleVerifiedWebhook("internal", eventId, webhook.status(), paymentReference, webhook);
+        String eventId = UUID.nameUUIDFromBytes((paymentReference + "|" + webhook.getTransactionId() + "|"
+                + webhook.getStatus() + "|" + webhook.getFailureReason()).getBytes(StandardCharsets.UTF_8)).toString();
+        return handleVerifiedWebhook("internal", eventId, webhook.getStatus(), paymentReference, webhook);
     }
 
     @Override
     public PaymentResponse handleStripeWebhook(String eventId, String eventType, String paymentReference,
                                                PaymentWebhookRequest webhook) {
-        stripeType(eventType, webhook.status());
+        stripeType(eventType, webhook.getStatus());
         return handleVerifiedWebhook("stripe", eventId, eventType, paymentReference, webhook);
     }
 
@@ -263,17 +263,17 @@ public class PaymentServiceImpl implements PaymentService {
                                                  String paymentReference, PaymentWebhookRequest webhook) {
         if (eventId == null || eventId.isBlank()) throw new PaymentException("Webhook event ID is required");
         PaymentEvent.Type type = "stripe".equals(provider)
-                ? stripeType(eventType, webhook.status()) : webhookType(webhook.status());
+                ? stripeType(eventType, webhook.getStatus()) : webhookType(webhook.getStatus());
         validateReference(paymentReference, webhook);
         Payment existing = findPaymentByReference(paymentReference);
-        if (existing.getTransactionId() == null || !existing.getTransactionId().equals(webhook.transactionId())) {
+        if (existing.getTransactionId() == null || !existing.getTransactionId().equals(webhook.getTransactionId())) {
             throw new PaymentException("Webhook payment reference does not match the stored payment intent");
         }
         WebhookReceipt receipt;
         try {
             receipt = receiptRepository.insert(WebhookReceipt.builder().provider(provider).eventId(eventId)
-                    .eventType(eventType).paymentReference(paymentReference).webhookStatus(webhook.status())
-                    .transactionId(webhook.transactionId()).failureReason(webhook.failureReason())
+                    .eventType(eventType).paymentReference(paymentReference).webhookStatus(webhook.getStatus())
+                    .transactionId(webhook.getTransactionId()).failureReason(webhook.getFailureReason())
                     .status("RECEIVED").receivedAt(LocalDateTime.now()).build());
         } catch (DuplicateKeyException exception) {
             receipt = receiptRepository.findByProviderAndEventId(provider, eventId).orElseThrow(() -> exception);
@@ -290,7 +290,7 @@ public class PaymentServiceImpl implements PaymentService {
             if (stateTransition(payment, outboxId) != null) return;
             if (!receipt.getProvider().equals(payment.getLastWebhookProvider())
                     || !receipt.getEventId().equals(payment.getLastWebhookEventId())) {
-                if (payment.getTransactionId() == null || !payment.getTransactionId().equals(webhook.transactionId())) {
+                if (payment.getTransactionId() == null || !payment.getTransactionId().equals(webhook.getTransactionId())) {
                     throw new PaymentException("Webhook payment reference does not match the stored payment intent");
                 }
                 applyWebhook(payment, webhook);
@@ -571,17 +571,17 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private void applyWebhook(Payment payment, PaymentWebhookRequest webhook) {
-        PaymentStatus next = switch (webhook.status().toUpperCase()) {
+        PaymentStatus next = switch (webhook.getStatus().toUpperCase()) {
             case "COMPLETED", "SUCCEEDED" -> PaymentStatus.COMPLETED;
             case "FAILED" -> PaymentStatus.FAILED;
             case "CANCELLED" -> PaymentStatus.CANCELLED;
-            default -> throw new PaymentException("Unknown webhook status: " + webhook.status());
+            default -> throw new PaymentException("Unknown webhook status: " + webhook.getStatus());
         };
         transitionValidator.validate(payment.getStatus(), next);
         payment.setStatus(next);
-        payment.setGatewayResponse("Webhook: " + webhook.status());
+        payment.setGatewayResponse("Webhook: " + webhook.getStatus());
         if (next == PaymentStatus.COMPLETED) payment.setCompletedAt(LocalDateTime.now());
-        if (next == PaymentStatus.FAILED) payment.setFailureReason(webhook.failureReason());
+        if (next == PaymentStatus.FAILED) payment.setFailureReason(webhook.getFailureReason());
     }
 
     private PaymentEvent.Type webhookType(String status) {
@@ -606,7 +606,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private void validateReference(String paymentReference, PaymentWebhookRequest webhook) {
         if (paymentReference == null || paymentReference.isBlank()
-                || webhook.paymentReference() == null || !paymentReference.equals(webhook.paymentReference())) {
+                || webhook.getPaymentReference() == null || !paymentReference.equals(webhook.getPaymentReference())) {
             throw new PaymentException("Webhook payment reference mismatch");
         }
     }

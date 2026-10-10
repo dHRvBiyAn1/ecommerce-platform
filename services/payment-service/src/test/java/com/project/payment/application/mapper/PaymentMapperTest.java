@@ -23,7 +23,7 @@ class PaymentMapperTest {
 
         var response = mapper.toResponse(payment);
 
-        assertThat(response.id()).isEqualTo("payment-1");
-        assertThat(response.refundedAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(response.getId()).isEqualTo("payment-1");
+        assertThat(response.getRefundedAmount()).isEqualByComparingTo(BigDecimal.ZERO);
     }
 }

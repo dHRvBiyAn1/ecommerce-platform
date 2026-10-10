@@ -3,6 +3,8 @@ package com.project.product_service.config;
 import com.project.common.security.JwtAuthenticationConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -21,8 +23,9 @@ import org.springframework.security.web.SecurityFilterChain;
  * auth-service's JWKS.
  */
 @Configuration
+@SecurityScheme(name = "bearerAuth", type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT")
 @EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true)
+@EnableMethodSecurity(prePostEnabled = true, proxyTargetClass = true)
 public class SecurityConfig {
 
     @Bean

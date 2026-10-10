@@ -1,11 +1,12 @@
 package com.project.authservice.service;
 
-import com.project.authservice.dto.AddressDto;
-import com.project.authservice.dto.request.seller.SellerApplicationRequest;
-import com.project.authservice.dto.response.seller.SellerApplicationResponse;
+import com.project.authservice.generated.model.AddressDto;
+import com.project.authservice.generated.model.SellerApplicationRequest;
+import com.project.authservice.generated.model.SellerApplicationResponse;
 import com.project.authservice.entity.Address;
 import com.project.authservice.entity.SellerApplication;
 import com.project.authservice.entity.SellerApplicationStatus;
+import com.project.authservice.generated.model.SellerApplicationResponse.StatusEnum;
 import com.project.authservice.entity.User;
 import com.project.authservice.mapper.AddressMapper;
 import com.project.authservice.mapper.SellerApplicationMapper;
@@ -48,7 +49,7 @@ class SellerApplicationServiceTest {
         User user = new User();
         user.setEmail("seller@example.com");
         SellerApplicationResponse expected = new SellerApplicationResponse(null, userId, "seller@example.com", null,
-                SellerApplicationStatus.PENDING, "Acme", null, "+91 9876543210", pickupAddress, null,
+                StatusEnum.PENDING, "Acme", null, "+91 9876543210", pickupAddress, null,
                 "Call first", null, null, null, null);
         when(repository.findByUserId(userId)).thenReturn(Optional.empty());
         when(addressMapper.toEntity(pickupAddress)).thenReturn(mappedAddress);

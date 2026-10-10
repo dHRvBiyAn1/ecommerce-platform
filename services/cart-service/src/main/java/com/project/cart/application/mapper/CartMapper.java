@@ -1,6 +1,6 @@
 package com.project.cart.application.mapper;
 
-import com.project.cart.dto.CartResponse;
+import com.project.cart.generated.model.CartResponse;
 import com.project.cart.model.Cart;
 import com.project.cart.model.CartItem;
 import org.mapstruct.Mapper;
@@ -18,5 +18,5 @@ public interface CartMapper {
     CartResponse toResponse(Cart cart, BigDecimal subtotal, BigDecimal total,
                             BigDecimal discount, int itemCount);
 
-    CartResponse.Item toItem(CartItem item);
+    com.project.cart.generated.model.CartItem toItem(CartItem item);
 }

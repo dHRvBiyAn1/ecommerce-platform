@@ -1,0 +1,22 @@
+openapi: 3.0.1
+info: {title: A, version: '1'}
+servers: [{url: http://localhost:8081}]
+security: [{Bearer: []}]
+paths:
+  /shared:
+    servers: [{url: http://localhost:8081}]
+    get:
+      operationId: read
+      tags: [Things]
+      responses:
+        '200': {description: ok, content: {application/json: {schema: {$ref: '#/components/schemas/Record'}}}}
+    post:
+      operationId: create
+      security: []
+      responses: {'201': {description: created}}
+components:
+  schemas:
+    Record: {type: object}
+  securitySchemes:
+    Bearer: {type: http, scheme: bearer}
+tags: [{name: Things, description: A's things}]

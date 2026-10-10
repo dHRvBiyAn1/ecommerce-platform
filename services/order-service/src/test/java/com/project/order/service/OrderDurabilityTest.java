@@ -6,10 +6,10 @@ import com.project.order.application.validator.OrderRequestValidator;
 import com.project.order.client.CouponClient;
 import com.project.order.client.InventoryClient;
 import com.project.order.client.ProductClient;
-import com.project.order.client.dto.ProductSummary;
-import com.project.order.dto.OrderItemRequest;
-import com.project.order.dto.OrderRequest;
-import com.project.order.dto.OrderResponse;
+import com.project.order.generated.integration.product.model.ProductResponse;
+import com.project.order.generated.model.OrderItemRequest;
+import com.project.order.generated.model.OrderRequest;
+import com.project.order.generated.model.OrderResponse;
 import com.project.order.exception.OrderValidationException;
 import com.project.order.kafka.OrderEventPublisher;
 import com.project.order.model.Order;
@@ -62,7 +62,7 @@ class OrderDurabilityTest {
         OrderResponse replay = service(persistence.repository(), availableProduct(), mock(InventoryClient.class))
                 .createOrder(request(), userId, "customer@example.com", "checkout-10");
 
-        assertThat(replay.id()).isEqualTo(first.id());
+        assertThat(replay.getId()).isEqualTo(first.getId());
         assertThat(persistence.insertedOrders()).isEqualTo(1);
         assertThat(persistence.stored().getIdempotencyKey()).isEqualTo("checkout-10");
     }
@@ -222,6 +222,28 @@ class OrderDurabilityTest {
     }
 
     @Test
+    void persistedExpiredInProgressLeaseCanBeReclaimed() {
+        RepositoryHarness persistence = new RepositoryHarness();
+        Order order = recoverableOrder();
+        order.getSagaState().setNextAttemptAt(LocalDateTime.of(2000, 1, 1, 0, 0));
+        SagaState.Operation operation = order.getSagaState().getOperations().get(0);
+        operation.setStatus(SagaState.OperationStatus.IN_PROGRESS);
+        operation.setLeaseToken("stale-owner");
+        operation.setLeaseUntil(LocalDateTime.of(2000, 1, 1, 0, 0));
+        persistence.persist(order);
+        InventoryClient inventory = mock(InventoryClient.class);
+
+        service(persistence.repository(), availableProduct(), inventory).recoverOrders();
+
+        assertThat(persistence.stored().getSagaState().getOperations()).singleElement().satisfies(recovered -> {
+            assertThat(recovered.getStatus()).isEqualTo(SagaState.OperationStatus.COMPLETED);
+            assertThat(recovered.getLeaseToken()).isNull();
+            assertThat(recovered.getLeaseUntil()).isNull();
+        });
+        verify(inventory).reserve(any(), any());
+    }
+
+    @Test
     void completionConflictsConvergeWithoutRepeatingExternalOperation() {
         RepositoryHarness persistence = new RepositoryHarness();
         persistence.persist(recoverableOrder());
@@ -290,7 +312,7 @@ class OrderDurabilityTest {
         AtomicInteger quantityOneCalls = new AtomicInteger();
         AtomicInteger quantityTwoCalls = new AtomicInteger();
         when(inventory.reserve(any(), any())).thenAnswer(invocation -> {
-            com.project.order.client.dto.StockReservationCommand command = invocation.getArgument(1);
+            com.project.order.generated.integration.inventory.model.StockReservationRequest command = invocation.getArgument(1);
             if (command.getQuantity() == 1) {
                 if (quantityOneCalls.incrementAndGet() > 1) {
                     throw new IllegalStateException("first line reserved more than once");
@@ -696,7 +718,7 @@ class OrderDurabilityTest {
 
     private ProductClient availableProduct() {
         ProductClient products = mock(ProductClient.class);
-        ProductSummary product = new ProductSummary();
+        ProductResponse product = new ProductResponse();
         product.setId("product-1");
         product.setSku("SKU-1");
         product.setName("Product");
@@ -712,8 +734,8 @@ class OrderDurabilityTest {
         return products;
     }
 
-    private ProductSummary product(String id) {
-        ProductSummary product = new ProductSummary();
+    private ProductResponse product(String id) {
+        ProductResponse product = new ProductResponse();
         product.setId(id);
         product.setSku("SKU-" + id);
         product.setName("Product " + id);

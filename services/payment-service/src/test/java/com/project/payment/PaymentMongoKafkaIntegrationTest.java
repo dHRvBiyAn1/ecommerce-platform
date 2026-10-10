@@ -2,7 +2,7 @@ package com.project.payment;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.constant.Topics;
-import com.project.payment.api.dto.request.PaymentWebhookRequest;
+import com.project.payment.generated.model.PaymentWebhookRequest;
 import com.project.payment.application.mapper.PaymentMapper;
 import com.project.payment.application.validator.PaymentOrderValidator;
 import com.project.payment.application.validator.PaymentTransitionValidator;

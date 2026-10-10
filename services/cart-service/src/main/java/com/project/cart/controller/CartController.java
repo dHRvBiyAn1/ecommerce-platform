@@ -1,89 +1,68 @@
 package com.project.cart.controller;
 
-import com.project.cart.dto.AddCartItemRequest;
-import com.project.cart.dto.ApplyCouponRequest;
-import com.project.cart.dto.CartResponse;
-import com.project.cart.dto.UpdateQuantityRequest;
+import com.project.cart.generated.api.CartApi;
+import com.project.cart.generated.model.AddCartItemRequest;
+import com.project.cart.generated.model.ApplyCouponRequest;
+import com.project.cart.generated.model.CartResponse;
+import com.project.cart.generated.model.UpdateQuantityRequest;
 import com.project.cart.service.CartService;
 import com.project.common.security.CurrentUser;
-import com.project.common.dto.ErrorResponse;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/cart")
 @RequiredArgsConstructor
 @PreAuthorize("isAuthenticated()")
 @SecurityScheme(name = "bearerAuth", type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT")
-@SecurityRequirement(name = "bearerAuth")
-@ApiResponses({
-        @ApiResponse(responseCode = "401", description = "Authentication required",
-                headers = @Header(name = "WWW-Authenticate", description = "Bearer authentication challenge",
-                        schema = @Schema(type = "string")),
-                content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                        schema = @Schema(implementation = ErrorResponse.class))),
-        @ApiResponse(responseCode = "403", description = "Authenticated user required",
-                content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                        schema = @Schema(implementation = ErrorResponse.class)))
-})
-public class CartController {
+@ApiResponse(responseCode = "401", description = "Authentication is required",
+        headers = @Header(name = "WWW-Authenticate", description = "Bearer authentication challenge",
+                schema = @Schema(type = "string")),
+        content = @Content)
+public class CartController implements CartApi {
 
     private final CartService cartService;
-
-    @GetMapping
+    @Override
     public ResponseEntity<CartResponse> getMyCart() {
         return ResponseEntity.ok(cartService.getMyCart(CurrentUser.requireId()));
     }
 
-    @PostMapping("/items")
-    public ResponseEntity<CartResponse> addItem(@Valid @RequestBody AddCartItemRequest req) {
-        CartResponse cart = cartService.addItem(CurrentUser.requireId(), req);
+    @Override
+    public ResponseEntity<CartResponse> addCartItem(AddCartItemRequest request) {
+        CartResponse cart = cartService.addItem(CurrentUser.requireId(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(cart);
     }
 
-    @PatchMapping("/items/{productId}")
-    public ResponseEntity<CartResponse> updateQuantity(@PathVariable String productId,
-                                                       @Valid @RequestBody UpdateQuantityRequest req) {
-        return ResponseEntity.ok(cartService.updateQuantity(CurrentUser.requireId(), productId, req));
+    @Override
+    public ResponseEntity<CartResponse> updateCartItemQuantity(String productId, UpdateQuantityRequest request) {
+        return ResponseEntity.ok(cartService.updateQuantity(CurrentUser.requireId(), productId, request));
     }
 
-    @DeleteMapping("/items/{productId}")
-    public ResponseEntity<CartResponse> removeItem(@PathVariable String productId) {
+    @Override
+    public ResponseEntity<CartResponse> removeCartItem(String productId) {
         return ResponseEntity.ok(cartService.removeItem(CurrentUser.requireId(), productId));
     }
 
-    @DeleteMapping
-    public ResponseEntity<CartResponse> clear() {
+    @Override
+    public ResponseEntity<CartResponse> clearCart() {
         return ResponseEntity.ok(cartService.clear(CurrentUser.requireId()));
     }
 
-    @PostMapping("/coupon")
-    public ResponseEntity<CartResponse> applyCoupon(@Valid @RequestBody ApplyCouponRequest req) {
-        return ResponseEntity.ok(cartService.applyCoupon(CurrentUser.requireId(), req));
+    @Override
+    public ResponseEntity<CartResponse> applyCartCoupon(ApplyCouponRequest request) {
+        return ResponseEntity.ok(cartService.applyCoupon(CurrentUser.requireId(), request));
     }
 
-    @DeleteMapping("/coupon")
-    public ResponseEntity<CartResponse> removeCoupon() {
+    @Override
+    public ResponseEntity<CartResponse> removeCartCoupon() {
         return ResponseEntity.ok(cartService.removeCoupon(CurrentUser.requireId()));
     }
 }

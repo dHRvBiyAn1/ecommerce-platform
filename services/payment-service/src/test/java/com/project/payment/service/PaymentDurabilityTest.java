@@ -1,17 +1,18 @@
 package com.project.payment.service;
 
+import com.project.common.web.Responses;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.project.common.dto.ApiResponse;
+import com.project.common.generated.model.ResponseEnvelope;
 import com.project.common.event.PaymentEvent;
-import com.project.payment.api.dto.request.PaymentRequest;
-import com.project.payment.api.dto.request.PaymentWebhookRequest;
-import com.project.payment.api.dto.response.PaymentInitiationResponse;
+import com.project.payment.generated.model.PaymentRequest;
+import com.project.payment.generated.model.PaymentWebhookRequest;
+import com.project.payment.generated.model.PaymentInitiationResponse;
 import com.project.payment.PaymentServiceApplication;
 import com.project.payment.application.mapper.PaymentMapper;
 import com.project.payment.application.validator.PaymentOrderValidator;
 import com.project.payment.application.validator.PaymentTransitionValidator;
 import com.project.payment.client.OrderClient;
-import com.project.payment.client.dto.OrderSummary;
+import com.project.payment.generated.integration.order.model.OrderResponse;
 import com.project.payment.controller.PaymentController;
 import com.project.payment.exception.PaymentException;
 import com.project.payment.kafka.PaymentEventPublisher;
@@ -111,8 +112,8 @@ class PaymentDurabilityTest {
             PaymentInitiationResponse replay = second.get();
             releaseGateway.countDown();
             PaymentInitiationResponse created = first.get();
-            assertThat(replay.payment().id()).isEqualTo(created.payment().id());
-            assertThat(replay.clientSecret()).isNull();
+            assertThat(replay.getPayment().getId()).isEqualTo(created.getPayment().getId());
+            assertThat(replay.getClientSecret()).isNull();
         } finally {
             releaseGateway.countDown();
             executor.shutdownNow();
@@ -146,7 +147,7 @@ class PaymentDurabilityTest {
             enteredGateway.await();
             Future<PaymentInitiationResponse> replay = executor.submit(() -> service.createPayment(
                     request, userId, "customer@example.com", "create-key"));
-            assertThat(replay.get().clientSecret()).isNull();
+            assertThat(replay.get().getClientSecret()).isNull();
             releaseGateway.countDown();
             first.get();
         } finally {
@@ -415,7 +416,7 @@ class PaymentDurabilityTest {
         assertThat(persistence.payment("payment-1").getStatus()).isEqualTo(PaymentStatus.COMPLETED);
         assertThat(persistence.outbox).hasSize(1);
 
-        assertThat(service.processPayment("payment-1").status()).isEqualTo(PaymentStatus.COMPLETED);
+        assertThat(service.processPayment("payment-1").getStatus()).isEqualTo(com.project.payment.generated.model.PaymentStatus.COMPLETED);
 
         assertThat(confirmations).hasValue(1);
         assertThat(persistence.outbox).hasSize(2)
@@ -563,7 +564,7 @@ class PaymentDurabilityTest {
                 .hasMessage("simulated operation completion interruption");
         assertThat(persistence.outbox).hasSize(2);
 
-        assertThat(service.processPayment("payment-1").status()).isEqualTo(PaymentStatus.COMPLETED);
+        assertThat(service.processPayment("payment-1").getStatus()).isEqualTo(com.project.payment.generated.model.PaymentStatus.COMPLETED);
 
         assertThat(confirmations).hasValue(1);
         assertThat(persistence.outbox).hasSize(2);
@@ -627,7 +628,7 @@ class PaymentDurabilityTest {
                 eq("payment_intent.succeeded"), eq("PAY-1"), any(PaymentWebhookRequest.class));
         org.mockito.Mockito.verify(paymentService).handleStripeWebhook(eq("evt-failed"),
                 eq("payment_intent.payment_failed"), eq("PAY-2"),
-                org.mockito.ArgumentMatchers.argThat(webhook -> "Payment failed".equals(webhook.failureReason())));
+                org.mockito.ArgumentMatchers.argThat(webhook -> "Payment failed".equals(webhook.getFailureReason())));
     }
 
     @Test
@@ -765,8 +766,7 @@ class PaymentDurabilityTest {
 
     private OrderClient order(UUID userId) {
         OrderClient orderClient = mock(OrderClient.class);
-        when(orderClient.getOrder("order-1")).thenReturn(ApiResponse.success(new OrderSummary(
-                "order-1", "ORD-1", userId, "PENDING", new BigDecimal("100.00"), "USD")));
+        when(orderClient.getOrder("order-1")).thenReturn(Responses.success(new OrderResponse().id("order-1").orderNumber("ORD-1").userId(userId).status(com.project.payment.generated.integration.order.model.OrderResponse.StatusEnum.fromValue("PENDING")).totalAmount(new BigDecimal("100.00")).currency("USD")));
         return orderClient;
     }
 

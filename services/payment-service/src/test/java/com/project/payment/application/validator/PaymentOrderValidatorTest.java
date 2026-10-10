@@ -1,7 +1,7 @@
 package com.project.payment.application.validator;
 
 import com.project.common.exception.ForbiddenOperationException;
-import com.project.payment.client.dto.OrderSummary;
+import com.project.payment.generated.integration.order.model.OrderResponse;
 import com.project.payment.exception.PaymentException;
 import org.junit.jupiter.api.Test;
 
@@ -39,8 +39,7 @@ class PaymentOrderValidatorTest {
                 .hasMessage("Order is not awaiting payment");
     }
 
-    private OrderSummary order(UUID ownerId, String status) {
-        return new OrderSummary("order-1", "ORD-1", ownerId, status,
-                new BigDecimal("25.00"), "INR");
+    private OrderResponse order(UUID ownerId, String status) {
+        return new OrderResponse().id("order-1").orderNumber("ORD-1").userId(ownerId).status(com.project.payment.generated.integration.order.model.OrderResponse.StatusEnum.fromValue(status)).totalAmount(new BigDecimal("25.00")).currency("INR");
     }
 }

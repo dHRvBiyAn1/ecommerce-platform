@@ -2,10 +2,12 @@ package com.project.authservice.controller;
 
 import com.project.authservice.security.JwtKey;
 import com.project.authservice.security.KeyManager;
+import com.project.authservice.generated.api.DiscoveryApi;
+import com.project.authservice.generated.model.JwkSet;
+import com.project.authservice.generated.model.JsonWebKey;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
 
 import java.security.interfaces.RSAPublicKey;
 import java.util.ArrayList;
@@ -22,17 +24,20 @@ import java.util.Map;
  */
 @RestController
 @RequiredArgsConstructor
-public class JwkSetController {
+public class JwkSetController implements DiscoveryApi {
 
     private final KeyManager keyManager;
 
-    @GetMapping(value = "/.well-known/jwks.json", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Map<String, Object> jwks() {
-        List<Map<String, Object>> keys = new ArrayList<>();
+    @Override
+    public ResponseEntity<JwkSet> jwks() {
+        List<JsonWebKey> keys = new ArrayList<>();
         for (JwtKey key : keyManager.activeKeys().values()) {
-            keys.add(toJwk(key));
+            Map<String, Object> jwk = toJwk(key);
+            keys.add(new JsonWebKey().kty((String) jwk.get("kty")).use((String) jwk.get("use"))
+                    .alg((String) jwk.get("alg")).kid((String) jwk.get("kid"))
+                    .n((String) jwk.get("n")).e((String) jwk.get("e")));
         }
-        return Map.of("keys", keys);
+        return ResponseEntity.ok(new JwkSet().keys(keys));
     }
 
     private Map<String, Object> toJwk(JwtKey key) {

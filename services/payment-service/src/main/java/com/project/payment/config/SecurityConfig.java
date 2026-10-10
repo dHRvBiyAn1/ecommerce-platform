@@ -23,7 +23,7 @@ import org.springframework.security.web.SecurityFilterChain;
  */
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true)
+@EnableMethodSecurity(prePostEnabled = true, proxyTargetClass = true)
 public class SecurityConfig {
 
     @Bean

@@ -79,6 +79,10 @@ for dockerfile in "${dockerfiles[@]}"; do
     continue
   fi
 
+  if ! grep -qF 'COPY services/auth-service/src/main/openapi/swagger.yaml services/auth-service/src/main/openapi/swagger.yaml' "$dockerfile"; then
+    fail "$dockerfile: missing canonical auth contract required by common token-model generation"
+  fi
+
   service=${dockerfile#services/}
   service=${service%/Dockerfile}
   copy_line=$(grep -nF 'COPY --chmod=0755 mvnw pom.xml ./' "$dockerfile" | cut -d: -f1 | head -n1 || true)
@@ -135,6 +139,21 @@ for dockerfile in "${all_service_dockerfiles[@]}"; do
   if [[ "$(grep -cF 'FROM eclipse-temurin:21-jre-jammy' "$dockerfile")" -ne 1 ]]; then
     fail "$dockerfile: runtime stage must use eclipse-temurin:21-jre-jammy"
   fi
+done
+
+# Model-only consumers must build from the owning services' authoritative inputs.
+for service in cart order payment; do
+  case "$service" in
+    cart) contracts=(product coupon) ;;
+    order) contracts=(product coupon inventory) ;;
+    payment) contracts=(order) ;;
+  esac
+  for contract in "${contracts[@]}"; do
+    expected_copy="COPY services/$contract-service/src/main/openapi/swagger.yaml services/$contract-service/src/main/openapi/swagger.yaml"
+    if ! grep -qF "$expected_copy" "services/$service-service/Dockerfile"; then
+      fail "$service Dockerfile: missing canonical $contract contract for generated integration models"
+    fi
+  done
 done
 
 workflow=.github/workflows/ci.yml

@@ -3,6 +3,8 @@ package com.project.payment.controller;
 import com.project.common.constant.Permissions;
 import com.project.common.exception.GlobalExceptionHandler;
 import com.project.payment.application.validator.PaymentAccessValidator;
+import com.project.payment.generated.model.PaymentResponse;
+import com.project.payment.model.PaymentStatus;
 import com.project.payment.service.PaymentService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,13 +24,20 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @WebMvcTest(value = PaymentController.class, properties = {
         "spring.cloud.config.enabled=false",
         "spring.config.import=optional:file:/dev/null"
 })
 @AutoConfigureMockMvc
-@Import({com.project.payment.config.SecurityConfig.class, GlobalExceptionHandler.class})
+@Import({com.project.payment.config.SecurityConfig.class, GlobalExceptionHandler.class,
+        com.project.payment.application.mapper.PaymentMapper.class})
 class PaymentControllerSecurityTest {
 
     @Autowired
@@ -93,6 +102,11 @@ class PaymentControllerSecurityTest {
 
     @Test
     void customerCanInitiateButCannotProcessWhileProcessorCanProcess() throws Exception {
+        when(paymentService.createPayment(any(), any(), any(), any())).thenReturn(
+                new com.project.payment.generated.model.PaymentInitiationResponse(
+                        paymentResponse(UUID.randomUUID(), PaymentStatus.PENDING), "client-secret"));
+        when(paymentService.processPayment("payment-1")).thenReturn(
+                paymentResponse(UUID.randomUUID(), PaymentStatus.COMPLETED));
         mockMvc.perform(post("/api/v1/payments").with(jwt().jwt(token -> token.subject(UUID.randomUUID().toString()))
                         .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
                         .contentType(MediaType.APPLICATION_JSON).content(paymentRequest()))
@@ -107,6 +121,30 @@ class PaymentControllerSecurityTest {
         mockMvc.perform(post("/api/v1/payments/payment-1/process").with(jwt().authorities(
                         new SimpleGrantedAuthority(Permissions.PAYMENTS_PROCESS))))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void processPermissionDoesNotRequirePaymentOwnershipIdentity() throws Exception {
+        UUID otherOwner = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        when(paymentService.processPayment("payment-1")).thenReturn(paymentResponse(otherOwner, PaymentStatus.COMPLETED));
+
+        mockMvc.perform(post("/api/v1/payments/payment-1/process").with(jwt()
+                        .jwt(token -> token.subject("payment-service").claim("token_type", "service"))
+                        .authorities(new SimpleGrantedAuthority(Permissions.PAYMENTS_PROCESS))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value("payment-1"));
+        mockMvc.perform(post("/api/v1/payments/payment-1/process").with(jwt()
+                        .jwt(token -> token.subject(otherOwner.toString()).claim("token_type", "user"))
+                        .authorities(new SimpleGrantedAuthority(Permissions.PAYMENTS_PROCESS))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value("payment-1"));
+
+        verify(paymentService, times(2)).processPayment("payment-1");
+        verify(accessValidator, never()).validateAccess(any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
+    private PaymentResponse paymentResponse(UUID ownerId, PaymentStatus status) {
+        return new PaymentResponse().id("payment-1").paymentReference("PAY-1").orderId("order-1").orderNumber("ORD-1").userId(ownerId).userEmail(null).status(status == null ? null : com.project.payment.generated.model.PaymentStatus.valueOf(status.name())).paymentMethod("CARD").amount(java.math.BigDecimal.TEN).refundedAmount(java.math.BigDecimal.ZERO).currency("USD").transactionId(null).gatewayResponse(null).failureReason(null).retryCount(0).description(null).createdAt(null).updatedAt(null).completedAt(null);
     }
 
     private String paymentRequest() {

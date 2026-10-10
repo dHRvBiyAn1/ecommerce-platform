@@ -138,6 +138,11 @@
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.openapitools</groupId>
+            <artifactId>jackson-databind-nullable</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -153,6 +158,67 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.openapitools</groupId>
+                <artifactId>openapi-generator-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>generate-openapi-server</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <generatorName>spring</generatorName>
+                            <library>spring-boot</library>
+                            <output>${project.build.directory}/generated-sources/openapi</output>
+                            <apiPackage>com.project.authservice.generated.api</apiPackage>
+                            <modelPackage>com.project.authservice.generated.model</modelPackage>
+                            <openapiNormalizer>FILTER=operationId:getProfile|updateProfile|setRoles|setActive|reject|approve|updateRolePermissions|getMine|apply|register|logout|changePassword|listRoles|createRole|providers|listUsers|getUser|list|get|jwks|deleteRole</openapiNormalizer>
+                            <!-- Auth filters also document text/plain errors; MVC responses remain JSON. -->
+                            <additionalProperties>
+                                <additionalProperty>jsonOnlyControllerResponses=true</additionalProperty>
+                            </additionalProperties>
+                            <configOptions>
+                                <interfaceOnly>true</interfaceOnly>
+                                <useSpringBoot3>true</useSpringBoot3>
+                                <useTags>true</useTags>
+                                <skipDefaultInterface>true</skipDefaultInterface>
+                                <useBeanValidation>true</useBeanValidation>
+                                <openApiNullable>false</openApiNullable>
+                                <generateConstructorWithAllArgs>true</generateConstructorWithAllArgs>
+                                <generateJsonIncludeAnnotations>true</generateJsonIncludeAnnotations>
+                                <optionalNonNullPropertyJsonInclude>NON_NULL</optionalNonNullPropertyJsonInclude>
+                                <generateJsonSetterNullsAnnotations>false</generateJsonSetterNullsAnnotations>
+                            </configOptions>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>generate-openapi-test-client</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <generatorName>java</generatorName>
+                            <library>resttemplate</library>
+                            <templateDirectory>${project.basedir}/src/main/openapi/templates</templateDirectory>
+                            <output>${project.build.directory}/generated-test-sources/openapi</output>
+                            <addCompileSourceRoot>false</addCompileSourceRoot>
+                            <addTestCompileSourceRoot>true</addTestCompileSourceRoot>
+                            <apiPackage>com.project.authservice.generated.testclient.api</apiPackage>
+                            <modelPackage>com.project.authservice.generated.testclient.model</modelPackage>
+                            <invokerPackage>com.project.authservice.generated.testclient.invoker</invokerPackage>
+                            <configOptions>
+                                <serializationLibrary>jackson</serializationLibrary>
+                                <dateLibrary>java8</dateLibrary>
+                                <useJakartaEe>true</useJakartaEe>
+                                <openApiNullable>true</openApiNullable>
+                            </configOptions>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

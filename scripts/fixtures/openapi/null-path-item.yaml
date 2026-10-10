@@ -1,0 +1,4 @@
+openapi: 3.0.1
+info: {title: Null Path Item, version: '1'}
+paths:
+  /broken: null

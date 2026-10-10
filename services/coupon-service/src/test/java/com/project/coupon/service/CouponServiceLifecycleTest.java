@@ -1,8 +1,9 @@
 package com.project.coupon.service;
 
-import com.project.coupon.dto.CouponReservationRequest;
-import com.project.coupon.dto.CouponTransitionRequest;
-import com.project.coupon.dto.RedeemCouponRequest;
+import com.project.coupon.generated.model.CouponReservationRequest;
+import com.project.coupon.generated.model.CouponReservationResponse;
+import com.project.coupon.generated.model.CouponTransitionRequest;
+import com.project.coupon.generated.model.RedeemCouponRequest;
 import com.project.coupon.entity.Coupon;
 import com.project.coupon.entity.CouponRedemption;
 import com.project.coupon.entity.DiscountType;
@@ -70,11 +71,10 @@ class CouponServiceLifecycleTest {
         when(redemptionRepository.countActiveByCouponIdAndUserId(coupon.getId(), userId)).thenReturn(0);
         when(redemptionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        var result = service.reserve(new CouponReservationRequest(
-                "SAVE10", userId, "order-1", new BigDecimal("500.00"), "INR"));
+        var result = service.reserve(reservationRequest("SAVE10", userId, "order-1"));
 
-        assertThat(result.status()).isEqualTo(RedemptionStatus.RESERVED);
-        assertThat(result.discountAmount()).isEqualByComparingTo("50.00");
+        assertThat(result.getStatus()).isEqualTo(CouponReservationResponse.StatusEnum.RESERVED);
+        assertThat(result.getDiscountAmount()).isEqualByComparingTo("50.00");
         assertThat(coupon.getUsageCount()).isEqualTo(1);
         assertThat(coupon.getReservedCount()).isEqualTo(1);
     }
@@ -84,10 +84,9 @@ class CouponServiceLifecycleTest {
         CouponRedemption existing = reservation("order-1", RedemptionStatus.RESERVED);
         when(redemptionRepository.findByOrderId("order-1")).thenReturn(Optional.of(existing));
 
-        var result = service.reserve(new CouponReservationRequest(
-                "save10", userId, "order-1", new BigDecimal("500.00"), "inr"));
+        var result = service.reserve(reservationRequest("save10", userId, "order-1"));
 
-        assertThat(result.status()).isEqualTo(RedemptionStatus.RESERVED);
+        assertThat(result.getStatus()).isEqualTo(CouponReservationResponse.StatusEnum.RESERVED);
         verify(couponRepository, never()).findByCodeForUpdate(any());
         verify(redemptionRepository, never()).save(any());
     }
@@ -97,8 +96,7 @@ class CouponServiceLifecycleTest {
         CouponRedemption existing = reservation("order-1", RedemptionStatus.RESERVED);
         when(redemptionRepository.findByOrderId("order-1")).thenReturn(Optional.of(existing));
 
-        assertThatThrownBy(() -> service.reserve(new CouponReservationRequest(
-                "SAVE10", UUID.randomUUID(), "order-1", new BigDecimal("500.00"), "INR")))
+        assertThatThrownBy(() -> service.reserve(reservationRequest("SAVE10", UUID.randomUUID(), "order-1")))
                 .isInstanceOf(CouponReservationConflictException.class);
     }
 
@@ -110,15 +108,15 @@ class CouponServiceLifecycleTest {
         when(couponRepository.findByIdForUpdate(coupon.getId())).thenReturn(Optional.of(coupon));
         when(redemptionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        var result = service.commit(new CouponTransitionRequest("SAVE10", userId, "order-1"));
+        var result = service.commit(transitionRequest("SAVE10", userId, "order-1"));
 
-        assertThat(result.status()).isEqualTo(RedemptionStatus.COMMITTED);
+        assertThat(result.getStatus()).isEqualTo(CouponReservationResponse.StatusEnum.COMMITTED);
         assertThat(coupon.getReservedCount()).isZero();
         assertThat(coupon.getUsageCount()).isEqualTo(2);
         assertThat(existing.getCommittedAt()).isNotNull();
 
         when(redemptionRepository.findByOrderIdForUpdate("order-1")).thenReturn(Optional.of(existing));
-        service.commit(new CouponTransitionRequest("SAVE10", userId, "order-1"));
+        service.commit(transitionRequest("SAVE10", userId, "order-1"));
 
         assertThat(coupon.getUsageCount()).isEqualTo(2);
     }
@@ -131,14 +129,14 @@ class CouponServiceLifecycleTest {
         when(couponRepository.findByIdForUpdate(coupon.getId())).thenReturn(Optional.of(coupon));
         when(redemptionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        var result = service.release(new CouponTransitionRequest("SAVE10", userId, "order-1"));
+        var result = service.release(transitionRequest("SAVE10", userId, "order-1"));
 
-        assertThat(result.status()).isEqualTo(RedemptionStatus.RELEASED);
+        assertThat(result.getStatus()).isEqualTo(CouponReservationResponse.StatusEnum.RELEASED);
         assertThat(coupon.getReservedCount()).isZero();
         assertThat(coupon.getUsageCount()).isEqualTo(1);
 
         when(redemptionRepository.findByOrderIdForUpdate("order-1")).thenReturn(Optional.of(existing));
-        service.release(new CouponTransitionRequest("SAVE10", userId, "order-1"));
+        service.release(transitionRequest("SAVE10", userId, "order-1"));
 
         assertThat(coupon.getReservedCount()).isZero();
     }
@@ -152,7 +150,7 @@ class CouponServiceLifecycleTest {
                 .thenReturn(Optional.of(committed));
 
         assertThatThrownBy(() -> service.release(
-                new CouponTransitionRequest("SAVE10", userId, "order-committed")))
+                transitionRequest("SAVE10", userId, "order-committed")))
                 .isInstanceOf(CouponReservationConflictException.class);
 
         assertThat(committed.getStatus()).isEqualTo(RedemptionStatus.COMMITTED);
@@ -171,10 +169,9 @@ class CouponServiceLifecycleTest {
         when(redemptionRepository.countActiveByCouponIdAndUserId(coupon.getId(), userId)).thenReturn(0);
         when(redemptionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        var result = service.redeem(new RedeemCouponRequest(
-                "SAVE10", userId, "order-1", new BigDecimal("50.00")));
+        var result = service.redeem(redeemRequest("SAVE10", userId, "order-1"));
 
-        assertThat(result.valid()).isTrue();
+        assertThat(result.getValid()).isTrue();
         assertThat(coupon.getUsageCount()).isEqualTo(2);
         assertThat(coupon.getReservedCount()).isZero();
 
@@ -191,10 +188,9 @@ class CouponServiceLifecycleTest {
                 .thenReturn(Optional.of(committed));
         when(couponRepository.findByCodeForUpdate("SAVE10")).thenReturn(Optional.of(coupon));
 
-        var result = service.redeem(new RedeemCouponRequest(
-                "SAVE10", userId, "order-1", new BigDecimal("50.00")));
+        var result = service.redeem(redeemRequest("SAVE10", userId, "order-1"));
 
-        assertThat(result.valid()).isTrue();
+        assertThat(result.getValid()).isTrue();
         assertThat(coupon.getUsageCount()).isEqualTo(1);
         verify(couponRepository, never()).save(any());
         verify(redemptionRepository, never()).save(any());
@@ -211,5 +207,19 @@ class CouponServiceLifecycleTest {
                 .status(status)
                 .reservedAt(LocalDateTime.now())
                 .build();
+    }
+
+    private CouponReservationRequest reservationRequest(String code, UUID user, String order) {
+        return new CouponReservationRequest().code(code).userId(user).orderId(order)
+                .subtotal(new BigDecimal("500.00")).currency("INR");
+    }
+
+    private CouponTransitionRequest transitionRequest(String code, UUID user, String order) {
+        return new CouponTransitionRequest().code(code).userId(user).orderId(order);
+    }
+
+    private RedeemCouponRequest redeemRequest(String code, UUID user, String order) {
+        return new RedeemCouponRequest().code(code).userId(user).orderId(order)
+                .discountAmount(new BigDecimal("50.00"));
     }
 }

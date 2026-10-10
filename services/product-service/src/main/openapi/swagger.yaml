@@ -1,0 +1,1309 @@
+---
+openapi: 3.0.1
+info:
+  title: Product catalog API
+  version: 1.0.0
+  description: Public catalog reads and seller/admin catalog management.
+  contact:
+    name: Ecommerce Platform maintainers
+servers:
+- url: http://localhost:8082
+  description: Local product-service direct access
+paths:
+  "/api/v1/products/{id}":
+    get:
+      tags:
+      - Products
+      summary: Get a public product
+      operationId: getProduct
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '404':
+          description: Product is inactive, not approved, or does not exist.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '200':
+          description: Public product details.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProductResponse"
+      description: Get a public product.
+    put:
+      tags:
+      - Products
+      summary: Update a product
+      operationId: updateProduct
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ProductRequest"
+        required: true
+      responses:
+        '200':
+          description: Request completed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProductResponse"
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Required role, permission, or resource ownership is missing.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '404':
+          description: Product not found.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '400':
+          description: Request validation failed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+      description: Update a product.
+    delete:
+      tags:
+      - Products
+      summary: Delete a product
+      operationId: deleteProduct
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Resource deleted.
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Required role, permission, or resource ownership is missing.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '404':
+          description: Product not found.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+      description: Delete a product.
+    servers:
+    - url: http://localhost:8082
+      description: Local product-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/v1/products/{id}/reject":
+    put:
+      tags:
+      - Products
+      summary: Reject a product
+      operationId: rejectProduct
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: reason
+        in: query
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Request completed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProductResponse"
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Required role, permission, or resource ownership is missing.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '404':
+          description: Product not found.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+      description: Reject a product.
+    servers:
+    - url: http://localhost:8082
+      description: Local product-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/v1/products/{id}/approve":
+    put:
+      tags:
+      - Products
+      summary: Approve a product
+      operationId: approveProduct
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Request completed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProductResponse"
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Required role, permission, or resource ownership is missing.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '404':
+          description: Product not found.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+      description: Approve a product.
+    servers:
+    - url: http://localhost:8082
+      description: Local product-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/v1/products/{id}/active":
+    put:
+      tags:
+      - Products
+      summary: Change public product visibility
+      operationId: toggleProductActive
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: active
+        in: query
+        required: true
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Request completed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProductResponse"
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Required role, permission, or resource ownership is missing.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '404':
+          description: Product not found.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+      description: Change public product visibility.
+    servers:
+    - url: http://localhost:8082
+      description: Local product-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/v1/categories/{id}":
+    get:
+      tags:
+      - Categories
+      operationId: getCategory
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CategoryResponse"
+        '404':
+          description: Category not found.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      summary: getCategory
+      description: getCategory.
+    put:
+      tags:
+      - Categories
+      summary: Update a category
+      operationId: updateCategory
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/CategoryRequest"
+        required: true
+      responses:
+        '200':
+          description: Request completed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CategoryResponse"
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Required role, permission, or resource ownership is missing.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '404':
+          description: Category not found.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '400':
+          description: Request validation failed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+      description: Update a category.
+    delete:
+      tags:
+      - Categories
+      summary: Delete a category
+      operationId: deleteCategory
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Resource deleted.
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Required role, permission, or resource ownership is missing.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '404':
+          description: Category not found.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+      description: Delete a category.
+    servers:
+    - url: http://localhost:8082
+      description: Local product-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/v1/products":
+    get:
+      tags:
+      - Products
+      operationId: getAllActiveProducts
+      x-spring-paginated: true
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+        description: Zero-based page index; defaults to 0.
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+        description: Page size; defaults to 20, or 50 for moderation listing.
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+        description: Sort criteria in property,direction form; repeat for multiple
+          keys.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/PageProductResponse"
+      summary: getAllActiveProducts
+      description: getAllActiveProducts.
+    post:
+      tags:
+      - Products
+      summary: Create a product
+      operationId: createProduct
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ProductRequest"
+        required: true
+      responses:
+        '201':
+          description: Resource created.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProductResponse"
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Required role, permission, or resource ownership is missing.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '400':
+          description: Request validation failed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+      description: Create a product.
+    servers:
+    - url: http://localhost:8082
+      description: Local product-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/v1/categories":
+    get:
+      tags:
+      - Categories
+      operationId: getAllCategories
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/CategoryResponse"
+      summary: getAllCategories
+      description: getAllCategories.
+    post:
+      tags:
+      - Categories
+      summary: Create a category
+      operationId: createCategory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/CategoryRequest"
+        required: true
+      responses:
+        '201':
+          description: Resource created.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CategoryResponse"
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Required role, permission, or resource ownership is missing.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '400':
+          description: Request validation failed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+      description: Create a category.
+    servers:
+    - url: http://localhost:8082
+      description: Local product-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/v1/products/{id}/stock":
+    patch:
+      tags:
+      - Products
+      summary: Update product stock
+      operationId: updateStock
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/StockUpdateRequest"
+        required: true
+      responses:
+        '200':
+          description: Request completed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ProductResponse"
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: Required role, permission, or resource ownership is missing.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '404':
+          description: Product not found.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '400':
+          description: Request validation failed.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+      description: Update product stock.
+    servers:
+    - url: http://localhost:8082
+      description: Local product-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/v1/products/seller":
+    get:
+      tags:
+      - Products
+      summary: Get the current seller's catalog
+      operationId: getMyProducts
+      x-spring-paginated: true
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+        description: Zero-based page index; defaults to 0.
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+        description: Page size; defaults to 20, or 50 for moderation listing.
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+        description: Sort criteria in property,direction form; repeat for multiple
+          keys.
+      responses:
+        '403':
+          description: Required role, permission, or resource ownership is missing.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '200':
+          description: Products visible in the authenticated seller or administrator
+            catalog.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/PageProductResponse"
+      security:
+      - bearerAuth: []
+      description: Get the current seller's catalog.
+    servers:
+    - url: http://localhost:8082
+      description: Local product-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/v1/products/seller/{sellerId}":
+    get:
+      tags:
+      - Products
+      summary: Get one seller's private catalog
+      operationId: getProductsBySeller
+      x-spring-paginated: true
+      parameters:
+      - name: sellerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+        description: Zero-based page index; defaults to 0.
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+        description: Page size; defaults to 20, or 50 for moderation listing.
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+        description: Sort criteria in property,direction form; repeat for multiple
+          keys.
+      responses:
+        '403':
+          description: Required role, permission, or resource ownership is missing.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '200':
+          description: Private catalog for the specified seller, visible only to that
+            seller or an administrator.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/PageProductResponse"
+      security:
+      - bearerAuth: []
+      description: Get one seller's private catalog.
+    servers:
+    - url: http://localhost:8082
+      description: Local product-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/v1/products/search":
+    get:
+      tags:
+      - Products
+      operationId: searchProducts
+      x-spring-paginated: true
+      parameters:
+      - name: keyword
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+        description: Zero-based page index; defaults to 0.
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+        description: Page size; defaults to 20, or 50 for moderation listing.
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+        description: Sort criteria in property,direction form; repeat for multiple
+          keys.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/PageProductResponse"
+      summary: searchProducts
+      description: searchProducts.
+    servers:
+    - url: http://localhost:8082
+      description: Local product-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/v1/products/filter":
+    get:
+      tags:
+      - Products
+      operationId: filterByPrice
+      x-spring-paginated: true
+      parameters:
+      - name: minPrice
+        in: query
+        required: true
+        schema:
+          type: number
+      - name: maxPrice
+        in: query
+        required: true
+        schema:
+          type: number
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+        description: Zero-based page index; defaults to 0.
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+        description: Page size; defaults to 20, or 50 for moderation listing.
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+        description: Sort criteria in property,direction form; repeat for multiple
+          keys.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/PageProductResponse"
+      summary: filterByPrice
+      description: filterByPrice.
+    servers:
+    - url: http://localhost:8082
+      description: Local product-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/v1/products/filter/attribute":
+    get:
+      tags:
+      - Products
+      operationId: filterByAttribute
+      x-spring-paginated: true
+      parameters:
+      - name: key
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: value
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+        description: Zero-based page index; defaults to 0.
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+        description: Page size; defaults to 20, or 50 for moderation listing.
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+        description: Sort criteria in property,direction form; repeat for multiple
+          keys.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/PageProductResponse"
+      summary: filterByAttribute
+      description: filterByAttribute.
+    servers:
+    - url: http://localhost:8082
+      description: Local product-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/v1/products/category/{categoryId}":
+    get:
+      tags:
+      - Products
+      operationId: getProductsByCategory
+      x-spring-paginated: true
+      parameters:
+      - name: categoryId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+        description: Zero-based page index; defaults to 0.
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+        description: Page size; defaults to 20, or 50 for moderation listing.
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+        description: Sort criteria in property,direction form; repeat for multiple
+          keys.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/PageProductResponse"
+      summary: getProductsByCategory
+      description: getProductsByCategory.
+    servers:
+    - url: http://localhost:8082
+      description: Local product-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/v1/products/admin/by-status":
+    get:
+      tags:
+      - Products
+      summary: List products by moderation status
+      operationId: listByApprovalStatus
+      x-spring-paginated: true
+      parameters:
+      - name: status
+        in: query
+        required: true
+        schema:
+          "$ref": "#/components/schemas/ProductApprovalStatus"
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+        description: Zero-based page index; defaults to 0.
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+        description: Page size; defaults to 20, or 50 for moderation listing.
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+        description: Sort criteria in property,direction form; repeat for multiple
+          keys.
+      responses:
+        '403':
+          description: Required role, permission, or resource ownership is missing.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '200':
+          description: Products filtered by moderation status; administrator access
+            is required.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/PageProductResponse"
+      security:
+      - bearerAuth: []
+      description: List products by moderation status.
+    servers:
+    - url: http://localhost:8082
+      description: Local product-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+  "/api/v1/categories/{id}/products":
+    get:
+      tags:
+      - Products
+      operationId: getProductsByCategory_1
+      x-spring-paginated: true
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+        description: Zero-based page index; defaults to 0.
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+        description: Page size; defaults to 20, or 50 for moderation listing.
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+        description: Sort criteria in property,direction form; repeat for multiple
+          keys.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/PageProductResponse"
+      summary: getProductsByCategory
+      description: getProductsByCategory.
+    servers:
+    - url: http://localhost:8082
+      description: Local product-service direct access
+    - url: http://localhost:8080
+      description: Local API gateway
+components:
+  schemas:
+    ProductRequest:
+      required:
+      - sku
+      - name
+      - categoryId
+      - price
+      - stockQuantity
+      type: object
+      properties:
+        sku:
+          type: string
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+        name:
+          type: string
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+        description:
+          type: string
+        categoryId:
+          type: string
+          x-not-null-message: must not be blank
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "must not be blank")'
+        price:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+        stockQuantity:
+          type: integer
+          format: int32
+          minimum: 0
+        imageUrls:
+          type: array
+          items:
+            type: string
+        sellerId:
+          type: string
+          format: uuid
+          description: Ignored by the controller; the authenticated user ID is assigned
+            as the seller.
+        attributes:
+          type: object
+          additionalProperties: {}
+    ProductResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          x-jackson-json-include-policy: ALWAYS
+        sku:
+          type: string
+          x-jackson-json-include-policy: ALWAYS
+        name:
+          type: string
+          x-jackson-json-include-policy: ALWAYS
+        description:
+          type: string
+          x-jackson-json-include-policy: ALWAYS
+        categoryId:
+          type: string
+          x-jackson-json-include-policy: ALWAYS
+        categoryName:
+          type: string
+          x-jackson-json-include-policy: ALWAYS
+        price:
+          type: number
+          x-jackson-json-include-policy: ALWAYS
+        stockQuantity:
+          type: integer
+          format: int32
+          x-jackson-json-include-policy: ALWAYS
+        imageUrls:
+          type: array
+          items:
+            type: string
+          x-jackson-json-include-policy: ALWAYS
+        sellerId:
+          type: string
+          format: uuid
+          x-jackson-json-include-policy: ALWAYS
+        active:
+          type: boolean
+          x-jackson-json-include-policy: ALWAYS
+        approvalStatus:
+          nullable: true
+          allOf:
+          - "$ref": "#/components/schemas/ProductApprovalStatus"
+          x-jackson-json-include-policy: ALWAYS
+        rejectionReason:
+          type: string
+          x-jackson-json-include-policy: ALWAYS
+        attributes:
+          type: object
+          additionalProperties: {}
+          x-jackson-json-include-policy: ALWAYS
+        createdAt:
+          type: string
+          format: local-date-time
+          x-jackson-json-include-policy: ALWAYS
+        updatedAt:
+          type: string
+          format: local-date-time
+          x-jackson-json-include-policy: ALWAYS
+    CategoryRequest:
+      required:
+      - name
+      type: object
+      properties:
+        name:
+          type: string
+          x-not-null-message: Category name is required
+          x-field-extra-annotation: '@jakarta.validation.constraints.NotBlank(message = "Category name is required")'
+        description:
+          type: string
+        parentCategoryId:
+          type: string
+        imageUrl:
+          type: string
+    CategoryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          x-jackson-json-include-policy: ALWAYS
+        name:
+          type: string
+          x-jackson-json-include-policy: ALWAYS
+        description:
+          type: string
+          x-jackson-json-include-policy: ALWAYS
+        parentCategoryId:
+          type: string
+          x-jackson-json-include-policy: ALWAYS
+        imageUrl:
+          type: string
+          x-jackson-json-include-policy: ALWAYS
+        active:
+          type: boolean
+          x-jackson-json-include-policy: ALWAYS
+        createdAt:
+          type: string
+          format: local-date-time
+          x-jackson-json-include-policy: ALWAYS
+        updatedAt:
+          type: string
+          format: local-date-time
+          x-jackson-json-include-policy: ALWAYS
+    StockUpdateRequest:
+      required:
+      - stockQuantity
+      type: object
+      properties:
+        stockQuantity:
+          type: integer
+          format: int32
+          minimum: 0
+    PageProductResponse:
+      type: object
+      properties:
+        totalPages:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        size:
+          type: integer
+          format: int32
+        content:
+          type: array
+          items:
+            "$ref": "#/components/schemas/ProductResponse"
+        number:
+          type: integer
+          format: int32
+        sort:
+          "$ref": "#/components/schemas/SortObject"
+        pageable:
+          "$ref": "#/components/schemas/PageableObject"
+        numberOfElements:
+          type: integer
+          format: int32
+        first:
+          type: boolean
+        last:
+          type: boolean
+        empty:
+          type: boolean
+    PageableObject:
+      type: object
+      properties:
+        offset:
+          type: integer
+          format: int64
+        sort:
+          "$ref": "#/components/schemas/SortObject"
+        paged:
+          type: boolean
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        unpaged:
+          type: boolean
+    SortObject:
+      type: object
+      properties:
+        empty:
+          type: boolean
+        sorted:
+          type: boolean
+        unsorted:
+          type: boolean
+    ErrorResponse:
+      type: object
+      description: Standard error body returned by shared exception handler.
+      properties:
+        status:
+          type: integer
+          format: int32
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        code:
+          type: string
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: string
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    ProductApprovalStatus:
+      type: string
+      enum:
+      - PENDING
+      - APPROVED
+      - REJECTED
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+tags:
+- name: Products
+  description: Products operations owned by product-service.
+- name: Categories
+  description: Categories operations owned by product-service.

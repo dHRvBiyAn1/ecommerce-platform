@@ -1,6 +1,8 @@
 package com.project.cart.client;
 
 import com.project.common.exception.BusinessException;
+import com.project.cart.generated.integration.coupon.model.ValidateCouponRequest;
+import com.project.cart.generated.integration.coupon.model.ValidateCouponResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -16,7 +18,7 @@ import org.springframework.stereotype.Component;
 public class CouponClientFallback implements CouponClient {
 
     @Override
-    public CouponValidationResponse validate(CouponValidationRequest request) {
+    public ValidateCouponResponse validate(ValidateCouponRequest request) {
         log.error("Coupon-service call failed. Resilience4j fallback triggered for coupon code={}", request.getCode());
         throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, "COUPON_UNAVAILABLE",
                 "Coupon validation is currently unavailable. Try again shortly.");

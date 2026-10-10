@@ -1,7 +1,7 @@
 package com.project.order.controller;
 
 import com.project.common.exception.ForbiddenOperationException;
-import com.project.order.dto.OrderResponse;
+import com.project.order.generated.model.OrderResponse;
 import com.project.order.service.OrderService;
 import com.project.order.validation.OrderAccessValidator;
 import org.junit.jupiter.api.AfterEach;
@@ -33,16 +33,15 @@ class OrderServiceAuthTest {
     private static final String OTHER = "00000000-0000-0000-0000-000000000002";
 
     @Configuration
-    @EnableMethodSecurity
+    @EnableMethodSecurity(proxyTargetClass = true)
     static class Config {
         @Bean OrderController controller() {
             OrderService service = mock(OrderService.class);
-            OrderResponse order = new OrderResponse("order-1", "ORD-1", OWNER, null, null, null,
-                    null, null, null, null, null, null, null, null, null, null, null, null, null,
-                    null, null, null, null, null, null);
+            OrderResponse order = new OrderResponse().id("order-1").orderNumber("ORD-1").userId(OWNER);
             when(service.getOrder("order-1")).thenReturn(order);
             when(service.getOrderByNumber("ORD-1")).thenReturn(order);
-            return new OrderController(service, new OrderAccessValidator());
+            return new OrderController(service, new OrderAccessValidator(),
+                    new com.project.order.generated.mapper.OrderApiMapperImpl());
         }
     }
 
@@ -80,7 +79,7 @@ class OrderServiceAuthTest {
         org.assertj.core.api.ThrowableAssert.ThrowingCallable call = () -> {
             var response = endpoint.equals("id") ? controller.getOrder("order-1") : controller.getOrderByNumber("ORD-1");
             assertThat(response.getStatusCode().value()).isEqualTo(200);
-            assertThat(response.getBody().getData().id()).isEqualTo("order-1");
+            assertThat(response.getBody().getData().getId()).isEqualTo("order-1");
         };
         if (allowed) assertThatCode(call).doesNotThrowAnyException();
         else assertThatThrownBy(call).isInstanceOfAny(AccessDeniedException.class,

@@ -6,11 +6,9 @@ import com.project.common.constant.ServiceScopes;
 import com.project.common.exception.GlobalExceptionHandler;
 import com.project.common.security.ResourceServerSecurityConfig;
 import com.project.coupon.config.SecurityConfig;
-import com.project.coupon.dto.CouponReservationResponse;
-import com.project.coupon.dto.CouponResponse;
-import com.project.coupon.dto.ValidateCouponResponse;
-import com.project.coupon.entity.DiscountType;
-import com.project.coupon.entity.RedemptionStatus;
+import com.project.coupon.generated.model.CouponReservationResponse;
+import com.project.coupon.generated.model.CouponResponse;
+import com.project.coupon.generated.model.ValidateCouponResponse;
 import com.project.coupon.service.CouponService;
 import com.project.coupon.validation.CouponRequestValidator;
 import org.junit.jupiter.api.Test;
@@ -45,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 @AutoConfigureMockMvc
 @Import({SecurityConfig.class, ResourceServerSecurityConfig.class, GlobalExceptionHandler.class,
-        CouponRequestValidator.class})
+        CouponRequestValidator.class, com.project.coupon.generated.mapper.CouponApiMapperImpl.class})
 class CouponControllerSecurityTest {
 
     private static final UUID CUSTOMER_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
@@ -72,7 +70,7 @@ class CouponControllerSecurityTest {
                 .claim("roles", java.util.List.of("ROLE_CUSTOMER"))
                 .claim("permissions", java.util.List.of(Permissions.COUPONS_READ)).build();
         when(jwtDecoder.decode("owner-token")).thenReturn(token);
-        when(couponService.validate(any())).thenReturn(ValidateCouponResponse.valid("SAVE10", BigDecimal.ONE, "save"));
+        when(couponService.validate(any())).thenReturn(new ValidateCouponResponse().valid(true).code("SAVE10").discountAmount(BigDecimal.ONE).description("save"));
         var session = new org.springframework.mock.web.MockHttpSession();
         session.setAttribute(org.springframework.security.web.context.HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
                 new org.springframework.security.core.context.SecurityContextImpl(
@@ -138,7 +136,7 @@ class CouponControllerSecurityTest {
 
     @Test
     void customerValidationRequiresAnAuthenticatedCustomerOrCouponReadService() throws Exception {
-        when(couponService.validate(any())).thenReturn(ValidateCouponResponse.valid("SAVE10", BigDecimal.ONE, "save"));
+        when(couponService.validate(any())).thenReturn(new ValidateCouponResponse().valid(true).code("SAVE10").discountAmount(BigDecimal.ONE).description("save"));
 
         mockMvc.perform(post("/api/v1/coupons/validate")
                         .with(customerJwt())
@@ -167,7 +165,7 @@ class CouponControllerSecurityTest {
         when(couponService.reserve(any())).thenReturn(reservation());
         when(couponService.commit(any())).thenReturn(reservation());
         when(couponService.release(any())).thenReturn(reservation());
-        when(couponService.redeem(any())).thenReturn(ValidateCouponResponse.valid("SAVE10", BigDecimal.ONE, "save"));
+        when(couponService.redeem(any())).thenReturn(new ValidateCouponResponse().valid(true).code("SAVE10").discountAmount(BigDecimal.ONE).description("save"));
 
         mockMvc.perform(post("/api/v1/coupons/reserve")
                         .with(customerJwt())
@@ -274,14 +272,18 @@ class CouponControllerSecurityTest {
     }
 
     private static CouponResponse couponResponse() {
-        return new CouponResponse(UUID.randomUUID(), "SAVE10", "save", DiscountType.FIXED,
-                BigDecimal.ONE, new BigDecimal("5.00"), BigDecimal.TEN, "USD",
-                LocalDateTime.parse("2026-01-01T00:00:00"), LocalDateTime.parse("2030-01-01T00:00:00"),
-                100, 0, 0, 1, true, LocalDateTime.parse("2026-01-01T00:00:00"), null);
+        return new CouponResponse().id(UUID.randomUUID()).code("SAVE10").description("save")
+                .discountType(CouponResponse.DiscountTypeEnum.FIXED).discountValue(BigDecimal.ONE)
+                .maxDiscountAmount(new BigDecimal("5.00")).minOrderAmount(BigDecimal.TEN).currency("USD")
+                .validFrom(LocalDateTime.parse("2026-01-01T00:00:00"))
+                .validUntil(LocalDateTime.parse("2030-01-01T00:00:00"))
+                .usageLimit(100).usageCount(0).reservedCount(0).perUserLimit(1).active(true)
+                .createdAt(LocalDateTime.parse("2026-01-01T00:00:00"));
     }
 
     private static CouponReservationResponse reservation() {
-        return new CouponReservationResponse(UUID.randomUUID(), "SAVE10", CUSTOMER_ID, "order-1", BigDecimal.ONE,
-                RedemptionStatus.RESERVED);
+        return new CouponReservationResponse().reservationId(UUID.randomUUID()).code("SAVE10").userId(CUSTOMER_ID)
+                .orderId("order-1").discountAmount(BigDecimal.ONE)
+                .status(CouponReservationResponse.StatusEnum.RESERVED);
     }
 }

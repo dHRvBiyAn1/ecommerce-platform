@@ -8,21 +8,21 @@ import com.project.common.exception.ResourceNotFoundException;
 import com.project.order.client.InventoryClient;
 import com.project.order.client.ProductClient;
 import com.project.order.client.CouponClient;
-import com.project.order.client.dto.ProductSummary;
-import com.project.order.client.dto.StockReservationCommand;
-import com.project.order.client.dto.CouponValidationRequest;
-import com.project.order.client.dto.CouponValidationResponse;
-import com.project.order.client.dto.CouponReservationCommand;
-import com.project.order.client.dto.CouponTransitionCommand;
+import com.project.order.generated.integration.product.model.ProductResponse;
+import com.project.order.generated.integration.inventory.model.StockReservationRequest;
+import com.project.order.generated.integration.coupon.model.ValidateCouponRequest;
+import com.project.order.generated.integration.coupon.model.ValidateCouponResponse;
+import com.project.order.generated.integration.coupon.model.CouponReservationRequest;
+import com.project.order.generated.integration.coupon.model.CouponTransitionRequest;
 import com.project.order.application.mapper.OrderMapper;
 import com.project.order.application.validator.OrderRequestValidator;
 import com.project.order.constant.OrderPricing;
-import com.project.order.dto.BillingAddressRequest;
-import com.project.order.dto.OrderItemRequest;
-import com.project.order.dto.OrderRequest;
-import com.project.order.dto.OrderResponse;
-import com.project.order.dto.OrderStatusUpdateRequest;
-import com.project.order.dto.ShippingAddressRequest;
+import com.project.order.generated.model.BillingAddressRequest;
+import com.project.order.generated.model.OrderItemRequest;
+import com.project.order.generated.model.OrderRequest;
+import com.project.order.generated.model.OrderResponse;
+import com.project.order.generated.model.OrderStatusUpdateRequest;
+import com.project.order.generated.model.ShippingAddressRequest;
 import com.project.order.exception.OrderValidationException;
 import com.project.order.model.*;
 import com.project.order.repository.OrderRepository;
@@ -79,18 +79,18 @@ public class OrderServiceImpl implements OrderService {
         }
 
         List<OrderItem> items = new ArrayList<>();
-        for (OrderItemRequest item : request.items()) {
-            ProductSummary p;
+        for (OrderItemRequest item : request.getItems()) {
+            ProductResponse p;
             try {
-                p = productClient.getProduct(item.productId());
+                p = productClient.getProduct(item.getProductId());
             } catch (Exception e) {
-                throw new OrderValidationException("Product not found: " + item.productId());
+                throw new OrderValidationException("Product not found: " + item.getProductId());
             }
-            if (!p.isActive()) {
+            if (!Boolean.TRUE.equals(p.getActive())) {
                 throw new OrderValidationException("Product not available: " + p.getId());
             }
             BigDecimal unitPrice = p.getPrice();
-            BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(item.quantity()))
+            BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(item.getQuantity()))
                     .setScale(2, RoundingMode.HALF_UP);
             items.add(OrderItem.builder()
                     .lineId(UUID.randomUUID().toString())
@@ -98,7 +98,7 @@ public class OrderServiceImpl implements OrderService {
                     .sku(p.getSku())
                     .productName(p.getName())
                     .imageUrl(null)
-                    .quantity(item.quantity())
+                    .quantity(item.getQuantity())
                     .unitPrice(unitPrice)
                     .discountAmount(BigDecimal.ZERO)
                     .totalPrice(lineTotal)
@@ -112,16 +112,10 @@ public class OrderServiceImpl implements OrderService {
                 ? BigDecimal.ZERO.setScale(2) : OrderPricing.SHIPPING_COST;
         BigDecimal discount = BigDecimal.ZERO.setScale(2);
         
-        if (request.couponCode() != null && !request.couponCode().isBlank()) {
-            CouponValidationResponse couponRes = couponClient.validate(
-                    CouponValidationRequest.builder()
-                            .code(request.couponCode())
-                            .userId(userId)
-                            .subtotal(subtotal)
-                            .currency(OrderPricing.DEFAULT_CURRENCY)
-                            .build()
-            );
-            if (!couponRes.isValid()) {
+        if (request.getCouponCode() != null && !request.getCouponCode().isBlank()) {
+            ValidateCouponResponse couponRes = couponClient.validate(new ValidateCouponRequest(
+                    request.getCouponCode(), userId, subtotal, OrderPricing.DEFAULT_CURRENCY));
+            if (!Boolean.TRUE.equals(couponRes.getValid())) {
                 throw new OrderValidationException("Invalid coupon: " + couponRes.getReason());
             }
             discount = couponRes.getDiscountAmount();
@@ -144,11 +138,11 @@ public class OrderServiceImpl implements OrderService {
         order.setDiscountAmount(discount);
         order.setTotalAmount(totalAmount);
         order.setCurrency(OrderPricing.DEFAULT_CURRENCY);
-        order.setPaymentMethod(request.paymentMethod());
-        order.setCouponCode(request.couponCode());
-        order.setNotes(request.notes());
-        order.setShippingAddress(map(request.shippingAddress()));
-        order.setBillingAddress(map(request.billingAddress()));
+        order.setPaymentMethod(request.getPaymentMethod());
+        order.setCouponCode(request.getCouponCode());
+        order.setNotes(request.getNotes());
+        order.setShippingAddress(map(request.getShippingAddress()));
+        order.setBillingAddress(map(request.getBillingAddress()));
         order.setCreatedAt(LocalDateTime.now());
         order.setUpdatedAt(LocalDateTime.now());
         order.setOutboxEvents(new ArrayList<>());
@@ -256,7 +250,7 @@ public class OrderServiceImpl implements OrderService {
     private void executeOperation(Order order, SagaState.Operation operation) {
         if (operation.getResourceType() == SagaState.ResourceType.COUPON) {
             switch (operation.getAction()) {
-                case RESERVE -> couponClient.reserve(new CouponReservationCommand(
+                case RESERVE -> couponClient.reserve(new CouponReservationRequest(
                         order.getCouponCode(), order.getUserId(), order.getId(),
                         order.getSubtotal(), order.getCurrency()));
                 case COMMIT -> couponClient.commit(couponTransition(order));
@@ -264,7 +258,7 @@ public class OrderServiceImpl implements OrderService {
             }
             return;
         }
-        StockReservationCommand command = new StockReservationCommand(operation.getQuantity(), order.getId());
+        StockReservationRequest command = new StockReservationRequest(operation.getQuantity(), order.getId());
         switch (operation.getAction()) {
             case RESERVE -> inventoryClient.reserve(operation.getResourceId(), command);
             case COMMIT -> inventoryClient.commit(operation.getResourceId(), command);
@@ -543,7 +537,7 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponse updateOrderStatus(String orderId, OrderStatusUpdateRequest request) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
-        OrderStatus newStatus = request.getStatus();
+        OrderStatus newStatus = OrderStatus.valueOf(request.getStatus().getValue());
         orderRequestValidator.validateStatusTransition(order.getStatus(), newStatus);
         order.setStatus(newStatus);
         order.setUpdatedAt(LocalDateTime.now());
@@ -574,7 +568,7 @@ public class OrderServiceImpl implements OrderService {
         for (OrderItem item : order.getItems()) {
             try {
                 inventoryClient.release(item.getProductId(),
-                        new StockReservationCommand(item.getQuantity(), orderId));
+                        new StockReservationRequest(item.getQuantity(), orderId));
             } catch (Exception e) {
                 log.error("Stock release on cancel failed for {} qty {}: {}",
                         item.getProductId(), item.getQuantity(), e.getMessage());
@@ -660,8 +654,8 @@ public class OrderServiceImpl implements OrderService {
         return order.getCouponCode() != null && !order.getCouponCode().isBlank();
     }
 
-    private CouponTransitionCommand couponTransition(Order order) {
-        return new CouponTransitionCommand(order.getCouponCode(), order.getUserId(), order.getId());
+    private CouponTransitionRequest couponTransition(Order order) {
+        return new CouponTransitionRequest(order.getCouponCode(), order.getUserId(), order.getId());
     }
 
     private void releaseCoupon(Order order) {
@@ -679,19 +673,11 @@ public class OrderServiceImpl implements OrderService {
         return "ORD-" + System.currentTimeMillis() + "-" + (1000 + new Random().nextInt(9000));
     }
 
-    private ShippingAddress map(ShippingAddressRequest r) {
-        if (r == null) return null;
-        return ShippingAddress.builder()
-                .fullName(r.fullName()).phone(r.phone()).street(r.street())
-                .city(r.city()).state(r.state()).zipCode(r.zipCode()).country(r.country())
-                .build();
+    private ShippingAddress map(ShippingAddressRequest request) {
+        return orderMapper.toEntity(request);
     }
 
-    private BillingAddress map(BillingAddressRequest r) {
-        if (r == null) return null;
-        return BillingAddress.builder()
-                .fullName(r.fullName()).phone(r.phone()).street(r.street())
-                .city(r.city()).state(r.state()).zipCode(r.zipCode()).country(r.country())
-                .build();
+    private BillingAddress map(BillingAddressRequest request) {
+        return orderMapper.toEntity(request);
     }
 }

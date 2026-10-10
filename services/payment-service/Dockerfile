@@ -5,8 +5,10 @@ COPY --chmod=0755 mvnw pom.xml ./
 COPY .mvn/ .mvn/
 COPY services/common/pom.xml services/common/pom.xml
 COPY services/common/src/ services/common/src/
+COPY services/auth-service/src/main/openapi/swagger.yaml services/auth-service/src/main/openapi/swagger.yaml
 COPY services/payment-service/pom.xml services/payment-service/pom.xml
 COPY services/payment-service/src/ services/payment-service/src/
+COPY services/order-service/src/main/openapi/swagger.yaml services/order-service/src/main/openapi/swagger.yaml
 RUN --mount=type=cache,target=/root/.m2,sharing=locked \
     ./mvnw -B -ntp -DskipTests -N install \
  && ./mvnw -B -ntp -DskipTests -f services/common/pom.xml install \

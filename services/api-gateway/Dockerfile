@@ -5,6 +5,7 @@ COPY --chmod=0755 mvnw pom.xml ./
 COPY .mvn/ .mvn/
 COPY services/common/pom.xml services/common/pom.xml
 COPY services/common/src/ services/common/src/
+COPY services/auth-service/src/main/openapi/swagger.yaml services/auth-service/src/main/openapi/swagger.yaml
 COPY services/api-gateway/pom.xml services/api-gateway/pom.xml
 COPY services/api-gateway/src/ services/api-gateway/src/
 RUN --mount=type=cache,target=/root/.m2,sharing=locked \

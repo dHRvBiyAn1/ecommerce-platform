@@ -1,9 +1,9 @@
 package com.project.payment.service;
 
-import com.project.payment.api.dto.request.PaymentRequest;
-import com.project.payment.api.dto.request.PaymentWebhookRequest;
-import com.project.payment.api.dto.response.PaymentResponse;
-import com.project.payment.api.dto.response.PaymentInitiationResponse;
+import com.project.payment.generated.model.PaymentRequest;
+import com.project.payment.generated.model.PaymentWebhookRequest;
+import com.project.payment.generated.model.PaymentResponse;
+import com.project.payment.generated.model.PaymentInitiationResponse;
 
 import java.math.BigDecimal;
 import java.util.List;

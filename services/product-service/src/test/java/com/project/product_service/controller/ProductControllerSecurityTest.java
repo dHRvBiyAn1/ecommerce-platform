@@ -7,7 +7,7 @@ import com.project.product_service.application.validator.CategoryIntegrityValida
 import com.project.product_service.application.validator.ProductAccessValidator;
 import com.project.product_service.config.LayeredCache;
 import com.project.product_service.config.SecurityConfig;
-import com.project.product_service.dto.ProductResponse;
+import com.project.product_service.generated.model.ProductResponse;
 import com.project.product_service.model.Product;
 import com.project.product_service.model.ProductApprovalStatus;
 import com.project.product_service.repository.ProductRepository;
@@ -84,7 +84,7 @@ class ProductControllerSecurityTest {
                 .claim("permissions", List.of(com.project.common.constant.Permissions.PRODUCTS_READ)).build();
         when(jwtDecoder.decode("owner-token")).thenReturn(token);
         when(productService.getProductsBySeller(org.mockito.ArgumentMatchers.eq(SELLER_ID), any()))
-                .thenReturn(Page.empty());
+                .thenReturn(Page.empty(PageRequest.of(0, 20)));
         var session = new org.springframework.mock.web.MockHttpSession();
         session.setAttribute(org.springframework.security.web.context.HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
                 new org.springframework.security.core.context.SecurityContextImpl(
@@ -132,7 +132,7 @@ class ProductControllerSecurityTest {
 
         Page<ProductResponse> result = service(products, search).searchProducts("desk", pageable);
 
-        assertEquals(List.of("first", "second"), result.getContent().stream().map(ProductResponse::id).toList());
+        assertEquals(List.of("first", "second"), result.getContent().stream().map(ProductResponse::getId).toList());
         assertEquals(5, result.getTotalElements());
         assertEquals(3, result.getTotalPages());
     }
@@ -170,7 +170,7 @@ class ProductControllerSecurityTest {
         Page<ProductResponse> result = service(products, mock(ProductSearchRepository.class))
                 .getAllActiveProducts(pageable);
 
-        assertEquals(List.of("first", "second"), result.getContent().stream().map(ProductResponse::id).toList());
+        assertEquals(List.of("first", "second"), result.getContent().stream().map(ProductResponse::getId).toList());
         assertEquals(5, result.getTotalElements());
         assertEquals(3, result.getTotalPages());
     }
@@ -187,7 +187,7 @@ class ProductControllerSecurityTest {
 
         Page<ProductResponse> result = service(products, search).searchProducts("desk", pageable);
 
-        assertEquals(List.of("first", "second"), result.getContent().stream().map(ProductResponse::id).toList());
+        assertEquals(List.of("first", "second"), result.getContent().stream().map(ProductResponse::getId).toList());
         assertEquals(5, result.getTotalElements());
         assertEquals(3, result.getTotalPages());
     }
@@ -204,7 +204,7 @@ class ProductControllerSecurityTest {
         Page<ProductResponse> result = service(products, mock(ProductSearchRepository.class))
                 .getProductsByPriceRange(BigDecimal.ZERO, BigDecimal.TEN, pageable);
 
-        assertEquals(List.of("first", "second"), result.getContent().stream().map(ProductResponse::id).toList());
+        assertEquals(List.of("first", "second"), result.getContent().stream().map(ProductResponse::getId).toList());
         assertEquals(5, result.getTotalElements());
         assertEquals(3, result.getTotalPages());
     }

@@ -1,0 +1,13 @@
+package {{modelPackage}};
+
+{{#models}}{{#model}}
+/** Immutable token response generated from the auth service contract.
+ * Enum text is validated by ServiceTokenProvider, including case-insensitive Bearer.
+ */
+@jakarta.annotation.Generated(value = "org.openapitools.codegen.languages.SpringCodegen")
+public record {{classname}}(
+{{#vars}}
+        @com.fasterxml.jackson.annotation.JsonProperty("{{baseName}}") {{#isEnum}}String{{/isEnum}}{{^isEnum}}{{#isLong}}long{{/isLong}}{{^isLong}}{{{dataType}}}{{/isLong}}{{/isEnum}} {{name}}{{^-last}},{{/-last}}
+{{/vars}}
+) {}
+{{/model}}{{/models}}

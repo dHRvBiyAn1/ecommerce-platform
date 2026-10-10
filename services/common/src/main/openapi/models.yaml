@@ -1,0 +1,81 @@
+openapi: 3.0.1
+info:
+  title: Shared response models
+  version: 1.0.0
+  description: Model library for common response metadata; business APIs remain in their service contracts.
+paths: {}
+components:
+  schemas:
+    ResponseEnvelope:
+      type: object
+      x-generic-type: T
+      properties:
+        status:
+          type: integer
+          format: int32
+          default: 0
+        message:
+          type: string
+        data:
+          type: object
+          format: generic-data
+          x-jackson-json-include-policy: ALWAYS
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    PageEnvelope:
+      type: object
+      x-generic-type: T
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+            format: generic-data
+        page:
+          type: integer
+          format: int32
+          default: 0
+        size:
+          type: integer
+          format: int32
+          default: 0
+        totalElements:
+          type: integer
+          format: int64
+          default: 0
+        totalPages:
+          type: integer
+          format: int32
+          default: 0
+        first:
+          type: boolean
+          default: false
+        last:
+          type: boolean
+          default: false
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        code:
+          type: string
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: string
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time

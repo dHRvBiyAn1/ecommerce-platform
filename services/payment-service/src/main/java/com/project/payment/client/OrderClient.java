@@ -1,7 +1,7 @@
 package com.project.payment.client;
 
-import com.project.common.dto.ApiResponse;
-import com.project.payment.client.dto.OrderSummary;
+import com.project.common.generated.model.ResponseEnvelope;
+import com.project.payment.generated.integration.order.model.OrderResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -10,5 +10,5 @@ import org.springframework.web.bind.annotation.PathVariable;
 public interface OrderClient {
 
     @GetMapping("/{orderId}")
-    ApiResponse<OrderSummary> getOrder(@PathVariable("orderId") String orderId);
+    ResponseEnvelope<OrderResponse> getOrder(@PathVariable("orderId") String orderId);
 }

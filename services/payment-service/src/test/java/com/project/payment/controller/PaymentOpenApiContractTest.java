@@ -27,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "springdoc.api-docs.enabled=true"
 })
 @Import({com.project.payment.config.SecurityConfig.class, com.project.common.exception.GlobalExceptionHandler.class,
+        com.project.payment.application.mapper.PaymentMapper.class,
         SpringDocConfiguration.class, SpringDocWebMvcConfiguration.class, SpringDocSecurityConfiguration.class,
         SpringDocPageableConfiguration.class, SpringDocSortConfiguration.class})
 @EnableConfigurationProperties(SpringDocConfigProperties.class)

@@ -1,0 +1,7 @@
+openapi: 3.0.1
+info: {title: External, version: '1'}
+paths:
+  /external:
+    get:
+      operationId: external
+      responses: {'200': {description: ok, content: {application/json: {schema: {$ref: 'https://example.test/schema.yaml'}}}}}

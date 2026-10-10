@@ -2,6 +2,7 @@ package com.project.product_service.controller;
 
 import com.project.product_service.service.ProductService;
 import com.project.product_service.service.CategoryService;
+import com.project.product_service.config.SecurityConfig;
 import org.junit.jupiter.api.Test;
 import org.springdoc.core.configuration.SpringDocConfiguration;
 import org.springdoc.core.configuration.SpringDocPageableConfiguration;
@@ -10,12 +11,12 @@ import org.springdoc.core.configuration.SpringDocSortConfiguration;
 import org.springdoc.core.properties.SpringDocConfigProperties;
 import org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
@@ -28,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc(addFilters = false)
 @ContextConfiguration(classes = ProductOpenApiContractTest.OpenApiTestApplication.class)
 @Import({SpringDocConfiguration.class, SpringDocWebMvcConfiguration.class, SpringDocSecurityConfiguration.class,
-        SpringDocPageableConfiguration.class, SpringDocSortConfiguration.class})
+        SpringDocPageableConfiguration.class, SpringDocSortConfiguration.class, SecurityConfig.class})
 class ProductOpenApiContractTest {
 
     @Autowired
@@ -39,6 +40,9 @@ class ProductOpenApiContractTest {
 
     @MockBean
     private CategoryService categoryService;
+
+    @MockBean
+    private JwtDecoder jwtDecoder;
 
     @Test
     void apiDocsDescribePublicCatalogAndSecuredSellerMutationErrors() throws Exception {
@@ -64,7 +68,8 @@ class ProductOpenApiContractTest {
                 .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"));
     }
 
-    @SpringBootConfiguration
+    @org.springframework.context.annotation.Configuration(proxyBeanMethods = false)
+    @org.springframework.boot.test.context.TestComponent
     @EnableAutoConfiguration
     @EnableConfigurationProperties(SpringDocConfigProperties.class)
     @Import({ProductController.class, CategoryController.class})

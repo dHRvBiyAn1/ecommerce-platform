@@ -1,17 +1,17 @@
 package com.project.cart.service;
 
 import com.project.cart.client.CouponClient;
-import com.project.cart.client.CouponValidationRequest;
-import com.project.cart.client.CouponValidationResponse;
 import com.project.cart.client.ProductClient;
-import com.project.cart.client.ProductSummary;
 import com.project.cart.application.mapper.CartMapper;
 import com.project.cart.exception.ProductServiceUnavailableException;
 import feign.FeignException;
-import com.project.cart.dto.AddCartItemRequest;
-import com.project.cart.dto.ApplyCouponRequest;
-import com.project.cart.dto.CartResponse;
-import com.project.cart.dto.UpdateQuantityRequest;
+import com.project.cart.generated.model.AddCartItemRequest;
+import com.project.cart.generated.model.ApplyCouponRequest;
+import com.project.cart.generated.model.CartResponse;
+import com.project.cart.generated.model.UpdateQuantityRequest;
+import com.project.cart.generated.integration.coupon.model.ValidateCouponRequest;
+import com.project.cart.generated.integration.coupon.model.ValidateCouponResponse;
+import com.project.cart.generated.integration.product.model.ProductResponse;
 import com.project.cart.model.Cart;
 import com.project.cart.model.CartItem;
 import com.project.cart.repository.CartRepository;
@@ -53,30 +53,31 @@ public class CartService {
 
     @Transactional
     public CartResponse addItem(UUID userId, AddCartItemRequest req) {
-        ProductSummary product;
+        ProductResponse product;
         try {
-            product = productClient.getProduct(req.productId());
+            product = productClient.getProduct(req.getProductId());
         } catch (ResourceNotFoundException | ProductServiceUnavailableException e) {
             throw e;
         } catch (FeignException.NotFound e) {
-            throw new ResourceNotFoundException("Product", req.productId());
+            throw new ResourceNotFoundException("Product", req.getProductId());
         } catch (RuntimeException e) {
             throw new ProductServiceUnavailableException(e);
         }
         if (product == null) throw new ProductServiceUnavailableException(
                 new IllegalStateException("Product service returned no product"));
-        if (!product.active()) throw new ResourceNotFoundException("Product", req.productId());
+        if (!Boolean.TRUE.equals(product.getActive())) throw new ResourceNotFoundException("Product", req.getProductId());
         Cart cart = cartRepository.findByUserId(userId).orElseGet(() -> emptyCart(userId));
         if (cart.getCurrency() == null) {
             cart.setCurrency("INR");
         }
 
-        CartItem existing = findItem(cart, req.productId());
+        CartItem existing = findItem(cart, req.getProductId());
         if (existing != null) {
-            existing.setQuantity(existing.getQuantity() + req.quantity());
+            existing.setQuantity(existing.getQuantity() + (req.getQuantity() == null ? 0 : req.getQuantity()));
             copyProductSnapshot(existing, product);
         } else {
-            CartItem item = CartItem.builder().productId(product.id()).quantity(req.quantity()).build();
+            CartItem item = CartItem.builder().productId(product.getId())
+                    .quantity(req.getQuantity() == null ? 0 : req.getQuantity()).build();
             copyProductSnapshot(item, product);
             cart.getItems().add(item);
         }
@@ -91,10 +92,10 @@ public class CartService {
         CartItem item = findItem(cart, productId);
         if (item == null) throw new ResourceNotFoundException("Cart item", productId);
 
-        if (req.quantity() == 0) {
+        if (req.getQuantity() == null || req.getQuantity() == 0) {
             cart.getItems().remove(item);
         } else {
-            item.setQuantity(req.quantity());
+            item.setQuantity(req.getQuantity());
         }
         invalidateAppliedCoupon(cart, "quantity updated");
         return toResponse(cartRepository.save(cart));
@@ -135,19 +136,15 @@ public class CartService {
         }
 
         BigDecimal subtotal = subtotal(cart);
-        String normalizedCode = req.code() == null ? null : req.code().trim().toUpperCase(Locale.ROOT);
-        CouponValidationResponse v;
+        String normalizedCode = req.getCode() == null ? null : req.getCode().trim().toUpperCase(Locale.ROOT);
+        ValidateCouponResponse v;
         try {
-            v = couponClient.validate(CouponValidationRequest.builder()
-                    .code(normalizedCode)
-                    .userId(userId)
-                    .subtotal(subtotal)
-                    .currency(cart.getCurrency() != null ? cart.getCurrency() : "INR")
-                    .build());
+            v = couponClient.validate(new ValidateCouponRequest(normalizedCode, userId, subtotal,
+                    cart.getCurrency() != null ? cart.getCurrency() : "INR"));
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
-            log.warn("Coupon validation call failed for code {}: {}", req.code(), e.getMessage());
+            log.warn("Coupon validation call failed for code {}: {}", req.getCode(), e.getMessage());
             throw new BusinessException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "COUPON_UNAVAILABLE",
                     "Coupon validation is currently unavailable. Try again shortly.");
         }
@@ -155,7 +152,7 @@ public class CartService {
             throw new BusinessException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "COUPON_UNAVAILABLE",
                     "Coupon validation is currently unavailable. Try again shortly.");
         }
-        if (!v.isValid()) {
+        if (!Boolean.TRUE.equals(v.getValid())) {
             throw new ValidationException(v.getReason() != null ? v.getReason() : "Coupon is not valid");
         }
         String responseCode = v.getCode() == null ? null : v.getCode().trim().toUpperCase(Locale.ROOT);
@@ -217,11 +214,11 @@ public class CartService {
         return cartMapper.toResponse(cart, subtotal, total, discount, itemCount);
     }
 
-    private void copyProductSnapshot(CartItem item, ProductSummary product) {
-        item.setSku(product.sku());
-        item.setProductName(product.name());
-        item.setImageUrl(product.imageUrls() == null || product.imageUrls().isEmpty()
-                ? null : product.imageUrls().getFirst());
-        item.setUnitPrice(product.price());
+    private void copyProductSnapshot(CartItem item, ProductResponse product) {
+        item.setSku(product.getSku());
+        item.setProductName(product.getName());
+        item.setImageUrl(product.getImageUrls() == null || product.getImageUrls().isEmpty()
+                ? null : product.getImageUrls().getFirst());
+        item.setUnitPrice(product.getPrice());
     }
 }

@@ -1,5 +1,6 @@
 package com.project.common.feign;
 
+import com.project.common.generated.token.ServiceTokenResponse;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicReference;

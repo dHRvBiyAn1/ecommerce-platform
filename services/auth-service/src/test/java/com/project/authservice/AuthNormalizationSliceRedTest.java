@@ -1,7 +1,7 @@
 package com.project.authservice;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.project.authservice.dto.AddressDto;
+import com.project.authservice.generated.model.AddressDto;
 import com.project.authservice.mapper.UserMapper;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -14,7 +14,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AuthNormalizationSliceRedTest {
 
@@ -49,38 +48,10 @@ class AuthNormalizationSliceRedTest {
     }
 
     @Test
-    void userProfileDtoCopiesCollectionsAndNormalizesNullCollections() throws Exception {
-        Class<?> type = Class.forName("com.project.authservice.dto.response.UserProfileDto");
-        Set<String> roles = new HashSet<>(Set.of("ROLE_CUSTOMER"));
-        Set<String> permissions = new HashSet<>(Set.of("users:read"));
-        Object profile = type.getDeclaredConstructors()[0].newInstance(
-                null, null, null, null, null, false, null, roles, permissions, null, null, false);
-
-        roles.add("ROLE_ADMIN");
-        permissions.add("users:write");
-        assertThat(type.getMethod("roles").invoke(profile)).isEqualTo(Set.of("ROLE_CUSTOMER"));
-        assertThat(type.getMethod("permissions").invoke(profile)).isEqualTo(Set.of("users:read"));
-        assertThatThrownBy(() -> ((Set<String>) type.getMethod("roles").invoke(profile)).add("ROLE_ADMIN"))
-                .isInstanceOf(UnsupportedOperationException.class);
-
-        Object emptyProfile = type.getDeclaredConstructors()[0].newInstance(
-                null, null, null, null, null, false, null, null, null, null, null, false);
-        assertThat(type.getMethod("roles").invoke(emptyProfile)).isEqualTo(Set.of());
-        assertThat(type.getMethod("permissions").invoke(emptyProfile)).isEqualTo(Set.of());
-    }
-
-    @Test
-    void userProfileDtoIsAnImmutableResponseRecordWithExactWireContract() throws Exception {
-        Class<?> type = Class.forName("com.project.authservice.dto.response.UserProfileDto");
-
-        assertThat(type.isRecord()).isTrue();
-        assertThat(type.getRecordComponents()).hasSize(12);
-        assertThat(Arrays.stream(type.getRecordComponents()).map(component -> component.getName()))
-                .containsExactly("id", "email", "displayName", "imageUrl", "phone", "active",
-                        "createdAt", "roles", "permissions", "shippingAddress", "billingAddress", "hasPassword");
-
-        Object profile = type.getDeclaredConstructors()[0].newInstance(
-                null, null, null, null, null, false, null, null, null, null, null, true);
+    void generatedUserProfileModelPreservesWireFieldsAndNullDefaults() throws Exception {
+        var profile = new com.project.authservice.generated.model.UserProfileDto();
+        assertThat(profile.getRoles()).isEmpty();
+        assertThat(profile.getPermissions()).isEmpty();
         assertThat(objectMapper.readTree(objectMapper.writeValueAsString(profile)).fieldNames())
                 .toIterable().containsExactlyInAnyOrder("id", "email", "displayName", "imageUrl", "phone",
                         "active", "createdAt", "roles", "permissions", "shippingAddress", "billingAddress",
