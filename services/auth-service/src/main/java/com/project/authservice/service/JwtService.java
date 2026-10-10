@@ -9,11 +9,6 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.LocatorAdapter;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
 import java.security.Key;
 import java.time.Duration;
 import java.util.Date;
@@ -22,132 +17,143 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 /**
  * Issues and verifies JWTs.
  *
  * <p>Issued tokens carry:
+ *
  * <ul>
- *   <li>{@code sub}: user id (UUID string)</li>
- *   <li>{@code email}</li>
- *   <li>{@code roles}: list of {@code ROLE_*} strings</li>
- *   <li>{@code permissions}: list of fine-grained authorities</li>
- *   <li>{@code iss}: {@code auth-service}</li>
- *   <li>{@code kid} header: id of the key used to sign</li>
+ *   <li>{@code sub}: user id (UUID string)
+ *   <li>{@code email}
+ *   <li>{@code roles}: list of {@code ROLE_*} strings
+ *   <li>{@code permissions}: list of fine-grained authorities
+ *   <li>{@code iss}: {@code auth-service}
+ *   <li>{@code kid} header: id of the key used to sign
  * </ul>
  *
- * <p>Verification uses {@link KeyManager#publicKeyFor(String)} so a JWT signed
- * with the previous (rotating-out) key still verifies until expiry.
+ * <p>Verification uses {@link KeyManager#publicKeyFor(String)} so a JWT signed with the previous
+ * (rotating-out) key still verifies until expiry.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class JwtService {
 
-    private static final String SERVICE_TOKEN_TYPE = "service";
+  private static final String SERVICE_TOKEN_TYPE = "service";
 
-    private final KeyManager keyManager;
+  private final KeyManager keyManager;
 
-    @Value("${jwt.access-token-expiration:900000}")
-    private long jwtExpiration;
+  @Value("${jwt.access-token-expiration:900000}")
+  private long jwtExpiration;
 
-    @Value("${jwt.issuer:auth-service}")
-    private String issuer;
+  @Value("${jwt.issuer:auth-service}")
+  private String issuer;
 
-    public String generateToken(User user) {
-        Set<String> roles = user.getRoles().stream()
-                .map(Role::getName)
-                .collect(Collectors.toSet());
-        Set<String> permissions = user.getRoles().stream()
-                .flatMap(r -> r.getPermissions().stream())
-                .map(Permission::getName)
-                .collect(Collectors.toSet());
+  public String generateToken(User user) {
+    Set<String> roles = user.getRoles().stream().map(Role::getName).collect(Collectors.toSet());
+    Set<String> permissions =
+        user.getRoles().stream()
+            .flatMap(r -> r.getPermissions().stream())
+            .map(Permission::getName)
+            .collect(Collectors.toSet());
 
-        JwtKey key = keyManager.getCurrentKey();
-        long now = System.currentTimeMillis();
+    JwtKey key = keyManager.getCurrentKey();
+    long now = System.currentTimeMillis();
 
-        return Jwts.builder()
-                .header().keyId(key.getKid()).type("JWT").and()
-                .subject(user.getId().toString())
-                .issuer(issuer)
-                .issuedAt(new Date(now))
-                .expiration(new Date(now + jwtExpiration))
-                .claim("email", user.getEmail())
-                .claim("roles", roles)
-                .claim("permissions", permissions)
-                .signWith(key.getPrivateKey(), Jwts.SIG.RS256)
-                .compact();
+    return Jwts.builder()
+        .header()
+        .keyId(key.getKid())
+        .type("JWT")
+        .and()
+        .subject(user.getId().toString())
+        .issuer(issuer)
+        .issuedAt(new Date(now))
+        .expiration(new Date(now + jwtExpiration))
+        .claim("email", user.getEmail())
+        .claim("roles", roles)
+        .claim("permissions", permissions)
+        .signWith(key.getPrivateKey(), Jwts.SIG.RS256)
+        .compact();
+  }
+
+  public String generateServiceToken(String clientId, Set<String> scopes, Duration ttl) {
+    JwtKey key = keyManager.getCurrentKey();
+    long now = System.currentTimeMillis();
+    String scope = String.join(" ", new TreeSet<>(scopes));
+
+    return Jwts.builder()
+        .header()
+        .keyId(key.getKid())
+        .type("JWT")
+        .and()
+        .subject(clientId)
+        .issuer(issuer)
+        .id(UUID.randomUUID().toString())
+        .issuedAt(new Date(now))
+        .expiration(new Date(now + ttl.toMillis()))
+        .claim("token_type", SERVICE_TOKEN_TYPE)
+        .claim("scope", scope)
+        .signWith(key.getPrivateKey(), Jwts.SIG.RS256)
+        .compact();
+  }
+
+  public boolean validateToken(String token) {
+    try {
+      parseClaims(token);
+      return true;
+    } catch (Exception e) {
+      log.debug("JWT validation failed: {}", e.getMessage());
+      return false;
     }
+  }
 
-    public String generateServiceToken(String clientId, Set<String> scopes, Duration ttl) {
-        JwtKey key = keyManager.getCurrentKey();
-        long now = System.currentTimeMillis();
-        String scope = String.join(" ", new TreeSet<>(scopes));
+  public boolean isUserToken(String token) {
+    return !SERVICE_TOKEN_TYPE.equals(parseClaims(token).get("token_type", String.class));
+  }
 
-        return Jwts.builder()
-                .header().keyId(key.getKid()).type("JWT").and()
-                .subject(clientId)
-                .issuer(issuer)
-                .id(UUID.randomUUID().toString())
-                .issuedAt(new Date(now))
-                .expiration(new Date(now + ttl.toMillis()))
-                .claim("token_type", SERVICE_TOKEN_TYPE)
-                .claim("scope", scope)
-                .signWith(key.getPrivateKey(), Jwts.SIG.RS256)
-                .compact();
-    }
+  public String getUserIdFromToken(String token) {
+    return parseClaims(token).getSubject();
+  }
 
-    public boolean validateToken(String token) {
-        try {
-            parseClaims(token);
-            return true;
-        } catch (Exception e) {
-            log.debug("JWT validation failed: {}", e.getMessage());
-            return false;
-        }
-    }
+  public String getEmailFromToken(String token) {
+    return parseClaims(token).get("email", String.class);
+  }
 
-    public boolean isUserToken(String token) {
-        return !SERVICE_TOKEN_TYPE.equals(parseClaims(token).get("token_type", String.class));
-    }
+  @SuppressWarnings("unchecked")
+  public Set<String> getRolesFromToken(String token) {
+    List<String> roles = parseClaims(token).get("roles", List.class);
+    return roles != null ? Set.copyOf(roles) : Set.of();
+  }
 
-    public String getUserIdFromToken(String token) {
-        return parseClaims(token).getSubject();
-    }
+  @SuppressWarnings("unchecked")
+  public Set<String> getPermissionsFromToken(String token) {
+    List<String> permissions = parseClaims(token).get("permissions", List.class);
+    return permissions != null ? Set.copyOf(permissions) : Set.of();
+  }
 
-    public String getEmailFromToken(String token) {
-        return parseClaims(token).get("email", String.class);
-    }
-
-    @SuppressWarnings("unchecked")
-    public Set<String> getRolesFromToken(String token) {
-        List<String> roles = parseClaims(token).get("roles", List.class);
-        return roles != null ? Set.copyOf(roles) : Set.of();
-    }
-
-    @SuppressWarnings("unchecked")
-    public Set<String> getPermissionsFromToken(String token) {
-        List<String> permissions = parseClaims(token).get("permissions", List.class);
-        return permissions != null ? Set.copyOf(permissions) : Set.of();
-    }
-
-    private Claims parseClaims(String token) {
-        return Jwts.parser()
-                .keyLocator(new LocatorAdapter<>() {
-                    @Override
-                    protected Key locate(JwsHeader header) {
-                        String kid = header.getKeyId();
-                        Key found = keyManager.publicKeyFor(kid);
-                        if (found == null) {
-                            throw new io.jsonwebtoken.security.SignatureException(
-                                    "Unknown key id in JWT header: " + kid);
-                        }
-                        return found;
-                    }
-                })
-                .requireIssuer(issuer)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-    }
+  private Claims parseClaims(String token) {
+    return Jwts.parser()
+        .keyLocator(
+            new LocatorAdapter<>() {
+              @Override
+              protected Key locate(JwsHeader header) {
+                String kid = header.getKeyId();
+                Key found = keyManager.publicKeyFor(kid);
+                if (found == null) {
+                  throw new io.jsonwebtoken.security.SignatureException(
+                      "Unknown key id in JWT header: " + kid);
+                }
+                return found;
+              }
+            })
+        .requireIssuer(issuer)
+        .build()
+        .parseSignedClaims(token)
+        .getPayload();
+  }
 }

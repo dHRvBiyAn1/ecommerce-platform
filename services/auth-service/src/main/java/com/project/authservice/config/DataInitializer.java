@@ -11,6 +11,11 @@ import com.project.authservice.repository.UserCredentialRepository;
 import com.project.authservice.repository.UserRepository;
 import com.project.common.constant.Permissions;
 import com.project.common.constant.Roles;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,17 +24,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 /**
- * Idempotent on-startup data initializer. Seeds permissions, default roles, and a
- * bootstrap admin user from environment variables.
+ * Idempotent on-startup data initializer. Seeds permissions, default roles, and a bootstrap admin
+ * user from environment variables.
  *
  * <p>Configuration:
+ *
  * <pre>
  * admin.email=${ADMIN_EMAIL:}
  * admin.password=${ADMIN_PASSWORD:}
@@ -37,207 +37,244 @@ import java.util.Set;
  * </pre>
  *
  * <p>Without {@code ADMIN_EMAIL} + {@code ADMIN_PASSWORD} the bootstrap admin is
- * <strong>not</strong> created and you must seed one manually. We intentionally do
- * NOT generate a default admin password — that's the kind of thing that gets shipped
- * to production by accident.
+ * <strong>not</strong> created and you must seed one manually. We intentionally do NOT generate a
+ * default admin password — that's the kind of thing that gets shipped to production by accident.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
 
-    private final PermissionRepository permissionRepository;
-    private final RoleRepository roleRepository;
-    private final UserRepository userRepository;
-    private final UserCredentialRepository userCredentialRepository;
-    private final PasswordEncoder passwordEncoder;
+  private final PermissionRepository permissionRepository;
+  private final RoleRepository roleRepository;
+  private final UserRepository userRepository;
+  private final UserCredentialRepository userCredentialRepository;
+  private final PasswordEncoder passwordEncoder;
 
-    @Value("${admin.email:}")
-    private String adminEmail;
-    @Value("${admin.password:}")
-    private String adminPassword;
-    @Value("${admin.display-name:Platform Admin}")
-    private String adminDisplayName;
+  @Value("${admin.email:}")
+  private String adminEmail;
 
-    @Value("${seed.enabled:false}")
-    private boolean seedEnabled;
-    @Value("${seed.user-password:Password1!}")
-    private String seedUserPassword;
+  @Value("${admin.password:}")
+  private String adminPassword;
 
-    @Override
-    @Transactional
-    public void run(String... args) {
-        if (!seedEnabled) {
-            log.info("Startup database data insertion (seeding) is disabled by feature flag.");
-            return;
-        }
-        seedPermissions();
-        Map<String, Role> roles = seedRoles();
-        seedAdmin(roles.get(Roles.ADMIN));
-        seedSampleUsers(roles);
+  @Value("${admin.display-name:Platform Admin}")
+  private String adminDisplayName;
+
+  @Value("${seed.enabled:false}")
+  private boolean seedEnabled;
+
+  @Value("${seed.user-password:Password1!}")
+  private String seedUserPassword;
+
+  @Override
+  @Transactional
+  public void run(String... args) {
+    if (!seedEnabled) {
+      log.info("Startup database data insertion (seeding) is disabled by feature flag.");
+      return;
     }
+    seedPermissions();
+    Map<String, Role> roles = seedRoles();
+    seedAdmin(roles.get(Roles.ADMIN));
+    seedSampleUsers(roles);
+  }
 
-    private void seedPermissions() {
-        List<String> all = List.of(
-                Permissions.USERS_READ, Permissions.USERS_WRITE,
-                Permissions.ROLES_READ, Permissions.ROLES_WRITE,
-                Permissions.PRODUCTS_CREATE, Permissions.PRODUCTS_READ,
-                Permissions.PRODUCTS_UPDATE, Permissions.PRODUCTS_DELETE,
-                Permissions.ORDERS_CREATE, Permissions.ORDERS_READ,
-                Permissions.ORDERS_UPDATE, Permissions.ORDERS_CANCEL,
-                Permissions.ORDERS_REFUND,
-                Permissions.INVENTORY_READ, Permissions.INVENTORY_WRITE,
-                Permissions.INVENTORY_RESERVE,
-                Permissions.PAYMENTS_READ, Permissions.PAYMENTS_REFUND,
-                Permissions.PAYMENTS_PROCESS,
-                Permissions.NOTIFICATIONS_READ, Permissions.NOTIFICATIONS_SEND,
-                Permissions.COUPONS_READ, Permissions.COUPONS_WRITE,
-                Permissions.CMS_WRITE, Permissions.ANALYTICS_READ, Permissions.AUDIT_READ
-        );
-        for (String p : all) {
-            if (permissionRepository.findByName(p).isEmpty()) {
-                Permission perm = new Permission();
-                perm.setName(p);
-                permissionRepository.save(perm);
-            }
-        }
+  private void seedPermissions() {
+    List<String> all =
+        List.of(
+            Permissions.USERS_READ,
+            Permissions.USERS_WRITE,
+            Permissions.ROLES_READ,
+            Permissions.ROLES_WRITE,
+            Permissions.PRODUCTS_CREATE,
+            Permissions.PRODUCTS_READ,
+            Permissions.PRODUCTS_UPDATE,
+            Permissions.PRODUCTS_DELETE,
+            Permissions.ORDERS_CREATE,
+            Permissions.ORDERS_READ,
+            Permissions.ORDERS_UPDATE,
+            Permissions.ORDERS_CANCEL,
+            Permissions.ORDERS_REFUND,
+            Permissions.INVENTORY_READ,
+            Permissions.INVENTORY_WRITE,
+            Permissions.INVENTORY_RESERVE,
+            Permissions.PAYMENTS_READ,
+            Permissions.PAYMENTS_REFUND,
+            Permissions.PAYMENTS_PROCESS,
+            Permissions.NOTIFICATIONS_READ,
+            Permissions.NOTIFICATIONS_SEND,
+            Permissions.COUPONS_READ,
+            Permissions.COUPONS_WRITE,
+            Permissions.CMS_WRITE,
+            Permissions.ANALYTICS_READ,
+            Permissions.AUDIT_READ);
+    for (String p : all) {
+      if (permissionRepository.findByName(p).isEmpty()) {
+        Permission perm = new Permission();
+        perm.setName(p);
+        permissionRepository.save(perm);
+      }
     }
+  }
 
-    private Map<String, Role> seedRoles() {
-        Map<String, Role> result = new LinkedHashMap<>();
-        result.put(Roles.ADMIN, ensureRole(Roles.ADMIN, allPermissions()));
-        result.put(Roles.SELLER, ensureRole(Roles.SELLER, sellerPermissions()));
-        result.put(Roles.CUSTOMER, ensureRole(Roles.CUSTOMER, customerPermissions()));
-        result.put(Roles.SUPPORT, ensureRole(Roles.SUPPORT, supportPermissions()));
-        return result;
+  private Map<String, Role> seedRoles() {
+    Map<String, Role> result = new LinkedHashMap<>();
+    result.put(Roles.ADMIN, ensureRole(Roles.ADMIN, allPermissions()));
+    result.put(Roles.SELLER, ensureRole(Roles.SELLER, sellerPermissions()));
+    result.put(Roles.CUSTOMER, ensureRole(Roles.CUSTOMER, customerPermissions()));
+    result.put(Roles.SUPPORT, ensureRole(Roles.SUPPORT, supportPermissions()));
+    return result;
+  }
+
+  private Role ensureRole(String name, Set<Permission> permissions) {
+    return roleRepository
+        .findByName(name)
+        .orElseGet(
+            () -> {
+              Role r = new Role();
+              r.setName(name);
+              r.setPermissions(permissions);
+              log.info("Seeded role {}", name);
+              return roleRepository.save(r);
+            });
+  }
+
+  private Set<Permission> allPermissions() {
+    return new HashSet<>(permissionRepository.findAll());
+  }
+
+  private Set<Permission> sellerPermissions() {
+    return permsByName(
+        Set.of(
+            Permissions.PRODUCTS_CREATE,
+            Permissions.PRODUCTS_READ,
+            Permissions.PRODUCTS_UPDATE,
+            Permissions.PRODUCTS_DELETE,
+            Permissions.ORDERS_READ,
+            Permissions.INVENTORY_READ,
+            Permissions.INVENTORY_WRITE,
+            Permissions.PAYMENTS_READ));
+  }
+
+  private Set<Permission> customerPermissions() {
+    return permsByName(
+        Set.of(
+            Permissions.PRODUCTS_READ,
+            Permissions.ORDERS_CREATE,
+            Permissions.ORDERS_READ,
+            Permissions.ORDERS_CANCEL,
+            Permissions.PAYMENTS_READ));
+  }
+
+  private Set<Permission> supportPermissions() {
+    return permsByName(
+        Set.of(
+            Permissions.USERS_READ,
+            Permissions.ORDERS_READ,
+            Permissions.ORDERS_REFUND,
+            Permissions.PAYMENTS_READ,
+            Permissions.PAYMENTS_REFUND,
+            Permissions.NOTIFICATIONS_READ,
+            Permissions.AUDIT_READ));
+  }
+
+  private Set<Permission> permsByName(Set<String> names) {
+    Set<Permission> out = new HashSet<>();
+    for (String n : names) {
+      permissionRepository.findByName(n).ifPresent(out::add);
     }
+    return out;
+  }
 
-    private Role ensureRole(String name, Set<Permission> permissions) {
-        return roleRepository.findByName(name).orElseGet(() -> {
-            Role r = new Role();
-            r.setName(name);
-            r.setPermissions(permissions);
-            log.info("Seeded role {}", name);
-            return roleRepository.save(r);
-        });
+  private void seedAdmin(Role adminRole) {
+    if (adminEmail.isBlank() || adminPassword.isBlank()) {
+      log.warn("ADMIN_EMAIL/ADMIN_PASSWORD not set; skipping bootstrap admin creation");
+      return;
     }
-
-    private Set<Permission> allPermissions() {
-        return new HashSet<>(permissionRepository.findAll());
+    if (userRepository.existsByEmail(adminEmail)) {
+      log.info("Bootstrap admin {} already exists", adminEmail);
+      return;
     }
+    User user = new User();
+    user.setEmail(adminEmail);
+    user.setDisplayName(adminDisplayName);
+    user.setActive(true);
+    user.getRoles().add(adminRole);
+    user = userRepository.save(user);
 
-    private Set<Permission> sellerPermissions() {
-        return permsByName(Set.of(
-                Permissions.PRODUCTS_CREATE, Permissions.PRODUCTS_READ,
-                Permissions.PRODUCTS_UPDATE, Permissions.PRODUCTS_DELETE,
-                Permissions.ORDERS_READ,
-                Permissions.INVENTORY_READ, Permissions.INVENTORY_WRITE,
-                Permissions.PAYMENTS_READ));
+    UserCredential cred = new UserCredential();
+    cred.setUser(user);
+    cred.setAuthProvider(AuthProvider.LOCAL);
+    cred.setPasswordHash(passwordEncoder.encode(adminPassword));
+    userCredentialRepository.save(cred);
+
+    log.info("Bootstrap admin created: {}", adminEmail);
+  }
+
+  /**
+   * Idempotent seed of 20 customers + 5 sellers + 1 support user with deterministic UUIDs from
+   * {@link com.project.common.sampledata.SampleIds}. All sample users share the same password
+   * (default {@code Password1!}) for ease of manual testing. Skipped when seed.enabled=false.
+   */
+  private void seedSampleUsers(Map<String, Role> roles) {
+    long existing = userRepository.count();
+    if (existing > 5) {
+      log.info("Sample users: skipping (user table has {} rows already)", existing);
+      return;
     }
+    log.info(
+        "Sample users: seeding {} customers + {} sellers + 1 support",
+        com.project.common.sampledata.SampleIds.CUSTOMERS.size(),
+        com.project.common.sampledata.SampleIds.SELLERS.size());
 
-    private Set<Permission> customerPermissions() {
-        return permsByName(Set.of(
-                Permissions.PRODUCTS_READ,
-                Permissions.ORDERS_CREATE, Permissions.ORDERS_READ,
-                Permissions.ORDERS_CANCEL,
-                Permissions.PAYMENTS_READ));
+    String hash = passwordEncoder.encode(seedUserPassword);
+
+    for (var u : com.project.common.sampledata.SampleIds.CUSTOMERS) {
+      createIfMissing(u.id(), u.email(), u.displayName(), roles.get(Roles.CUSTOMER), hash);
     }
-
-    private Set<Permission> supportPermissions() {
-        return permsByName(Set.of(
-                Permissions.USERS_READ,
-                Permissions.ORDERS_READ, Permissions.ORDERS_REFUND,
-                Permissions.PAYMENTS_READ, Permissions.PAYMENTS_REFUND,
-                Permissions.NOTIFICATIONS_READ, Permissions.AUDIT_READ));
+    for (var u : com.project.common.sampledata.SampleIds.SELLERS) {
+      createIfMissing(
+          u.id(),
+          u.email(),
+          u.displayName(),
+          roles.get(Roles.SELLER),
+          roles.get(Roles.CUSTOMER),
+          hash);
     }
+    var support = com.project.common.sampledata.SampleIds.SUPPORT;
+    createIfMissing(
+        support.id(), support.email(), support.displayName(), roles.get(Roles.SUPPORT), hash);
 
-    private Set<Permission> permsByName(Set<String> names) {
-        Set<Permission> out = new HashSet<>();
-        for (String n : names) {
-            permissionRepository.findByName(n).ifPresent(out::add);
-        }
-        return out;
-    }
+    log.info("Sample users seeded. Login with any sample email + password '{}'", seedUserPassword);
+  }
 
-    private void seedAdmin(Role adminRole) {
-        if (adminEmail.isBlank() || adminPassword.isBlank()) {
-            log.warn("ADMIN_EMAIL/ADMIN_PASSWORD not set; skipping bootstrap admin creation");
-            return;
-        }
-        if (userRepository.existsByEmail(adminEmail)) {
-            log.info("Bootstrap admin {} already exists", adminEmail);
-            return;
-        }
-        User user = new User();
-        user.setEmail(adminEmail);
-        user.setDisplayName(adminDisplayName);
-        user.setActive(true);
-        user.getRoles().add(adminRole);
-        user = userRepository.save(user);
+  private void createIfMissing(
+      java.util.UUID id, String email, String displayName, Role role, String hash) {
+    createIfMissing(id, email, displayName, role, null, hash);
+  }
 
-        UserCredential cred = new UserCredential();
-        cred.setUser(user);
-        cred.setAuthProvider(AuthProvider.LOCAL);
-        cred.setPasswordHash(passwordEncoder.encode(adminPassword));
-        userCredentialRepository.save(cred);
+  private void createIfMissing(
+      java.util.UUID id,
+      String email,
+      String displayName,
+      Role primaryRole,
+      Role secondaryRole,
+      String hash) {
+    if (userRepository.existsByEmail(email) || userRepository.existsById(id)) return;
 
-        log.info("Bootstrap admin created: {}", adminEmail);
-    }
+    User user = new User();
+    user.setId(id);
+    user.setEmail(email);
+    user.setDisplayName(displayName);
+    user.setActive(true);
+    user.getRoles().add(primaryRole);
+    if (secondaryRole != null) user.getRoles().add(secondaryRole);
+    user = userRepository.save(user);
 
-    /**
-     * Idempotent seed of 20 customers + 5 sellers + 1 support user with
-     * deterministic UUIDs from {@link com.project.common.sampledata.SampleIds}.
-     * All sample users share the same password (default {@code Password1!})
-     * for ease of manual testing. Skipped when seed.enabled=false.
-     */
-    private void seedSampleUsers(Map<String, Role> roles) {
-        long existing = userRepository.count();
-        if (existing > 5) {
-            log.info("Sample users: skipping (user table has {} rows already)", existing);
-            return;
-        }
-        log.info("Sample users: seeding {} customers + {} sellers + 1 support",
-                com.project.common.sampledata.SampleIds.CUSTOMERS.size(),
-                com.project.common.sampledata.SampleIds.SELLERS.size());
-
-        String hash = passwordEncoder.encode(seedUserPassword);
-
-        for (var u : com.project.common.sampledata.SampleIds.CUSTOMERS) {
-            createIfMissing(u.id(), u.email(), u.displayName(), roles.get(Roles.CUSTOMER), hash);
-        }
-        for (var u : com.project.common.sampledata.SampleIds.SELLERS) {
-            createIfMissing(u.id(), u.email(), u.displayName(),
-                    roles.get(Roles.SELLER), roles.get(Roles.CUSTOMER), hash);
-        }
-        var support = com.project.common.sampledata.SampleIds.SUPPORT;
-        createIfMissing(support.id(), support.email(), support.displayName(),
-                roles.get(Roles.SUPPORT), hash);
-
-        log.info("Sample users seeded. Login with any sample email + password '{}'", seedUserPassword);
-    }
-
-    private void createIfMissing(java.util.UUID id, String email, String displayName,
-                                 Role role, String hash) {
-        createIfMissing(id, email, displayName, role, null, hash);
-    }
-
-    private void createIfMissing(java.util.UUID id, String email, String displayName,
-                                 Role primaryRole, Role secondaryRole, String hash) {
-        if (userRepository.existsByEmail(email) || userRepository.existsById(id)) return;
-
-        User user = new User();
-        user.setId(id);
-        user.setEmail(email);
-        user.setDisplayName(displayName);
-        user.setActive(true);
-        user.getRoles().add(primaryRole);
-        if (secondaryRole != null) user.getRoles().add(secondaryRole);
-        user = userRepository.save(user);
-
-        UserCredential cred = new UserCredential();
-        cred.setUser(user);
-        cred.setAuthProvider(AuthProvider.LOCAL);
-        cred.setPasswordHash(hash);
-        userCredentialRepository.save(cred);
-    }
+    UserCredential cred = new UserCredential();
+    cred.setUser(user);
+    cred.setAuthProvider(AuthProvider.LOCAL);
+    cred.setPasswordHash(hash);
+    userCredentialRepository.save(cred);
+  }
 }

@@ -14,11 +14,12 @@ import org.springframework.security.web.SecurityFilterChain;
 
 /**
  * Payment-service security:
+ *
  * <ul>
- *   <li>Webhook endpoint is public at the security layer and authenticated via
- *       HMAC at the controller. This matches PSPs that can't carry a Bearer JWT.</li>
- *   <li>Everything else requires authentication; @PreAuthorize on controller methods
- *       enforces fine-grained authorities (refund, process, etc.).</li>
+ *   <li>Webhook endpoint is public at the security layer and authenticated via HMAC at the
+ *       controller. This matches PSPs that can't carry a Bearer JWT.
+ *   <li>Everything else requires authentication; @PreAuthorize on controller methods enforces
+ *       fine-grained authorities (refund, process, etc.).
  * </ul>
  */
 @Configuration
@@ -26,20 +27,28 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableMethodSecurity(prePostEnabled = true, proxyTargetClass = true)
 public class SecurityConfig {
 
-    @Bean
-    // Bearer-only stateless API; webhooks use provider signatures, not browser cookie authentication.
-    @SuppressWarnings("java:S4502")
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
-                .cors(Customizer.withDefaults())
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/prometheus").permitAll()
-                        // Webhooks: Stripe / internal — verified by HMAC inside the controller
-                        .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook", "/api/v1/payments/webhook/stripe").permitAll()
-                        .anyRequest().authenticated())
-                .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(new JwtAuthenticationConverter())));
-        return http.build();
-    }
+  @Bean
+  // Bearer-only stateless API; webhooks use provider signatures, not browser cookie authentication.
+  @SuppressWarnings("java:S4502")
+  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    http.csrf(AbstractHttpConfigurer::disable)
+        .cors(Customizer.withDefaults())
+        .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(
+            auth ->
+                auth.requestMatchers(
+                        "/actuator/health", "/actuator/health/**", "/actuator/prometheus")
+                    .permitAll()
+                    // Webhooks: Stripe / internal — verified by HMAC inside the controller
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/v1/payments/webhook",
+                        "/api/v1/payments/webhook/stripe")
+                    .permitAll()
+                    .anyRequest()
+                    .authenticated())
+        .oauth2ResourceServer(
+            o -> o.jwt(j -> j.jwtAuthenticationConverter(new JwtAuthenticationConverter())));
+    return http.build();
+  }
 }

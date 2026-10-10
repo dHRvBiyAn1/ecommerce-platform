@@ -22,10 +22,13 @@ import com.project.authservice.security.AuthenticatedUserValidator;
 import com.project.authservice.service.SellerApplicationService;
 import com.project.authservice.service.UserProfileService;
 import com.project.common.constant.Permissions;
-import com.project.common.web.Responses;
 import com.project.common.exception.DuplicateResourceException;
 import com.project.common.exception.ResourceNotFoundException;
+import com.project.common.web.Responses;
 import jakarta.transaction.Transactional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -36,146 +39,175 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Set;
-import java.util.UUID;
-import java.util.stream.Collectors;
-
 @RestController
 @RequiredArgsConstructor
 public class AdminController implements AdministrationApi {
 
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
-    private final PermissionRepository permissionRepository;
-    private final UserProfileService userProfileService;
-    private final SellerApplicationService sellerApplicationService;
-    private final AuthenticatedUserValidator authenticatedUserValidator;
-    private final AuthApiMapper apiMapper;
+  private final UserRepository userRepository;
+  private final RoleRepository roleRepository;
+  private final PermissionRepository permissionRepository;
+  private final UserProfileService userProfileService;
+  private final SellerApplicationService sellerApplicationService;
+  private final AuthenticatedUserValidator authenticatedUserValidator;
+  private final AuthApiMapper apiMapper;
 
-    @Override
-    @PreAuthorize("hasAuthority('" + Permissions.USERS_WRITE + "')")
-    public ResponseEntity<ApiResponseSellerApplicationResponse> approve(UUID id) {
-        UUID adminId = authenticatedUserValidator.requireUserId(SecurityContextHolder.getContext().getAuthentication());
-        return ResponseEntity.ok(apiMapper.toApiSellerApplication(
-                Responses.success(sellerApplicationService.approve(id, adminId))));
+  @Override
+  @PreAuthorize("hasAuthority('" + Permissions.USERS_WRITE + "')")
+  public ResponseEntity<ApiResponseSellerApplicationResponse> approve(UUID id) {
+    UUID adminId =
+        authenticatedUserValidator.requireUserId(
+            SecurityContextHolder.getContext().getAuthentication());
+    return ResponseEntity.ok(
+        apiMapper.toApiSellerApplication(
+            Responses.success(sellerApplicationService.approve(id, adminId))));
+  }
+
+  @Override
+  @PreAuthorize("hasAuthority('" + Permissions.USERS_READ + "')")
+  public ResponseEntity<ApiResponsePageSellerApplicationResponse> callList(
+      com.project.authservice.generated.model.SellerApplicationStatus status,
+      @PageableDefault(size = 20, sort = "submittedAt", direction = Sort.Direction.DESC)
+          Pageable pageable) {
+    SellerApplicationStatus filter =
+        status == null ? null : SellerApplicationStatus.valueOf(status.getValue());
+    return ResponseEntity.ok(
+        apiMapper.toApiSellerApplications(
+            Responses.success(sellerApplicationService.list(filter, pageable))));
+  }
+
+  @Override
+  @PreAuthorize("hasAuthority('admin:roles:write')")
+  @Transactional
+  public ResponseEntity<ApiResponseRole> createRole(CreateRoleRequest createRoleRequest) {
+    if (roleRepository.findByName(createRoleRequest.getName()).isPresent()) {
+      throw new DuplicateResourceException("Role already exists: " + createRoleRequest.getName());
     }
+    Role role = new Role();
+    role.setName(createRoleRequest.getName());
+    role = roleRepository.save(role);
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(apiMapper.toApiRole(Responses.created(apiMapper.toApi(role))));
+  }
 
-    @Override
-    @PreAuthorize("hasAuthority('" + Permissions.USERS_READ + "')")
-    public ResponseEntity<ApiResponsePageSellerApplicationResponse> callList(
-            com.project.authservice.generated.model.SellerApplicationStatus status,
-            @PageableDefault(size = 20, sort = "submittedAt", direction = Sort.Direction.DESC)
-                    Pageable pageable) {
-        SellerApplicationStatus filter = status == null ? null : SellerApplicationStatus.valueOf(status.getValue());
-        return ResponseEntity.ok(apiMapper.toApiSellerApplications(
-                Responses.success(sellerApplicationService.list(filter, pageable))));
-    }
+  @Override
+  @PreAuthorize("hasAuthority('admin:roles:write')")
+  @Transactional
+  public ResponseEntity<Void> deleteRole(UUID roleId) {
+    Role role =
+        roleRepository
+            .findById(roleId)
+            .orElseThrow(() -> new ResourceNotFoundException("Role", roleId));
+    roleRepository.delete(role);
+    return ResponseEntity.noContent().build();
+  }
 
-    @Override
-    @PreAuthorize("hasAuthority('admin:roles:write')")
-    @Transactional
-    public ResponseEntity<ApiResponseRole> createRole(CreateRoleRequest createRoleRequest) {
-        if (roleRepository.findByName(createRoleRequest.getName()).isPresent()) {
-            throw new DuplicateResourceException("Role already exists: " + createRoleRequest.getName());
-        }
-        Role role = new Role();
-        role.setName(createRoleRequest.getName());
-        role = roleRepository.save(role);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(apiMapper.toApiRole(Responses.created(apiMapper.toApi(role))));
-    }
+  @Override
+  @PreAuthorize("hasAuthority('" + Permissions.USERS_READ + "')")
+  public ResponseEntity<ApiResponseSellerApplicationResponse> get(UUID id) {
+    return ResponseEntity.ok(
+        apiMapper.toApiSellerApplication(Responses.success(sellerApplicationService.get(id))));
+  }
 
-    @Override
-    @PreAuthorize("hasAuthority('admin:roles:write')")
-    @Transactional
-    public ResponseEntity<Void> deleteRole(UUID roleId) {
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role", roleId));
-        roleRepository.delete(role);
-        return ResponseEntity.noContent().build();
-    }
+  @Override
+  @PreAuthorize("hasAuthority('admin:users:read')")
+  public ResponseEntity<com.project.authservice.generated.model.ApiResponseUserProfileDto> getUser(
+      UUID userId) {
+    User user =
+        userRepository
+            .findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+    return ResponseEntity.ok(
+        apiMapper.toApiUserProfile(Responses.success(userProfileService.toDto(user))));
+  }
 
-    @Override
-    @PreAuthorize("hasAuthority('" + Permissions.USERS_READ + "')")
-    public ResponseEntity<ApiResponseSellerApplicationResponse> get(UUID id) {
-        return ResponseEntity.ok(apiMapper.toApiSellerApplication(
-                Responses.success(sellerApplicationService.get(id))));
-    }
+  @Override
+  @PreAuthorize("hasAuthority('admin:roles:read')")
+  public ResponseEntity<ApiResponseListRole> listRoles() {
+    return ResponseEntity.ok(
+        apiMapper.toApiRoles(
+            Responses.success(roleRepository.findAll().stream().map(apiMapper::toApi).toList())));
+  }
 
-    @Override
-    @PreAuthorize("hasAuthority('admin:users:read')")
-    public ResponseEntity<com.project.authservice.generated.model.ApiResponseUserProfileDto> getUser(UUID userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
-        return ResponseEntity.ok(apiMapper.toApiUserProfile(
-                Responses.success(userProfileService.toDto(user))));
-    }
+  @Override
+  @PreAuthorize("hasAuthority('admin:users:read')")
+  public ResponseEntity<ApiResponsePageUserProfileDto> listUsers(
+      @PageableDefault(size = 20) Pageable pageable) {
+    return ResponseEntity.ok(
+        apiMapper.toApiUserProfiles(
+            Responses.success(userRepository.findAll(pageable).map(userProfileService::toDto))));
+  }
 
-    @Override
-    @PreAuthorize("hasAuthority('admin:roles:read')")
-    public ResponseEntity<ApiResponseListRole> listRoles() {
-        return ResponseEntity.ok(apiMapper.toApiRoles(Responses.success(
-                roleRepository.findAll().stream().map(apiMapper::toApi).toList())));
-    }
+  @Override
+  @PreAuthorize("hasAuthority('" + Permissions.USERS_WRITE + "')")
+  public ResponseEntity<ApiResponseSellerApplicationResponse> reject(
+      UUID id, RejectApplicationRequest rejectRequest) {
+    UUID adminId =
+        authenticatedUserValidator.requireUserId(
+            SecurityContextHolder.getContext().getAuthentication());
+    return ResponseEntity.ok(
+        apiMapper.toApiSellerApplication(
+            Responses.success(sellerApplicationService.reject(id, adminId, rejectRequest))));
+  }
 
-    @Override
-    @PreAuthorize("hasAuthority('admin:users:read')")
-    public ResponseEntity<ApiResponsePageUserProfileDto> listUsers(
-            @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(apiMapper.toApiUserProfiles(Responses.success(
-                userRepository.findAll(pageable).map(userProfileService::toDto))));
-    }
+  @Override
+  @PreAuthorize("hasAuthority('admin:users:write')")
+  @Transactional
+  public ResponseEntity<com.project.authservice.generated.model.ApiResponseUserProfileDto>
+      setActive(UUID userId, Boolean active) {
+    User user =
+        userRepository
+            .findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+    user.setActive(active);
+    return ResponseEntity.ok(
+        apiMapper.toApiUserProfile(
+            Responses.success(userProfileService.toDto(userRepository.save(user)))));
+  }
 
-    @Override
-    @PreAuthorize("hasAuthority('" + Permissions.USERS_WRITE + "')")
-    public ResponseEntity<ApiResponseSellerApplicationResponse> reject(UUID id, RejectApplicationRequest rejectRequest) {
-        UUID adminId = authenticatedUserValidator.requireUserId(SecurityContextHolder.getContext().getAuthentication());
-        return ResponseEntity.ok(apiMapper.toApiSellerApplication(Responses.success(
-                sellerApplicationService.reject(id, adminId, rejectRequest))));
-    }
+  @Override
+  @PreAuthorize("hasAuthority('admin:users:write')")
+  @Transactional
+  public ResponseEntity<com.project.authservice.generated.model.ApiResponseUserProfileDto> setRoles(
+      UUID userId, AssignRolesRequest assignRolesRequest) {
 
-    @Override
-    @PreAuthorize("hasAuthority('admin:users:write')")
-    @Transactional
-    public ResponseEntity<com.project.authservice.generated.model.ApiResponseUserProfileDto> setActive(
-            UUID userId, Boolean active) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
-        user.setActive(active);
-        return ResponseEntity.ok(apiMapper.toApiUserProfile(
-                Responses.success(userProfileService.toDto(userRepository.save(user)))));
-    }
-
-    @Override
-    @PreAuthorize("hasAuthority('admin:users:write')")
-    @Transactional
-    public ResponseEntity<com.project.authservice.generated.model.ApiResponseUserProfileDto> setRoles(
-            UUID userId, AssignRolesRequest assignRolesRequest) {
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
-        Set<Role> roles = assignRolesRequest.getRoles().stream()
-                .map(name -> roleRepository.findByName(name)
+    User user =
+        userRepository
+            .findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+    Set<Role> roles =
+        assignRolesRequest.getRoles().stream()
+            .map(
+                name ->
+                    roleRepository
+                        .findByName(name)
                         .orElseThrow(() -> new ResourceNotFoundException("Role", name)))
-                .collect(Collectors.toSet());
-        user.setRoles(roles);
-        return ResponseEntity.ok(apiMapper.toApiUserProfile(
-                Responses.success(userProfileService.toDto(userRepository.save(user)))));
-    }
+            .collect(Collectors.toSet());
+    user.setRoles(roles);
+    return ResponseEntity.ok(
+        apiMapper.toApiUserProfile(
+            Responses.success(userProfileService.toDto(userRepository.save(user)))));
+  }
 
-    @Override
-    @PreAuthorize("hasAuthority('admin:roles:write')")
-    @Transactional
-    public ResponseEntity<ApiResponseRole> updateRolePermissions(
-            UUID roleId, UpdateRolePermissionsRequest permissionsRequest) {
+  @Override
+  @PreAuthorize("hasAuthority('admin:roles:write')")
+  @Transactional
+  public ResponseEntity<ApiResponseRole> updateRolePermissions(
+      UUID roleId, UpdateRolePermissionsRequest permissionsRequest) {
 
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role", roleId));
-        Set<Permission> permissions = permissionsRequest.getPermissions().stream()
-                .map(name -> permissionRepository.findByName(name)
+    Role role =
+        roleRepository
+            .findById(roleId)
+            .orElseThrow(() -> new ResourceNotFoundException("Role", roleId));
+    Set<Permission> permissions =
+        permissionsRequest.getPermissions().stream()
+            .map(
+                name ->
+                    permissionRepository
+                        .findByName(name)
                         .orElseThrow(() -> new ResourceNotFoundException("Permission", name)))
-                .collect(Collectors.toSet());
-        role.setPermissions(permissions);
-        return ResponseEntity.ok(apiMapper.toApiRole(Responses.success(apiMapper.toApi(roleRepository.save(role)))));
-    }
+            .collect(Collectors.toSet());
+    role.setPermissions(permissions);
+    return ResponseEntity.ok(
+        apiMapper.toApiRole(Responses.success(apiMapper.toApi(roleRepository.save(role)))));
+  }
 }

@@ -2,6 +2,12 @@ package com.project.coupon.service;
 
 import com.project.common.exception.DuplicateResourceException;
 import com.project.common.exception.ResourceNotFoundException;
+import com.project.coupon.entity.Coupon;
+import com.project.coupon.entity.CouponRedemption;
+import com.project.coupon.entity.DiscountType;
+import com.project.coupon.entity.RedemptionStatus;
+import com.project.coupon.exception.CouponReservationConflictException;
+import com.project.coupon.exception.CouponUnavailableException;
 import com.project.coupon.generated.model.CouponRequest;
 import com.project.coupon.generated.model.CouponReservationRequest;
 import com.project.coupon.generated.model.CouponReservationResponse;
@@ -10,338 +16,378 @@ import com.project.coupon.generated.model.CouponTransitionRequest;
 import com.project.coupon.generated.model.RedeemCouponRequest;
 import com.project.coupon.generated.model.ValidateCouponRequest;
 import com.project.coupon.generated.model.ValidateCouponResponse;
-import com.project.coupon.entity.Coupon;
-import com.project.coupon.entity.CouponRedemption;
-import com.project.coupon.entity.DiscountType;
-import com.project.coupon.entity.RedemptionStatus;
-import com.project.coupon.exception.CouponReservationConflictException;
-import com.project.coupon.exception.CouponUnavailableException;
 import com.project.coupon.mapper.CouponMapper;
 import com.project.coupon.repository.CouponRedemptionRepository;
 import com.project.coupon.repository.CouponRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class CouponService {
 
-    private final CouponRepository couponRepository;
-    private final CouponRedemptionRepository redemptionRepository;
-    private final CouponMapper couponMapper;
+  private final CouponRepository couponRepository;
+  private final CouponRedemptionRepository redemptionRepository;
+  private final CouponMapper couponMapper;
 
-    @Transactional
-    public CouponResponse create(CouponRequest request) {
-        String code = couponMapper.normalizeCode(request.getCode());
-        couponRepository.findByCode(code).ifPresent(coupon -> {
-            throw new DuplicateResourceException("Coupon code already exists: " + code);
-        });
-        try {
-            return couponMapper.toResponse(couponRepository.saveAndFlush(couponMapper.toEntity(request)));
-        } catch (DataIntegrityViolationException exception) {
-            throw translateCouponCodeViolation(exception, code);
-        }
-    }
-
-    @Transactional
-    public CouponResponse update(UUID id, CouponRequest request) {
-        Coupon coupon = couponRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Coupon", id.toString()));
-        String code = couponMapper.normalizeCode(request.getCode());
-        if (!coupon.getCode().equals(code)) {
-            couponRepository.findByCode(code).ifPresent(other -> {
-                if (!other.getId().equals(id)) {
-                    throw new DuplicateResourceException("Coupon code already exists: " + request.getCode());
-                }
+  @Transactional
+  public CouponResponse create(CouponRequest request) {
+    String code = couponMapper.normalizeCode(request.getCode());
+    couponRepository
+        .findByCode(code)
+        .ifPresent(
+            coupon -> {
+              throw new DuplicateResourceException("Coupon code already exists: " + code);
             });
-        }
-        couponMapper.update(coupon, request);
-        try {
-            return couponMapper.toResponse(couponRepository.saveAndFlush(coupon));
-        } catch (DataIntegrityViolationException exception) {
-            throw translateCouponCodeViolation(exception, code);
-        }
+    try {
+      return couponMapper.toResponse(couponRepository.saveAndFlush(couponMapper.toEntity(request)));
+    } catch (DataIntegrityViolationException exception) {
+      throw translateCouponCodeViolation(exception, code);
     }
+  }
 
-    @Transactional
-    public void delete(UUID id) {
-        if (!couponRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Coupon", id.toString());
-        }
-        couponRepository.deleteById(id);
-    }
-
-    @Transactional(readOnly = true)
-    public CouponResponse get(UUID id) {
-        return couponMapper.toResponse(couponRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Coupon", id.toString())));
-    }
-
-    @Transactional(readOnly = true)
-    public Page<CouponResponse> list(Pageable pageable) {
-        return couponRepository.findAll(pageable).map(couponMapper::toResponse);
-    }
-
-    @Transactional(readOnly = true)
-    public ValidateCouponResponse validate(ValidateCouponRequest request) {
-        Coupon coupon = couponRepository.findByCode(couponMapper.normalizeCode(request.getCode())).orElse(null);
-        if (coupon == null) {
-            return invalid(request.getCode(), "Coupon not found");
-        }
-        return validateAgainst(coupon, request.getUserId(), request.getSubtotal(), request.getCurrency());
-    }
-
-    @Transactional
-    public CouponReservationResponse reserve(CouponReservationRequest request) {
-        String code = couponMapper.normalizeCode(request.getCode());
-        CouponRedemption existing = redemptionRepository.findByOrderId(request.getOrderId()).orElse(null);
-        if (existing != null) {
-            requireOwnership(existing, code, request.getUserId());
-            if (existing.getStatus() == RedemptionStatus.RELEASED) {
-                throw new CouponReservationConflictException("Released coupon reservation cannot be reused");
-            }
-            return couponMapper.toReservationResponse(existing);
-        }
-
-        Coupon coupon = couponRepository.findByCodeForUpdate(code)
-                .orElseThrow(() -> new ResourceNotFoundException("Coupon", code));
-
-        existing = redemptionRepository.findByOrderId(request.getOrderId()).orElse(null);
-        if (existing != null) {
-            requireOwnership(existing, code, request.getUserId());
-            if (existing.getStatus() == RedemptionStatus.RELEASED) {
-                throw new CouponReservationConflictException("Released coupon reservation cannot be reused");
-            }
-            return couponMapper.toReservationResponse(existing);
-        }
-
-        ValidateCouponResponse validation = validateAgainst(
-                coupon, request.getUserId(), request.getSubtotal(), request.getCurrency());
-        if (!validation.getValid()) {
-            throw new CouponUnavailableException(validation.getReason());
-        }
-
-        coupon.setReservedCount(coupon.getReservedCount() + 1);
-        couponRepository.save(coupon);
-
-        CouponRedemption reservation = CouponRedemption.builder()
-                .couponId(coupon.getId())
-                .couponCode(coupon.getCode())
-                .userId(request.getUserId())
-                .orderId(request.getOrderId())
-                .discountAmount(validation.getDiscountAmount())
-                .status(RedemptionStatus.RESERVED)
-                .build();
-        CouponRedemption saved = redemptionRepository.save(reservation);
-        log.info("Coupon {} reserved for order {}", coupon.getCode(), request.getOrderId());
-        return couponMapper.toReservationResponse(saved);
-    }
-
-    @Transactional
-    public CouponReservationResponse commit(CouponTransitionRequest request) {
-        CouponRedemption redemption = findReservationForUpdate(request.getOrderId());
-        requireOwnership(redemption, couponMapper.normalizeCode(request.getCode()), request.getUserId());
-        if (redemption.getStatus() == RedemptionStatus.COMMITTED) {
-            return couponMapper.toReservationResponse(redemption);
-        }
-        if (redemption.getStatus() == RedemptionStatus.RELEASED) {
-            throw new CouponReservationConflictException("Released coupon reservation cannot be committed");
-        }
-
-        Coupon coupon = findCouponForUpdate(redemption.getCouponId());
-        if (coupon.getReservedCount() <= 0) {
-            throw new CouponReservationConflictException("Coupon reservation capacity is inconsistent");
-        }
-        coupon.setReservedCount(coupon.getReservedCount() - 1);
-        coupon.setUsageCount(coupon.getUsageCount() + 1);
-        couponRepository.save(coupon);
-
-        redemption.setStatus(RedemptionStatus.COMMITTED);
-        redemption.setCommittedAt(LocalDateTime.now());
-        CouponRedemption saved = redemptionRepository.save(redemption);
-        log.info("Coupon {} committed for order {}", redemption.getCouponCode(), request.getOrderId());
-        return couponMapper.toReservationResponse(saved);
-    }
-
-    @Transactional
-    public CouponReservationResponse release(CouponTransitionRequest request) {
-        CouponRedemption redemption = findReservationForUpdate(request.getOrderId());
-        requireOwnership(redemption, couponMapper.normalizeCode(request.getCode()), request.getUserId());
-        if (redemption.getStatus() == RedemptionStatus.RELEASED) {
-            return couponMapper.toReservationResponse(redemption);
-        }
-        if (redemption.getStatus() == RedemptionStatus.COMMITTED) {
-            throw new CouponReservationConflictException("Committed coupon redemption cannot be released");
-        }
-
-        Coupon coupon = findCouponForUpdate(redemption.getCouponId());
-        if (coupon.getReservedCount() <= 0) {
-            throw new CouponReservationConflictException("Coupon reservation capacity is inconsistent");
-        }
-        coupon.setReservedCount(coupon.getReservedCount() - 1);
-        couponRepository.save(coupon);
-
-        redemption.setStatus(RedemptionStatus.RELEASED);
-        redemption.setReleasedAt(LocalDateTime.now());
-        CouponRedemption saved = redemptionRepository.save(redemption);
-        log.info("Coupon {} released for order {}", redemption.getCouponCode(), request.getOrderId());
-        return couponMapper.toReservationResponse(saved);
-    }
-
-    /**
-     * Backward-compatible direct redemption for callers that only apply the
-     * coupon after payment has succeeded.
-     */
-    @Transactional
-    public ValidateCouponResponse redeem(RedeemCouponRequest request) {
-        String code = couponMapper.normalizeCode(request.getCode());
-        CouponRedemption existing = redemptionRepository.findByOrderId(request.getOrderId()).orElse(null);
-        if (existing != null) {
-            requireOwnership(existing, code, request.getUserId());
-            if (existing.getStatus() == RedemptionStatus.RELEASED) {
-                throw new CouponReservationConflictException("Released coupon reservation cannot be redeemed");
-            }
-            if (existing.getStatus() == RedemptionStatus.RESERVED) {
-                commit(new CouponTransitionRequest().code(request.getCode()).userId(request.getUserId())
-                        .orderId(request.getOrderId()));
-            }
-            return valid(existing.getCouponCode(), existing.getDiscountAmount(), null);
-        }
-
-        Coupon coupon = couponRepository.findByCodeForUpdate(code)
-                .orElseThrow(() -> new ResourceNotFoundException("Coupon", code));
-        existing = redemptionRepository.findByOrderId(request.getOrderId()).orElse(null);
-        if (existing != null) {
-            requireOwnership(existing, code, request.getUserId());
-            if (existing.getStatus() == RedemptionStatus.RELEASED) {
-                throw new CouponReservationConflictException("Released coupon reservation cannot be redeemed");
-            }
-            if (existing.getStatus() == RedemptionStatus.RESERVED) {
-                if (coupon.getReservedCount() <= 0) {
-                    throw new CouponReservationConflictException("Coupon reservation capacity is inconsistent");
+  @Transactional
+  public CouponResponse update(UUID id, CouponRequest request) {
+    Coupon coupon =
+        couponRepository
+            .findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Coupon", id.toString()));
+    String code = couponMapper.normalizeCode(request.getCode());
+    if (!coupon.getCode().equals(code)) {
+      couponRepository
+          .findByCode(code)
+          .ifPresent(
+              other -> {
+                if (!other.getId().equals(id)) {
+                  throw new DuplicateResourceException(
+                      "Coupon code already exists: " + request.getCode());
                 }
-                coupon.setReservedCount(coupon.getReservedCount() - 1);
-                coupon.setUsageCount(coupon.getUsageCount() + 1);
-                couponRepository.save(coupon);
-                existing.setStatus(RedemptionStatus.COMMITTED);
-                existing.setCommittedAt(LocalDateTime.now());
-                redemptionRepository.save(existing);
-            }
-            return valid(existing.getCouponCode(), existing.getDiscountAmount(), coupon.getDescription());
-        }
-        ValidateCouponResponse validation = validateAgainst(coupon, request.getUserId(), null, coupon.getCurrency());
-        if (!validation.getValid()) {
-            return validation;
-        }
+              });
+    }
+    couponMapper.update(coupon, request);
+    try {
+      return couponMapper.toResponse(couponRepository.saveAndFlush(coupon));
+    } catch (DataIntegrityViolationException exception) {
+      throw translateCouponCodeViolation(exception, code);
+    }
+  }
 
+  @Transactional
+  public void delete(UUID id) {
+    if (!couponRepository.existsById(id)) {
+      throw new ResourceNotFoundException("Coupon", id.toString());
+    }
+    couponRepository.deleteById(id);
+  }
+
+  @Transactional(readOnly = true)
+  public CouponResponse get(UUID id) {
+    return couponMapper.toResponse(
+        couponRepository
+            .findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Coupon", id.toString())));
+  }
+
+  @Transactional(readOnly = true)
+  public Page<CouponResponse> list(Pageable pageable) {
+    return couponRepository.findAll(pageable).map(couponMapper::toResponse);
+  }
+
+  @Transactional(readOnly = true)
+  public ValidateCouponResponse validate(ValidateCouponRequest request) {
+    Coupon coupon =
+        couponRepository.findByCode(couponMapper.normalizeCode(request.getCode())).orElse(null);
+    if (coupon == null) {
+      return invalid(request.getCode(), "Coupon not found");
+    }
+    return validateAgainst(
+        coupon, request.getUserId(), request.getSubtotal(), request.getCurrency());
+  }
+
+  @Transactional
+  public CouponReservationResponse reserve(CouponReservationRequest request) {
+    String code = couponMapper.normalizeCode(request.getCode());
+    CouponRedemption existing =
+        redemptionRepository.findByOrderId(request.getOrderId()).orElse(null);
+    if (existing != null) {
+      requireOwnership(existing, code, request.getUserId());
+      if (existing.getStatus() == RedemptionStatus.RELEASED) {
+        throw new CouponReservationConflictException(
+            "Released coupon reservation cannot be reused");
+      }
+      return couponMapper.toReservationResponse(existing);
+    }
+
+    Coupon coupon =
+        couponRepository
+            .findByCodeForUpdate(code)
+            .orElseThrow(() -> new ResourceNotFoundException("Coupon", code));
+
+    existing = redemptionRepository.findByOrderId(request.getOrderId()).orElse(null);
+    if (existing != null) {
+      requireOwnership(existing, code, request.getUserId());
+      if (existing.getStatus() == RedemptionStatus.RELEASED) {
+        throw new CouponReservationConflictException(
+            "Released coupon reservation cannot be reused");
+      }
+      return couponMapper.toReservationResponse(existing);
+    }
+
+    ValidateCouponResponse validation =
+        validateAgainst(coupon, request.getUserId(), request.getSubtotal(), request.getCurrency());
+    if (!validation.getValid()) {
+      throw new CouponUnavailableException(validation.getReason());
+    }
+
+    coupon.setReservedCount(coupon.getReservedCount() + 1);
+    couponRepository.save(coupon);
+
+    CouponRedemption reservation =
+        CouponRedemption.builder()
+            .couponId(coupon.getId())
+            .couponCode(coupon.getCode())
+            .userId(request.getUserId())
+            .orderId(request.getOrderId())
+            .discountAmount(validation.getDiscountAmount())
+            .status(RedemptionStatus.RESERVED)
+            .build();
+    CouponRedemption saved = redemptionRepository.save(reservation);
+    log.info("Coupon {} reserved for order {}", coupon.getCode(), request.getOrderId());
+    return couponMapper.toReservationResponse(saved);
+  }
+
+  @Transactional
+  public CouponReservationResponse commit(CouponTransitionRequest request) {
+    CouponRedemption redemption = findReservationForUpdate(request.getOrderId());
+    requireOwnership(
+        redemption, couponMapper.normalizeCode(request.getCode()), request.getUserId());
+    if (redemption.getStatus() == RedemptionStatus.COMMITTED) {
+      return couponMapper.toReservationResponse(redemption);
+    }
+    if (redemption.getStatus() == RedemptionStatus.RELEASED) {
+      throw new CouponReservationConflictException(
+          "Released coupon reservation cannot be committed");
+    }
+
+    Coupon coupon = findCouponForUpdate(redemption.getCouponId());
+    if (coupon.getReservedCount() <= 0) {
+      throw new CouponReservationConflictException("Coupon reservation capacity is inconsistent");
+    }
+    coupon.setReservedCount(coupon.getReservedCount() - 1);
+    coupon.setUsageCount(coupon.getUsageCount() + 1);
+    couponRepository.save(coupon);
+
+    redemption.setStatus(RedemptionStatus.COMMITTED);
+    redemption.setCommittedAt(LocalDateTime.now());
+    CouponRedemption saved = redemptionRepository.save(redemption);
+    log.info("Coupon {} committed for order {}", redemption.getCouponCode(), request.getOrderId());
+    return couponMapper.toReservationResponse(saved);
+  }
+
+  @Transactional
+  public CouponReservationResponse release(CouponTransitionRequest request) {
+    CouponRedemption redemption = findReservationForUpdate(request.getOrderId());
+    requireOwnership(
+        redemption, couponMapper.normalizeCode(request.getCode()), request.getUserId());
+    if (redemption.getStatus() == RedemptionStatus.RELEASED) {
+      return couponMapper.toReservationResponse(redemption);
+    }
+    if (redemption.getStatus() == RedemptionStatus.COMMITTED) {
+      throw new CouponReservationConflictException(
+          "Committed coupon redemption cannot be released");
+    }
+
+    Coupon coupon = findCouponForUpdate(redemption.getCouponId());
+    if (coupon.getReservedCount() <= 0) {
+      throw new CouponReservationConflictException("Coupon reservation capacity is inconsistent");
+    }
+    coupon.setReservedCount(coupon.getReservedCount() - 1);
+    couponRepository.save(coupon);
+
+    redemption.setStatus(RedemptionStatus.RELEASED);
+    redemption.setReleasedAt(LocalDateTime.now());
+    CouponRedemption saved = redemptionRepository.save(redemption);
+    log.info("Coupon {} released for order {}", redemption.getCouponCode(), request.getOrderId());
+    return couponMapper.toReservationResponse(saved);
+  }
+
+  /**
+   * Backward-compatible direct redemption for callers that only apply the coupon after payment has
+   * succeeded.
+   */
+  @Transactional
+  public ValidateCouponResponse redeem(RedeemCouponRequest request) {
+    String code = couponMapper.normalizeCode(request.getCode());
+    CouponRedemption existing =
+        redemptionRepository.findByOrderId(request.getOrderId()).orElse(null);
+    if (existing != null) {
+      requireOwnership(existing, code, request.getUserId());
+      if (existing.getStatus() == RedemptionStatus.RELEASED) {
+        throw new CouponReservationConflictException(
+            "Released coupon reservation cannot be redeemed");
+      }
+      if (existing.getStatus() == RedemptionStatus.RESERVED) {
+        commit(
+            new CouponTransitionRequest()
+                .code(request.getCode())
+                .userId(request.getUserId())
+                .orderId(request.getOrderId()));
+      }
+      return valid(existing.getCouponCode(), existing.getDiscountAmount(), null);
+    }
+
+    Coupon coupon =
+        couponRepository
+            .findByCodeForUpdate(code)
+            .orElseThrow(() -> new ResourceNotFoundException("Coupon", code));
+    existing = redemptionRepository.findByOrderId(request.getOrderId()).orElse(null);
+    if (existing != null) {
+      requireOwnership(existing, code, request.getUserId());
+      if (existing.getStatus() == RedemptionStatus.RELEASED) {
+        throw new CouponReservationConflictException(
+            "Released coupon reservation cannot be redeemed");
+      }
+      if (existing.getStatus() == RedemptionStatus.RESERVED) {
+        if (coupon.getReservedCount() <= 0) {
+          throw new CouponReservationConflictException(
+              "Coupon reservation capacity is inconsistent");
+        }
+        coupon.setReservedCount(coupon.getReservedCount() - 1);
         coupon.setUsageCount(coupon.getUsageCount() + 1);
         couponRepository.save(coupon);
-        CouponRedemption redemption = CouponRedemption.builder()
-                .couponId(coupon.getId())
-                .couponCode(coupon.getCode())
-                .userId(request.getUserId())
-                .orderId(request.getOrderId())
-                .discountAmount(request.getDiscountAmount())
-                .status(RedemptionStatus.COMMITTED)
-                .committedAt(LocalDateTime.now())
-                .build();
-        redemptionRepository.save(redemption);
-        return valid(coupon.getCode(), request.getDiscountAmount(), coupon.getDescription());
+        existing.setStatus(RedemptionStatus.COMMITTED);
+        existing.setCommittedAt(LocalDateTime.now());
+        redemptionRepository.save(existing);
+      }
+      return valid(existing.getCouponCode(), existing.getDiscountAmount(), coupon.getDescription());
+    }
+    ValidateCouponResponse validation =
+        validateAgainst(coupon, request.getUserId(), null, coupon.getCurrency());
+    if (!validation.getValid()) {
+      return validation;
     }
 
-    private CouponRedemption findReservationForUpdate(String orderId) {
-        return redemptionRepository.findByOrderIdForUpdate(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Coupon reservation", orderId));
-    }
+    coupon.setUsageCount(coupon.getUsageCount() + 1);
+    couponRepository.save(coupon);
+    CouponRedemption redemption =
+        CouponRedemption.builder()
+            .couponId(coupon.getId())
+            .couponCode(coupon.getCode())
+            .userId(request.getUserId())
+            .orderId(request.getOrderId())
+            .discountAmount(request.getDiscountAmount())
+            .status(RedemptionStatus.COMMITTED)
+            .committedAt(LocalDateTime.now())
+            .build();
+    redemptionRepository.save(redemption);
+    return valid(coupon.getCode(), request.getDiscountAmount(), coupon.getDescription());
+  }
 
-    private Coupon findCouponForUpdate(UUID couponId) {
-        return couponRepository.findByIdForUpdate(couponId)
-                .orElseThrow(() -> new ResourceNotFoundException("Coupon", couponId.toString()));
-    }
+  private CouponRedemption findReservationForUpdate(String orderId) {
+    return redemptionRepository
+        .findByOrderIdForUpdate(orderId)
+        .orElseThrow(() -> new ResourceNotFoundException("Coupon reservation", orderId));
+  }
 
-    private void requireOwnership(CouponRedemption redemption, String code, UUID userId) {
-        if (!redemption.getUserId().equals(userId)
-                || !redemption.getCouponCode().equalsIgnoreCase(code)) {
-            throw new CouponReservationConflictException(
-                    "Order is already associated with another coupon reservation");
-        }
-    }
+  private Coupon findCouponForUpdate(UUID couponId) {
+    return couponRepository
+        .findByIdForUpdate(couponId)
+        .orElseThrow(() -> new ResourceNotFoundException("Coupon", couponId.toString()));
+  }
 
-    private RuntimeException translateCouponCodeViolation(
-            DataIntegrityViolationException exception, String code) {
-        Throwable cause = exception;
-        while (cause != null) {
-            if (cause instanceof org.hibernate.exception.ConstraintViolationException violation
-                    && ("coupons_code_key".equals(violation.getConstraintName())
-                    || "uq_coupons_normalized_code".equals(violation.getConstraintName()))) {
-                return new DuplicateResourceException("Coupon code already exists: " + code);
-            }
-            cause = cause.getCause();
-        }
-        return exception;
+  private void requireOwnership(CouponRedemption redemption, String code, UUID userId) {
+    if (!redemption.getUserId().equals(userId)
+        || !redemption.getCouponCode().equalsIgnoreCase(code)) {
+      throw new CouponReservationConflictException(
+          "Order is already associated with another coupon reservation");
     }
+  }
 
-    private ValidateCouponResponse validateAgainst(
-            Coupon coupon, UUID userId, BigDecimal subtotal, String currency) {
-        if (!coupon.isActive()) return invalid(coupon, "Coupon is inactive");
-        LocalDateTime now = LocalDateTime.now();
-        if (now.isBefore(coupon.getValidFrom())) return invalid(coupon, "Coupon is not yet active");
-        if (now.isAfter(coupon.getValidUntil())) return invalid(coupon, "Coupon has expired");
-        if (coupon.getUsageLimit() != null
-                && coupon.getUsageCount() + coupon.getReservedCount() >= coupon.getUsageLimit()) {
-            return invalid(coupon, "Coupon usage limit reached");
-        }
-        if (currency != null && !currency.equalsIgnoreCase(coupon.getCurrency())) {
-            return invalid(coupon, "Coupon is in " + coupon.getCurrency() + ", cart is in " + currency);
-        }
-        if (subtotal != null && coupon.getMinOrderAmount() != null
-                && subtotal.compareTo(coupon.getMinOrderAmount()) < 0) {
-            return invalid(coupon, "Minimum order amount is " + coupon.getCurrency() + " "
-                    + coupon.getMinOrderAmount().toPlainString());
-        }
-        if (coupon.getPerUserLimit() != null && userId != null
-                && redemptionRepository.countActiveByCouponIdAndUserId(coupon.getId(), userId)
-                >= coupon.getPerUserLimit()) {
-            return invalid(coupon, "You have already used this coupon");
-        }
-        BigDecimal discount = subtotal == null ? BigDecimal.ZERO : computeDiscount(coupon, subtotal);
-        return valid(coupon.getCode(), discount, coupon.getDescription());
+  private RuntimeException translateCouponCodeViolation(
+      DataIntegrityViolationException exception, String code) {
+    Throwable cause = exception;
+    while (cause != null) {
+      if (cause instanceof org.hibernate.exception.ConstraintViolationException violation
+          && ("coupons_code_key".equals(violation.getConstraintName())
+              || "uq_coupons_normalized_code".equals(violation.getConstraintName()))) {
+        return new DuplicateResourceException("Coupon code already exists: " + code);
+      }
+      cause = cause.getCause();
     }
+    return exception;
+  }
 
-    private ValidateCouponResponse invalid(Coupon coupon, String reason) {
-        return invalid(coupon.getCode(), reason);
+  private ValidateCouponResponse validateAgainst(
+      Coupon coupon, UUID userId, BigDecimal subtotal, String currency) {
+    if (!coupon.isActive()) return invalid(coupon, "Coupon is inactive");
+    LocalDateTime now = LocalDateTime.now();
+    if (now.isBefore(coupon.getValidFrom())) return invalid(coupon, "Coupon is not yet active");
+    if (now.isAfter(coupon.getValidUntil())) return invalid(coupon, "Coupon has expired");
+    if (coupon.getUsageLimit() != null
+        && coupon.getUsageCount() + coupon.getReservedCount() >= coupon.getUsageLimit()) {
+      return invalid(coupon, "Coupon usage limit reached");
     }
+    if (currency != null && !currency.equalsIgnoreCase(coupon.getCurrency())) {
+      return invalid(coupon, "Coupon is in " + coupon.getCurrency() + ", cart is in " + currency);
+    }
+    if (subtotal != null
+        && coupon.getMinOrderAmount() != null
+        && subtotal.compareTo(coupon.getMinOrderAmount()) < 0) {
+      return invalid(
+          coupon,
+          "Minimum order amount is "
+              + coupon.getCurrency()
+              + " "
+              + coupon.getMinOrderAmount().toPlainString());
+    }
+    if (coupon.getPerUserLimit() != null
+        && userId != null
+        && redemptionRepository.countActiveByCouponIdAndUserId(coupon.getId(), userId)
+            >= coupon.getPerUserLimit()) {
+      return invalid(coupon, "You have already used this coupon");
+    }
+    BigDecimal discount = subtotal == null ? BigDecimal.ZERO : computeDiscount(coupon, subtotal);
+    return valid(coupon.getCode(), discount, coupon.getDescription());
+  }
 
-    private ValidateCouponResponse invalid(String code, String reason) {
-        return new ValidateCouponResponse().valid(false).code(code).reason(reason);
-    }
+  private ValidateCouponResponse invalid(Coupon coupon, String reason) {
+    return invalid(coupon.getCode(), reason);
+  }
 
-    private ValidateCouponResponse valid(String code, BigDecimal discountAmount, String description) {
-        return new ValidateCouponResponse().valid(true).code(code).discountAmount(discountAmount)
-                .description(description);
-    }
+  private ValidateCouponResponse invalid(String code, String reason) {
+    return new ValidateCouponResponse().valid(false).code(code).reason(reason);
+  }
 
-    private BigDecimal computeDiscount(Coupon coupon, BigDecimal subtotal) {
-        BigDecimal discount = coupon.getDiscountType() == DiscountType.PERCENT
-                ? subtotal.multiply(coupon.getDiscountValue())
-                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
-                : coupon.getDiscountValue();
-        if (coupon.getMaxDiscountAmount() != null
-                && discount.compareTo(coupon.getMaxDiscountAmount()) > 0) {
-            discount = coupon.getMaxDiscountAmount();
-        }
-        if (discount.compareTo(subtotal) > 0) discount = subtotal;
-        return discount.setScale(2, RoundingMode.HALF_UP);
+  private ValidateCouponResponse valid(String code, BigDecimal discountAmount, String description) {
+    return new ValidateCouponResponse()
+        .valid(true)
+        .code(code)
+        .discountAmount(discountAmount)
+        .description(description);
+  }
+
+  private BigDecimal computeDiscount(Coupon coupon, BigDecimal subtotal) {
+    BigDecimal discount =
+        coupon.getDiscountType() == DiscountType.PERCENT
+            ? subtotal
+                .multiply(coupon.getDiscountValue())
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+            : coupon.getDiscountValue();
+    if (coupon.getMaxDiscountAmount() != null
+        && discount.compareTo(coupon.getMaxDiscountAmount()) > 0) {
+      discount = coupon.getMaxDiscountAmount();
     }
+    if (discount.compareTo(subtotal) > 0) discount = subtotal;
+    return discount.setScale(2, RoundingMode.HALF_UP);
+  }
 }

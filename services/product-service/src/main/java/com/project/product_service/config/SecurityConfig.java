@@ -1,10 +1,10 @@
 package com.project.product_service.config;
 
 import com.project.common.security.JwtAuthenticationConverter;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import io.swagger.v3.oas.annotations.security.SecurityScheme;
-import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -15,52 +15,61 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * Resource server. Read endpoints (GET /api/v1/products/**, /api/v1/categories/**)
- * are public; writes require an authenticated JWT and the appropriate authority.
+ * Resource server. Read endpoints (GET /api/v1/products/**, /api/v1/categories/**) are public;
+ * writes require an authenticated JWT and the appropriate authority.
  *
- * <p>The X-User-Id / X-Roles / HeaderAuthenticationFilter trust model has been
- * removed. The Authorization Bearer token from the gateway is verified against
- * auth-service's JWKS.
+ * <p>The X-User-Id / X-Roles / HeaderAuthenticationFilter trust model has been removed. The
+ * Authorization Bearer token from the gateway is verified against auth-service's JWKS.
  */
 @Configuration
-@SecurityScheme(name = "bearerAuth", type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT")
+@SecurityScheme(
+    name = "bearerAuth",
+    type = SecuritySchemeType.HTTP,
+    scheme = "bearer",
+    bearerFormat = "JWT")
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true, proxyTargetClass = true)
 public class SecurityConfig {
 
-    @Bean
-    // Bearer-only stateless writes; cookie/session identities and HTTP Basic are rejected by security tests.
-    @SuppressWarnings("java:S4502")
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
-                .cors(Customizer.withDefaults())
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        // Health, OpenAPI, JWKS, prometheus
-                        .requestMatchers(
-                                "/actuator/health/**",
-                                "/actuator/info",
-                                "/actuator/prometheus",
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html"
-                        ).permitAll()
-                        // Seller and moderation views expose non-public product states.
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/v1/products/seller",
-                                "/api/v1/products/seller/**",
-                                "/api/v1/products/admin/**"
-                        ).authenticated()
-                        // Public catalog reads
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/v1/products",
-                                "/api/v1/products/**",
-                                "/api/v1/categories",
-                                "/api/v1/categories/**"
-                        ).permitAll()
-                        .anyRequest().authenticated())
-                .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(new JwtAuthenticationConverter())));
-        return http.build();
-    }
+  @Bean
+  // Bearer-only stateless writes; cookie/session identities and HTTP Basic are rejected by security
+  // tests.
+  @SuppressWarnings("java:S4502")
+  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    http.csrf(AbstractHttpConfigurer::disable)
+        .cors(Customizer.withDefaults())
+        .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(
+            auth ->
+                auth
+                    // Health, OpenAPI, JWKS, prometheus
+                    .requestMatchers(
+                        "/actuator/health/**",
+                        "/actuator/info",
+                        "/actuator/prometheus",
+                        "/v3/api-docs/**",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html")
+                    .permitAll()
+                    // Seller and moderation views expose non-public product states.
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/v1/products/seller",
+                        "/api/v1/products/seller/**",
+                        "/api/v1/products/admin/**")
+                    .authenticated()
+                    // Public catalog reads
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/v1/products",
+                        "/api/v1/products/**",
+                        "/api/v1/categories",
+                        "/api/v1/categories/**")
+                    .permitAll()
+                    .anyRequest()
+                    .authenticated())
+        .oauth2ResourceServer(
+            o -> o.jwt(j -> j.jwtAuthenticationConverter(new JwtAuthenticationConverter())));
+    return http.build();
+  }
 }

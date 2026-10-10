@@ -149,7 +149,7 @@ jobs:
       - name: Verify environment and release smoke checks
         run: bash scripts/smoke-release.test.sh
 
-      - name: Verify the whole reactor
+      - name: Verify formatting and the whole reactor
         run: ./mvnw -B -ntp -fae clean verify
 
       - name: Verify generated runtime artifact boundaries

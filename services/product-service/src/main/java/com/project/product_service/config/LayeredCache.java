@@ -1,147 +1,152 @@
 package com.project.product_service.config;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 import org.springframework.cache.Cache;
 import org.springframework.cache.support.SimpleValueWrapper;
 import org.springframework.data.redis.core.RedisTemplate;
 
-import java.util.concurrent.Callable;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
-
 public class LayeredCache implements Cache {
 
-    private final String name;
-    private final com.github.benmanes.caffeine.cache.Cache<Object, Object> l1Cache;
-    private final RedisTemplate<String, Object> redisTemplate;
-    private final long ttlSeconds;
-    private final Function<Object, Object> valueDecoder;
-    private final ReentrantLock loadLock = new ReentrantLock();
+  private final String name;
+  private final com.github.benmanes.caffeine.cache.Cache<Object, Object> l1Cache;
+  private final RedisTemplate<String, Object> redisTemplate;
+  private final long ttlSeconds;
+  private final Function<Object, Object> valueDecoder;
+  private final ReentrantLock loadLock = new ReentrantLock();
 
-    public LayeredCache(String name, com.github.benmanes.caffeine.cache.Cache<Object, Object> l1Cache,
-                        RedisTemplate<String, Object> redisTemplate, long ttlSeconds) {
-        this(name, l1Cache, redisTemplate, ttlSeconds, Function.identity());
+  public LayeredCache(
+      String name,
+      com.github.benmanes.caffeine.cache.Cache<Object, Object> l1Cache,
+      RedisTemplate<String, Object> redisTemplate,
+      long ttlSeconds) {
+    this(name, l1Cache, redisTemplate, ttlSeconds, Function.identity());
+  }
+
+  public LayeredCache(
+      String name,
+      com.github.benmanes.caffeine.cache.Cache<Object, Object> l1Cache,
+      RedisTemplate<String, Object> redisTemplate,
+      long ttlSeconds,
+      Function<Object, Object> valueDecoder) {
+    this.name = name;
+    this.l1Cache = l1Cache;
+    this.redisTemplate = redisTemplate;
+    this.ttlSeconds = ttlSeconds;
+    this.valueDecoder = valueDecoder;
+  }
+
+  @Override
+  public String getName() {
+    return name;
+  }
+
+  @Override
+  public Object getNativeCache() {
+    return l1Cache;
+  }
+
+  @Override
+  public ValueWrapper get(Object key) {
+    if (key == null) return null;
+
+    // 1. Read L1 (Caffeine)
+    Object value = l1Cache.getIfPresent(key);
+    if (value != null) {
+      return new SimpleValueWrapper(value);
     }
 
-    public LayeredCache(String name, com.github.benmanes.caffeine.cache.Cache<Object, Object> l1Cache,
-                        RedisTemplate<String, Object> redisTemplate, long ttlSeconds,
-                        Function<Object, Object> valueDecoder) {
-        this.name = name;
-        this.l1Cache = l1Cache;
-        this.redisTemplate = redisTemplate;
-        this.ttlSeconds = ttlSeconds;
-        this.valueDecoder = valueDecoder;
+    // 2. Read L2 (Redis)
+    String redisKey = buildRedisKey(key);
+    try {
+      value = redisTemplate.opsForValue().get(redisKey);
+      if (value != null) {
+        value = valueDecoder.apply(value);
+        l1Cache.put(key, value); // Load into L1 cache for subsequent reads
+        return new SimpleValueWrapper(value);
+      }
+    } catch (Exception e) {
+      // Fail-silent on Redis connectivity errors so DB fallback still works
+    }
+    return null;
+  }
+
+  @Override
+  public <T> T get(Object key, Class<T> type) {
+    ValueWrapper wrapper = get(key);
+    return wrapper != null ? type.cast(wrapper.get()) : null;
+  }
+
+  @Override
+  public <T> T get(Object key, Callable<T> valueLoader) {
+    ValueWrapper wrapper = get(key);
+    if (wrapper != null) {
+      return (T) wrapper.get();
     }
 
-    @Override
-    public String getName() {
-        return name;
+    // Serialize cache misses across this cache and recheck after waiting.
+    loadLock.lock();
+    try {
+      wrapper = get(key);
+      if (wrapper != null) {
+        return (T) wrapper.get();
+      }
+      try {
+        T value = valueLoader.call();
+        put(key, value);
+        return value;
+      } catch (Exception e) {
+        throw new ValueRetrievalException(key, valueLoader, e);
+      }
+    } finally {
+      loadLock.unlock();
     }
+  }
 
-    @Override
-    public Object getNativeCache() {
-        return l1Cache;
+  @Override
+  public void put(Object key, Object value) {
+    if (key == null || value == null) return;
+
+    l1Cache.put(key, value);
+
+    String redisKey = buildRedisKey(key);
+    try {
+      redisTemplate.opsForValue().set(redisKey, value, ttlSeconds, TimeUnit.SECONDS);
+    } catch (Exception e) {
+      // Fail-silent on Redis connectivity errors
     }
+  }
 
-    @Override
-    public ValueWrapper get(Object key) {
-        if (key == null) return null;
-        
-        // 1. Read L1 (Caffeine)
-        Object value = l1Cache.getIfPresent(key);
-        if (value != null) {
-            return new SimpleValueWrapper(value);
-        }
+  @Override
+  public void evict(Object key) {
+    if (key == null) return;
 
-        // 2. Read L2 (Redis)
-        String redisKey = buildRedisKey(key);
-        try {
-            value = redisTemplate.opsForValue().get(redisKey);
-            if (value != null) {
-                value = valueDecoder.apply(value);
-                l1Cache.put(key, value); // Load into L1 cache for subsequent reads
-                return new SimpleValueWrapper(value);
-            }
-        } catch (Exception e) {
-            // Fail-silent on Redis connectivity errors so DB fallback still works
-        }
-        return null;
+    l1Cache.invalidate(key);
+
+    String redisKey = buildRedisKey(key);
+    try {
+      redisTemplate.delete(redisKey);
+    } catch (Exception e) {
+      // Fail-silent on Redis connectivity errors
     }
+  }
 
-    @Override
-    public <T> T get(Object key, Class<T> type) {
-        ValueWrapper wrapper = get(key);
-        return wrapper != null ? type.cast(wrapper.get()) : null;
+  @Override
+  public void clear() {
+    l1Cache.invalidateAll();
+    try {
+      var keys = redisTemplate.keys(name + ":*");
+      if (keys != null && !keys.isEmpty()) {
+        redisTemplate.delete(keys);
+      }
+    } catch (Exception e) {
+      // Fail-silent on Redis connectivity errors; L1 must still be cleared.
     }
+  }
 
-    @Override
-    public <T> T get(Object key, Callable<T> valueLoader) {
-        ValueWrapper wrapper = get(key);
-        if (wrapper != null) {
-            return (T) wrapper.get();
-        }
-
-        // Serialize cache misses across this cache and recheck after waiting.
-        loadLock.lock();
-        try {
-            wrapper = get(key);
-            if (wrapper != null) {
-                return (T) wrapper.get();
-            }
-            try {
-                T value = valueLoader.call();
-                put(key, value);
-                return value;
-            } catch (Exception e) {
-                throw new ValueRetrievalException(key, valueLoader, e);
-            }
-        } finally {
-            loadLock.unlock();
-        }
-    }
-
-    @Override
-    public void put(Object key, Object value) {
-        if (key == null || value == null) return;
-        
-        l1Cache.put(key, value);
-        
-        String redisKey = buildRedisKey(key);
-        try {
-            redisTemplate.opsForValue().set(redisKey, value, ttlSeconds, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            // Fail-silent on Redis connectivity errors
-        }
-    }
-
-    @Override
-    public void evict(Object key) {
-        if (key == null) return;
-        
-        l1Cache.invalidate(key);
-        
-        String redisKey = buildRedisKey(key);
-        try {
-            redisTemplate.delete(redisKey);
-        } catch (Exception e) {
-            // Fail-silent on Redis connectivity errors
-        }
-    }
-
-    @Override
-    public void clear() {
-        l1Cache.invalidateAll();
-        try {
-            var keys = redisTemplate.keys(name + ":*");
-            if (keys != null && !keys.isEmpty()) {
-                redisTemplate.delete(keys);
-            }
-        } catch (Exception e) {
-            // Fail-silent on Redis connectivity errors; L1 must still be cleared.
-        }
-    }
-
-    private String buildRedisKey(Object key) {
-        return name + ":" + key.toString();
-    }
+  private String buildRedisKey(Object key) {
+    return name + ":" + key.toString();
+  }
 }

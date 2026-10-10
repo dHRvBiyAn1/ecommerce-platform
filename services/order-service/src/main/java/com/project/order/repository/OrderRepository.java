@@ -2,34 +2,33 @@ package com.project.order.repository;
 
 import com.project.order.model.Order;
 import com.project.order.model.OrderStatus;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.mongodb.repository.MongoRepository;
-
-import org.springframework.data.mongodb.repository.Query;
-
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.time.LocalDateTime;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 
 public interface OrderRepository extends MongoRepository<Order, String> {
-    Page<Order> findByUserId(UUID userId, Pageable pageable);
+  Page<Order> findByUserId(UUID userId, Pageable pageable);
 
-    Optional<Order> findByOrderNumber(String orderNumber);
+  Optional<Order> findByOrderNumber(String orderNumber);
 
-    Optional<Order> findByUserIdAndIdempotencyKey(UUID userId, String idempotencyKey);
+  Optional<Order> findByUserIdAndIdempotencyKey(UUID userId, String idempotencyKey);
 
-    Page<Order> findByStatus(OrderStatus status, Pageable pageable);
+  Page<Order> findByStatus(OrderStatus status, Pageable pageable);
 
-    Page<Order> findByUserIdAndStatus(UUID userId, OrderStatus status, Pageable pageable);
+  Page<Order> findByUserIdAndStatus(UUID userId, OrderStatus status, Pageable pageable);
 
-    List<Order> findByUserIdOrderByCreatedAtDesc(UUID userId);
+  List<Order> findByUserIdOrderByCreatedAtDesc(UUID userId);
 
-    @Query("{ 'outboxEvents.status': ?0 }")
-    List<Order> findOrdersWithPendingEvents(String status);
+  @Query("{ 'outboxEvents.status': ?0 }")
+  List<Order> findOrdersWithPendingEvents(String status);
 
-    @Query("{ 'sagaState.stage': { $in: ['RESERVING', 'COMPENSATING', 'RETRYABLE'] }, "
-            + "'sagaState.nextAttemptAt': { $lte: ?0 } }")
-    List<Order> findOrdersWithRecoverableSaga(LocalDateTime now);
+  @Query(
+      "{ 'sagaState.stage': { $in: ['RESERVING', 'COMPENSATING', 'RETRYABLE'] }, "
+          + "'sagaState.nextAttemptAt': { $lte: ?0 } }")
+  List<Order> findOrdersWithRecoverableSaga(LocalDateTime now);
 }

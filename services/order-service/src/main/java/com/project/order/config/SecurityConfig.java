@@ -1,6 +1,5 @@
 package com.project.order.config;
 
-import com.project.common.constant.Permissions;
 import com.project.common.security.JwtAuthenticationConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,27 +17,32 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableMethodSecurity(prePostEnabled = true, proxyTargetClass = true)
 public class SecurityConfig {
 
-    @Bean
-    // Bearer-only stateless API; cookie/session identities and HTTP Basic are rejected by security tests.
-    @SuppressWarnings("java:S4502")
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
-                .cors(Customizer.withDefaults())
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/actuator/health/**",
-                                "/actuator/info",
-                                "/actuator/prometheus",
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html"
-                        ).permitAll()
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/orders/*/status").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/v1/orders/status/*").hasRole("ADMIN")
-                        .anyRequest().authenticated())
-                .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(new JwtAuthenticationConverter())));
-        return http.build();
-    }
+  @Bean
+  // Bearer-only stateless API; cookie/session identities and HTTP Basic are rejected by security
+  // tests.
+  @SuppressWarnings("java:S4502")
+  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    http.csrf(AbstractHttpConfigurer::disable)
+        .cors(Customizer.withDefaults())
+        .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(
+            auth ->
+                auth.requestMatchers(
+                        "/actuator/health/**",
+                        "/actuator/info",
+                        "/actuator/prometheus",
+                        "/v3/api-docs/**",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.PUT, "/api/v1/orders/*/status")
+                    .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.GET, "/api/v1/orders/status/*")
+                    .hasRole("ADMIN")
+                    .anyRequest()
+                    .authenticated())
+        .oauth2ResourceServer(
+            o -> o.jwt(j -> j.jwtAuthenticationConverter(new JwtAuthenticationConverter())));
+    return http.build();
+  }
 }

@@ -11,32 +11,33 @@ import org.springframework.data.domain.Sort;
 @Mapper(componentModel = "spring", implementationPackage = "com.project.inventory.generated.mapper")
 public interface InventoryApiMapper {
 
-    default PageInventoryResponse toApi(Page<InventoryResponse> page) {
-        PageInventoryResponsePageable pageable = new PageInventoryResponsePageable()
-                .offset(page.getPageable().getOffset())
-                .sort(toApi(page.getSort()))
-                .paged(page.getPageable().isPaged())
-                .pageNumber(page.getNumber())
-                .pageSize(page.getSize())
-                .unpaged(page.getPageable().isUnpaged());
-        return new PageInventoryResponse()
-                .totalElements(page.getTotalElements())
-                .totalPages(page.getTotalPages())
-                .size(page.getSize())
-                .content(page.getContent())
-                .number(page.getNumber())
-                .sort(toApi(page.getSort()))
-                .pageable(pageable)
-                .numberOfElements(page.getNumberOfElements())
-                .first(page.isFirst())
-                .last(page.isLast())
-                .empty(page.isEmpty());
-    }
+  default PageInventoryResponse toApi(Page<InventoryResponse> page) {
+    PageInventoryResponsePageable pageable =
+        new PageInventoryResponsePageable()
+            .offset(page.getPageable().getOffset())
+            .sort(toApi(page.getSort()))
+            .paged(page.getPageable().isPaged())
+            .pageNumber(page.getNumber())
+            .pageSize(page.getSize())
+            .unpaged(page.getPageable().isUnpaged());
+    return new PageInventoryResponse()
+        .totalElements(page.getTotalElements())
+        .totalPages(page.getTotalPages())
+        .size(page.getSize())
+        .content(page.getContent())
+        .number(page.getNumber())
+        .sort(toApi(page.getSort()))
+        .pageable(pageable)
+        .numberOfElements(page.getNumberOfElements())
+        .first(page.isFirst())
+        .last(page.isLast())
+        .empty(page.isEmpty());
+  }
 
-    default PageInventoryResponseSort toApi(Sort sort) {
-        return new PageInventoryResponseSort()
-                .empty(sort.isEmpty())
-                .sorted(sort.isSorted())
-                .unsorted(sort.isUnsorted());
-    }
+  default PageInventoryResponseSort toApi(Sort sort) {
+    return new PageInventoryResponseSort()
+        .empty(sort.isEmpty())
+        .sorted(sort.isSorted())
+        .unsorted(sort.isUnsorted());
+  }
 }

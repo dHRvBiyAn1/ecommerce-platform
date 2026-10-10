@@ -6,13 +6,16 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 /**
- * Calls product-service via Eureka load balancing. Used at order creation to
- * fetch the authoritative price/SKU/sellerId for each line item, which we
- * snapshot into the Order so later product-price changes don't rewrite history.
+ * Calls product-service via Eureka load balancing. Used at order creation to fetch the
+ * authoritative price/SKU/sellerId for each line item, which we snapshot into the Order so later
+ * product-price changes don't rewrite history.
  */
-@FeignClient(name = "product-service", path = "/api/v1/products", fallbackFactory = ProductClientFallbackFactory.class)
+@FeignClient(
+    name = "product-service",
+    path = "/api/v1/products",
+    fallbackFactory = ProductClientFallbackFactory.class)
 public interface ProductClient {
 
-    @GetMapping("/{id}")
-    ProductResponse getProduct(@PathVariable("id") String id);
+  @GetMapping("/{id}")
+  ProductResponse getProduct(@PathVariable("id") String id);
 }

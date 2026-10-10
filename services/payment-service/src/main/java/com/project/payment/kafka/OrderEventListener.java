@@ -13,19 +13,19 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class OrderEventListener {
 
-    private final PaymentService paymentService;
+  private final PaymentService paymentService;
 
-    @KafkaListener(topics = Topics.ORDER_EVENTS, containerFactory = "kafkaListenerContainerFactory")
-    public void handle(OrderEvent event) {
-        if (event == null || event.getType() == null) return;
+  @KafkaListener(topics = Topics.ORDER_EVENTS, containerFactory = "kafkaListenerContainerFactory")
+  public void handle(OrderEvent event) {
+    if (event == null || event.getType() == null) return;
 
-        log.info("Received order event {} for order {}", event.getType(), event.getOrderId());
-        if (event.getType() == OrderEvent.Type.CANCELLED) {
-            try {
-                paymentService.cancelPaymentByOrderId(event.getOrderId());
-            } catch (Exception e) {
-                log.error("Failed to cancel payment for order {}: {}", event.getOrderId(), e.getMessage());
-            }
-        }
+    log.info("Received order event {} for order {}", event.getType(), event.getOrderId());
+    if (event.getType() == OrderEvent.Type.CANCELLED) {
+      try {
+        paymentService.cancelPaymentByOrderId(event.getOrderId());
+      } catch (Exception e) {
+        log.error("Failed to cancel payment for order {}: {}", event.getOrderId(), e.getMessage());
+      }
     }
+  }
 }

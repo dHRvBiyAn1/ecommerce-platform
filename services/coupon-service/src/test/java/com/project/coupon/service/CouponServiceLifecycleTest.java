@@ -1,29 +1,5 @@
 package com.project.coupon.service;
 
-import com.project.coupon.generated.model.CouponReservationRequest;
-import com.project.coupon.generated.model.CouponReservationResponse;
-import com.project.coupon.generated.model.CouponTransitionRequest;
-import com.project.coupon.generated.model.RedeemCouponRequest;
-import com.project.coupon.entity.Coupon;
-import com.project.coupon.entity.CouponRedemption;
-import com.project.coupon.entity.DiscountType;
-import com.project.coupon.entity.RedemptionStatus;
-import com.project.coupon.exception.CouponReservationConflictException;
-import com.project.coupon.mapper.CouponMapper;
-import com.project.coupon.repository.CouponRedemptionRepository;
-import com.project.coupon.repository.CouponRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Optional;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -31,195 +7,226 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.project.coupon.entity.Coupon;
+import com.project.coupon.entity.CouponRedemption;
+import com.project.coupon.entity.DiscountType;
+import com.project.coupon.entity.RedemptionStatus;
+import com.project.coupon.exception.CouponReservationConflictException;
+import com.project.coupon.generated.model.CouponReservationRequest;
+import com.project.coupon.generated.model.CouponReservationResponse;
+import com.project.coupon.generated.model.CouponTransitionRequest;
+import com.project.coupon.generated.model.RedeemCouponRequest;
+import com.project.coupon.mapper.CouponMapper;
+import com.project.coupon.repository.CouponRedemptionRepository;
+import com.project.coupon.repository.CouponRepository;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 @ExtendWith(MockitoExtension.class)
 class CouponServiceLifecycleTest {
 
-    @Mock
-    private CouponRepository couponRepository;
-    @Mock
-    private CouponRedemptionRepository redemptionRepository;
+  @Mock private CouponRepository couponRepository;
 
-    private CouponService service;
-    private Coupon coupon;
-    private UUID userId;
+  @Mock private CouponRedemptionRepository redemptionRepository;
 
-    @BeforeEach
-    void setUp() {
-        service = new CouponService(couponRepository, redemptionRepository, new CouponMapper());
-        userId = UUID.randomUUID();
-        coupon = Coupon.builder()
-                .id(UUID.randomUUID())
-                .code("SAVE10")
-                .description("Ten percent off")
-                .discountType(DiscountType.PERCENT)
-                .discountValue(new BigDecimal("10.00"))
-                .currency("INR")
-                .validFrom(LocalDateTime.now().minusDays(1))
-                .validUntil(LocalDateTime.now().plusDays(1))
-                .usageLimit(5)
-                .usageCount(1)
-                .reservedCount(0)
-                .perUserLimit(2)
-                .active(true)
-                .build();
-    }
+  private CouponService service;
+  private Coupon coupon;
+  private UUID userId;
 
-    @Test
-    void reserveHoldsCapacityWithoutConsumingUsage() {
-        when(redemptionRepository.findByOrderId("order-1")).thenReturn(Optional.empty());
-        when(couponRepository.findByCodeForUpdate("SAVE10")).thenReturn(Optional.of(coupon));
-        when(redemptionRepository.countActiveByCouponIdAndUserId(coupon.getId(), userId)).thenReturn(0);
-        when(redemptionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+  @BeforeEach
+  void setUp() {
+    service = new CouponService(couponRepository, redemptionRepository, new CouponMapper());
+    userId = UUID.randomUUID();
+    coupon =
+        Coupon.builder()
+            .id(UUID.randomUUID())
+            .code("SAVE10")
+            .description("Ten percent off")
+            .discountType(DiscountType.PERCENT)
+            .discountValue(new BigDecimal("10.00"))
+            .currency("INR")
+            .validFrom(LocalDateTime.now().minusDays(1))
+            .validUntil(LocalDateTime.now().plusDays(1))
+            .usageLimit(5)
+            .usageCount(1)
+            .reservedCount(0)
+            .perUserLimit(2)
+            .active(true)
+            .build();
+  }
 
-        var result = service.reserve(reservationRequest("SAVE10", userId, "order-1"));
+  @Test
+  void reserveHoldsCapacityWithoutConsumingUsage() {
+    when(redemptionRepository.findByOrderId("order-1")).thenReturn(Optional.empty());
+    when(couponRepository.findByCodeForUpdate("SAVE10")).thenReturn(Optional.of(coupon));
+    when(redemptionRepository.countActiveByCouponIdAndUserId(coupon.getId(), userId)).thenReturn(0);
+    when(redemptionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertThat(result.getStatus()).isEqualTo(CouponReservationResponse.StatusEnum.RESERVED);
-        assertThat(result.getDiscountAmount()).isEqualByComparingTo("50.00");
-        assertThat(coupon.getUsageCount()).isEqualTo(1);
-        assertThat(coupon.getReservedCount()).isEqualTo(1);
-    }
+    var result = service.reserve(reservationRequest("SAVE10", userId, "order-1"));
 
-    @Test
-    void repeatedReserveForSameOrderReturnsExistingReservation() {
-        CouponRedemption existing = reservation("order-1", RedemptionStatus.RESERVED);
-        when(redemptionRepository.findByOrderId("order-1")).thenReturn(Optional.of(existing));
+    assertThat(result.getStatus()).isEqualTo(CouponReservationResponse.StatusEnum.RESERVED);
+    assertThat(result.getDiscountAmount()).isEqualByComparingTo("50.00");
+    assertThat(coupon.getUsageCount()).isEqualTo(1);
+    assertThat(coupon.getReservedCount()).isEqualTo(1);
+  }
 
-        var result = service.reserve(reservationRequest("save10", userId, "order-1"));
+  @Test
+  void repeatedReserveForSameOrderReturnsExistingReservation() {
+    CouponRedemption existing = reservation("order-1", RedemptionStatus.RESERVED);
+    when(redemptionRepository.findByOrderId("order-1")).thenReturn(Optional.of(existing));
 
-        assertThat(result.getStatus()).isEqualTo(CouponReservationResponse.StatusEnum.RESERVED);
-        verify(couponRepository, never()).findByCodeForUpdate(any());
-        verify(redemptionRepository, never()).save(any());
-    }
+    var result = service.reserve(reservationRequest("save10", userId, "order-1"));
 
-    @Test
-    void orderCannotBeReservedByAnotherUser() {
-        CouponRedemption existing = reservation("order-1", RedemptionStatus.RESERVED);
-        when(redemptionRepository.findByOrderId("order-1")).thenReturn(Optional.of(existing));
+    assertThat(result.getStatus()).isEqualTo(CouponReservationResponse.StatusEnum.RESERVED);
+    verify(couponRepository, never()).findByCodeForUpdate(any());
+    verify(redemptionRepository, never()).save(any());
+  }
 
-        assertThatThrownBy(() -> service.reserve(reservationRequest("SAVE10", UUID.randomUUID(), "order-1")))
-                .isInstanceOf(CouponReservationConflictException.class);
-    }
+  @Test
+  void orderCannotBeReservedByAnotherUser() {
+    CouponRedemption existing = reservation("order-1", RedemptionStatus.RESERVED);
+    when(redemptionRepository.findByOrderId("order-1")).thenReturn(Optional.of(existing));
 
-    @Test
-    void commitConsumesReservedCapacityExactlyOnce() {
-        CouponRedemption existing = reservation("order-1", RedemptionStatus.RESERVED);
-        coupon.setReservedCount(1);
-        when(redemptionRepository.findByOrderIdForUpdate("order-1")).thenReturn(Optional.of(existing));
-        when(couponRepository.findByIdForUpdate(coupon.getId())).thenReturn(Optional.of(coupon));
-        when(redemptionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    assertThatThrownBy(
+            () -> service.reserve(reservationRequest("SAVE10", UUID.randomUUID(), "order-1")))
+        .isInstanceOf(CouponReservationConflictException.class);
+  }
 
-        var result = service.commit(transitionRequest("SAVE10", userId, "order-1"));
+  @Test
+  void commitConsumesReservedCapacityExactlyOnce() {
+    CouponRedemption existing = reservation("order-1", RedemptionStatus.RESERVED);
+    coupon.setReservedCount(1);
+    when(redemptionRepository.findByOrderIdForUpdate("order-1")).thenReturn(Optional.of(existing));
+    when(couponRepository.findByIdForUpdate(coupon.getId())).thenReturn(Optional.of(coupon));
+    when(redemptionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertThat(result.getStatus()).isEqualTo(CouponReservationResponse.StatusEnum.COMMITTED);
-        assertThat(coupon.getReservedCount()).isZero();
-        assertThat(coupon.getUsageCount()).isEqualTo(2);
-        assertThat(existing.getCommittedAt()).isNotNull();
+    var result = service.commit(transitionRequest("SAVE10", userId, "order-1"));
 
-        when(redemptionRepository.findByOrderIdForUpdate("order-1")).thenReturn(Optional.of(existing));
-        service.commit(transitionRequest("SAVE10", userId, "order-1"));
+    assertThat(result.getStatus()).isEqualTo(CouponReservationResponse.StatusEnum.COMMITTED);
+    assertThat(coupon.getReservedCount()).isZero();
+    assertThat(coupon.getUsageCount()).isEqualTo(2);
+    assertThat(existing.getCommittedAt()).isNotNull();
 
-        assertThat(coupon.getUsageCount()).isEqualTo(2);
-    }
+    when(redemptionRepository.findByOrderIdForUpdate("order-1")).thenReturn(Optional.of(existing));
+    service.commit(transitionRequest("SAVE10", userId, "order-1"));
 
-    @Test
-    void releaseRestoresCapacityAndIsIdempotent() {
-        CouponRedemption existing = reservation("order-1", RedemptionStatus.RESERVED);
-        coupon.setReservedCount(1);
-        when(redemptionRepository.findByOrderIdForUpdate("order-1")).thenReturn(Optional.of(existing));
-        when(couponRepository.findByIdForUpdate(coupon.getId())).thenReturn(Optional.of(coupon));
-        when(redemptionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    assertThat(coupon.getUsageCount()).isEqualTo(2);
+  }
 
-        var result = service.release(transitionRequest("SAVE10", userId, "order-1"));
+  @Test
+  void releaseRestoresCapacityAndIsIdempotent() {
+    CouponRedemption existing = reservation("order-1", RedemptionStatus.RESERVED);
+    coupon.setReservedCount(1);
+    when(redemptionRepository.findByOrderIdForUpdate("order-1")).thenReturn(Optional.of(existing));
+    when(couponRepository.findByIdForUpdate(coupon.getId())).thenReturn(Optional.of(coupon));
+    when(redemptionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertThat(result.getStatus()).isEqualTo(CouponReservationResponse.StatusEnum.RELEASED);
-        assertThat(coupon.getReservedCount()).isZero();
-        assertThat(coupon.getUsageCount()).isEqualTo(1);
+    var result = service.release(transitionRequest("SAVE10", userId, "order-1"));
 
-        when(redemptionRepository.findByOrderIdForUpdate("order-1")).thenReturn(Optional.of(existing));
-        service.release(transitionRequest("SAVE10", userId, "order-1"));
+    assertThat(result.getStatus()).isEqualTo(CouponReservationResponse.StatusEnum.RELEASED);
+    assertThat(coupon.getReservedCount()).isZero();
+    assertThat(coupon.getUsageCount()).isEqualTo(1);
 
-        assertThat(coupon.getReservedCount()).isZero();
-    }
+    when(redemptionRepository.findByOrderIdForUpdate("order-1")).thenReturn(Optional.of(existing));
+    service.release(transitionRequest("SAVE10", userId, "order-1"));
 
-    @Test
-    void committedRedemptionCannotBeReleasedAndDoesNotMutateCouponOrRedemption() {
-        CouponRedemption committed = reservation("order-committed", RedemptionStatus.COMMITTED);
-        coupon.setReservedCount(3);
-        coupon.setUsageCount(2);
-        when(redemptionRepository.findByOrderIdForUpdate("order-committed"))
-                .thenReturn(Optional.of(committed));
+    assertThat(coupon.getReservedCount()).isZero();
+  }
 
-        assertThatThrownBy(() -> service.release(
-                transitionRequest("SAVE10", userId, "order-committed")))
-                .isInstanceOf(CouponReservationConflictException.class);
+  @Test
+  void committedRedemptionCannotBeReleasedAndDoesNotMutateCouponOrRedemption() {
+    CouponRedemption committed = reservation("order-committed", RedemptionStatus.COMMITTED);
+    coupon.setReservedCount(3);
+    coupon.setUsageCount(2);
+    when(redemptionRepository.findByOrderIdForUpdate("order-committed"))
+        .thenReturn(Optional.of(committed));
 
-        assertThat(committed.getStatus()).isEqualTo(RedemptionStatus.COMMITTED);
-        assertThat(committed.getReleasedAt()).isNull();
-        assertThat(coupon.getReservedCount()).isEqualTo(3);
-        assertThat(coupon.getUsageCount()).isEqualTo(2);
-        verify(couponRepository, never()).findByIdForUpdate(any());
-        verify(couponRepository, never()).save(any());
-        verify(redemptionRepository, never()).save(any());
-    }
+    assertThatThrownBy(
+            () -> service.release(transitionRequest("SAVE10", userId, "order-committed")))
+        .isInstanceOf(CouponReservationConflictException.class);
 
-    @Test
-    void legacyRedeemIsIdempotentForTheSameOrder() {
-        when(redemptionRepository.findByOrderId("order-1")).thenReturn(Optional.empty());
-        when(couponRepository.findByCodeForUpdate("SAVE10")).thenReturn(Optional.of(coupon));
-        when(redemptionRepository.countActiveByCouponIdAndUserId(coupon.getId(), userId)).thenReturn(0);
-        when(redemptionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    assertThat(committed.getStatus()).isEqualTo(RedemptionStatus.COMMITTED);
+    assertThat(committed.getReleasedAt()).isNull();
+    assertThat(coupon.getReservedCount()).isEqualTo(3);
+    assertThat(coupon.getUsageCount()).isEqualTo(2);
+    verify(couponRepository, never()).findByIdForUpdate(any());
+    verify(couponRepository, never()).save(any());
+    verify(redemptionRepository, never()).save(any());
+  }
 
-        var result = service.redeem(redeemRequest("SAVE10", userId, "order-1"));
+  @Test
+  void legacyRedeemIsIdempotentForTheSameOrder() {
+    when(redemptionRepository.findByOrderId("order-1")).thenReturn(Optional.empty());
+    when(couponRepository.findByCodeForUpdate("SAVE10")).thenReturn(Optional.of(coupon));
+    when(redemptionRepository.countActiveByCouponIdAndUserId(coupon.getId(), userId)).thenReturn(0);
+    when(redemptionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertThat(result.getValid()).isTrue();
-        assertThat(coupon.getUsageCount()).isEqualTo(2);
-        assertThat(coupon.getReservedCount()).isZero();
+    var result = service.redeem(redeemRequest("SAVE10", userId, "order-1"));
 
-        ArgumentCaptor<CouponRedemption> saved = ArgumentCaptor.forClass(CouponRedemption.class);
-        verify(redemptionRepository).save(saved.capture());
-        assertThat(saved.getValue().getStatus()).isEqualTo(RedemptionStatus.COMMITTED);
-    }
+    assertThat(result.getValid()).isTrue();
+    assertThat(coupon.getUsageCount()).isEqualTo(2);
+    assertThat(coupon.getReservedCount()).isZero();
 
-    @Test
-    void legacyRedeemRechecksOrderAfterAcquiringCouponLock() {
-        CouponRedemption committed = reservation("order-1", RedemptionStatus.COMMITTED);
-        when(redemptionRepository.findByOrderId("order-1"))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(committed));
-        when(couponRepository.findByCodeForUpdate("SAVE10")).thenReturn(Optional.of(coupon));
+    ArgumentCaptor<CouponRedemption> saved = ArgumentCaptor.forClass(CouponRedemption.class);
+    verify(redemptionRepository).save(saved.capture());
+    assertThat(saved.getValue().getStatus()).isEqualTo(RedemptionStatus.COMMITTED);
+  }
 
-        var result = service.redeem(redeemRequest("SAVE10", userId, "order-1"));
+  @Test
+  void legacyRedeemRechecksOrderAfterAcquiringCouponLock() {
+    CouponRedemption committed = reservation("order-1", RedemptionStatus.COMMITTED);
+    when(redemptionRepository.findByOrderId("order-1"))
+        .thenReturn(Optional.empty())
+        .thenReturn(Optional.of(committed));
+    when(couponRepository.findByCodeForUpdate("SAVE10")).thenReturn(Optional.of(coupon));
 
-        assertThat(result.getValid()).isTrue();
-        assertThat(coupon.getUsageCount()).isEqualTo(1);
-        verify(couponRepository, never()).save(any());
-        verify(redemptionRepository, never()).save(any());
-    }
+    var result = service.redeem(redeemRequest("SAVE10", userId, "order-1"));
 
-    private CouponRedemption reservation(String orderId, RedemptionStatus status) {
-        return CouponRedemption.builder()
-                .id(UUID.randomUUID())
-                .couponId(coupon.getId())
-                .couponCode(coupon.getCode())
-                .userId(userId)
-                .orderId(orderId)
-                .discountAmount(new BigDecimal("50.00"))
-                .status(status)
-                .reservedAt(LocalDateTime.now())
-                .build();
-    }
+    assertThat(result.getValid()).isTrue();
+    assertThat(coupon.getUsageCount()).isEqualTo(1);
+    verify(couponRepository, never()).save(any());
+    verify(redemptionRepository, never()).save(any());
+  }
 
-    private CouponReservationRequest reservationRequest(String code, UUID user, String order) {
-        return new CouponReservationRequest().code(code).userId(user).orderId(order)
-                .subtotal(new BigDecimal("500.00")).currency("INR");
-    }
+  private CouponRedemption reservation(String orderId, RedemptionStatus status) {
+    return CouponRedemption.builder()
+        .id(UUID.randomUUID())
+        .couponId(coupon.getId())
+        .couponCode(coupon.getCode())
+        .userId(userId)
+        .orderId(orderId)
+        .discountAmount(new BigDecimal("50.00"))
+        .status(status)
+        .reservedAt(LocalDateTime.now())
+        .build();
+  }
 
-    private CouponTransitionRequest transitionRequest(String code, UUID user, String order) {
-        return new CouponTransitionRequest().code(code).userId(user).orderId(order);
-    }
+  private CouponReservationRequest reservationRequest(String code, UUID user, String order) {
+    return new CouponReservationRequest()
+        .code(code)
+        .userId(user)
+        .orderId(order)
+        .subtotal(new BigDecimal("500.00"))
+        .currency("INR");
+  }
 
-    private RedeemCouponRequest redeemRequest(String code, UUID user, String order) {
-        return new RedeemCouponRequest().code(code).userId(user).orderId(order)
-                .discountAmount(new BigDecimal("50.00"));
-    }
+  private CouponTransitionRequest transitionRequest(String code, UUID user, String order) {
+    return new CouponTransitionRequest().code(code).userId(user).orderId(order);
+  }
+
+  private RedeemCouponRequest redeemRequest(String code, UUID user, String order) {
+    return new RedeemCouponRequest()
+        .code(code)
+        .userId(user)
+        .orderId(order)
+        .discountAmount(new BigDecimal("50.00"));
+  }
 }

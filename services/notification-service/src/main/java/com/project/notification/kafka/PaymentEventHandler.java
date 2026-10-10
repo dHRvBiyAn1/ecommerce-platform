@@ -13,24 +13,37 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class PaymentEventHandler {
 
-    private final NotificationService notificationService;
+  private final NotificationService notificationService;
 
-    @KafkaListener(topics = Topics.PAYMENT_EVENTS, containerFactory = "kafkaListenerContainerFactory")
-    public void handle(PaymentEvent event) {
-        if (event == null || event.getType() == null) return;
+  @KafkaListener(topics = Topics.PAYMENT_EVENTS, containerFactory = "kafkaListenerContainerFactory")
+  public void handle(PaymentEvent event) {
+    if (event == null || event.getType() == null) return;
 
-        switch (event.getType()) {
-            case COMPLETED -> notificationService.record(event.getUserId(), event.getUserEmail(),
-                    "EMAIL", "PAYMENT",
-                    "Payment receipt for order " + event.getOrderId(),
-                    "We received " + event.getCurrency() + " " + event.getAmount(),
-                    event.getEventId());
-            case REFUNDED, PARTIALLY_REFUNDED -> notificationService.record(event.getUserId(), event.getUserEmail(),
-                    "EMAIL", "PAYMENT",
-                    "Refund issued for order " + event.getOrderId(),
-                    "Your refund is being processed. Amount: " + event.getCurrency() + " " + event.getAmount(),
-                    event.getEventId());
-            default -> { /* ignore INITIATED/PROCESSING */ }
-        }
+    switch (event.getType()) {
+      case COMPLETED ->
+          notificationService.record(
+              event.getUserId(),
+              event.getUserEmail(),
+              "EMAIL",
+              "PAYMENT",
+              "Payment receipt for order " + event.getOrderId(),
+              "We received " + event.getCurrency() + " " + event.getAmount(),
+              event.getEventId());
+      case REFUNDED, PARTIALLY_REFUNDED ->
+          notificationService.record(
+              event.getUserId(),
+              event.getUserEmail(),
+              "EMAIL",
+              "PAYMENT",
+              "Refund issued for order " + event.getOrderId(),
+              "Your refund is being processed. Amount: "
+                  + event.getCurrency()
+                  + " "
+                  + event.getAmount(),
+              event.getEventId());
+      default -> {
+        /* ignore INITIATED/PROCESSING */
+      }
     }
+  }
 }

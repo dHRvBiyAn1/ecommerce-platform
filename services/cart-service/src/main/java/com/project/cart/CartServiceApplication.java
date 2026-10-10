@@ -9,7 +9,7 @@ import org.springframework.data.mongodb.config.EnableMongoAuditing;
 @EnableFeignClients(basePackages = {"com.project.cart.client"})
 @EnableMongoAuditing
 public class CartServiceApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(CartServiceApplication.class, args);
-    }
+  public static void main(String[] args) {
+    SpringApplication.run(CartServiceApplication.class, args);
+  }
 }

@@ -5,7 +5,7 @@ import com.project.common.exception.BusinessException;
 import org.springframework.http.HttpStatus;
 
 public class TokenRefreshException extends BusinessException {
-    public TokenRefreshException(String message) {
-        super(HttpStatus.FORBIDDEN, ErrorCode.FORBIDDEN.value(), message);
-    }
+  public TokenRefreshException(String message) {
+    super(HttpStatus.FORBIDDEN, ErrorCode.FORBIDDEN.value(), message);
+  }
 }

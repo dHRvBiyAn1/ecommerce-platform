@@ -1,18 +1,17 @@
 package com.project.product_service.service;
 
-import java.util.List;
-
 import com.project.product_service.generated.model.CategoryRequest;
 import com.project.product_service.generated.model.CategoryResponse;
+import java.util.List;
 
 public interface CategoryService {
-    List<CategoryResponse> getAllCategories();
+  List<CategoryResponse> getAllCategories();
 
-    CategoryResponse getCategory(String id);
+  CategoryResponse getCategory(String id);
 
-    CategoryResponse createCategory(CategoryRequest request);
+  CategoryResponse createCategory(CategoryRequest request);
 
-    CategoryResponse updateCategory(String id, CategoryRequest request);
+  CategoryResponse updateCategory(String id, CategoryRequest request);
 
-    void deleteCategory(String id);
+  void deleteCategory(String id);
 }

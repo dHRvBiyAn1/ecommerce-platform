@@ -10,10 +10,11 @@ import org.springframework.mail.javamail.JavaMailSender;
 @Configuration
 public class MailConfig {
 
-    @Bean
-    @ConditionalOnMissingBean(JavaMailSender.class)
-    public JavaMailSender mockMailSender() {
-        log.info("No primary JavaMailSender bean found. Initializing logging-based MockJavaMailSender.");
-        return new MockJavaMailSender();
-    }
+  @Bean
+  @ConditionalOnMissingBean(JavaMailSender.class)
+  public JavaMailSender mockMailSender() {
+    log.info(
+        "No primary JavaMailSender bean found. Initializing logging-based MockJavaMailSender.");
+    return new MockJavaMailSender();
+  }
 }

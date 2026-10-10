@@ -5,5 +5,4 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @EnableConfigurationProperties(ServiceClientProperties.class)
-public class ServiceClientConfiguration {
-}
+public class ServiceClientConfiguration {}

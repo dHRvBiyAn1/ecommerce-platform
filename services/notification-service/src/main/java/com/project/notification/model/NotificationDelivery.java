@@ -1,5 +1,6 @@
 package com.project.notification.model;
 
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -11,8 +12,6 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.time.LocalDateTime;
-
 @Document(collection = "notification_deliveries")
 @Getter
 @Setter
@@ -21,22 +20,19 @@ import java.time.LocalDateTime;
 @Builder
 public class NotificationDelivery {
 
-    @Id
-    private String id;
+  @Id private String id;
 
-    @Indexed(unique = true)
-    private String notificationId;
+  @Indexed(unique = true)
+  private String notificationId;
 
-    private int attempts;
-    private LocalDateTime nextAttemptAt;
-    private LocalDateTime leaseUntil;
-    private String leaseToken;
-    private LocalDateTime deliveredAt;
-    private LocalDateTime reconciledAt;
+  private int attempts;
+  private LocalDateTime nextAttemptAt;
+  private LocalDateTime leaseUntil;
+  private String leaseToken;
+  private LocalDateTime deliveredAt;
+  private LocalDateTime reconciledAt;
 
-    @CreatedDate
-    private LocalDateTime createdAt;
+  @CreatedDate private LocalDateTime createdAt;
 
-    @LastModifiedDate
-    private LocalDateTime updatedAt;
+  @LastModifiedDate private LocalDateTime updatedAt;
 }

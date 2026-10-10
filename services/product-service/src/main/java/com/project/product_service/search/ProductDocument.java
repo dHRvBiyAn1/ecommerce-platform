@@ -1,5 +1,10 @@
 package com.project.product_service.search;
 
+import com.project.product_service.model.ProductApprovalStatus;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -9,13 +14,6 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import com.project.product_service.model.ProductApprovalStatus;
-
 @Document(indexName = "products")
 @Getter
 @Setter
@@ -23,41 +21,39 @@ import com.project.product_service.model.ProductApprovalStatus;
 @AllArgsConstructor
 public class ProductDocument {
 
-    @Id
-    private String id;
+  @Id private String id;
 
-    @Field(type = FieldType.Text, analyzer = "standard")
-    private String name;
+  @Field(type = FieldType.Text, analyzer = "standard")
+  private String name;
 
-    @Field(type = FieldType.Text, analyzer = "standard")
-    private String description;
+  @Field(type = FieldType.Text, analyzer = "standard")
+  private String description;
 
-    @Field(type = FieldType.Keyword)
-    private String categoryId;
+  @Field(type = FieldType.Keyword)
+  private String categoryId;
 
-    @Field(type = FieldType.Double)
-    private BigDecimal price;
+  @Field(type = FieldType.Double)
+  private BigDecimal price;
 
-    @Field(type = FieldType.Integer)
-    private Integer stockQuantity;
+  @Field(type = FieldType.Integer)
+  private Integer stockQuantity;
 
-    @Field(type = FieldType.Keyword)
-    private List<String> imageUrls;
+  @Field(type = FieldType.Keyword)
+  private List<String> imageUrls;
 
-    @Field(type = FieldType.Keyword)
-    private UUID sellerId;
+  @Field(type = FieldType.Keyword)
+  private UUID sellerId;
 
-    @Field(type = FieldType.Boolean)
-    private boolean active;
+  @Field(type = FieldType.Boolean)
+  private boolean active;
 
-    @Field(type = FieldType.Keyword)
-    private ProductApprovalStatus approvalStatus;
+  @Field(type = FieldType.Keyword)
+  private ProductApprovalStatus approvalStatus;
 
-    /**
-     * Flexible product attributes indexed as a flattened object in ES.
-     * Enables queries like {@code attributes.color:"red"} without
-     * explicit mapping for each attribute key.
-     */
-    @Field(type = FieldType.Flattened)
-    private Map<String, Object> attributes;
+  /**
+   * Flexible product attributes indexed as a flattened object in ES. Enables queries like {@code
+   * attributes.color:"red"} without explicit mapping for each attribute key.
+   */
+  @Field(type = FieldType.Flattened)
+  private Map<String, Object> attributes;
 }

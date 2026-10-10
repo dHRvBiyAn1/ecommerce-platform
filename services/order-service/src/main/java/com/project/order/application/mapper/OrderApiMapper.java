@@ -7,5 +7,5 @@ import org.springframework.data.domain.Page;
 
 @Mapper(componentModel = "spring", implementationPackage = "com.project.order.generated.mapper")
 public interface OrderApiMapper {
-    ApiResponsePageOrderResponseData toApi(Page<OrderResponse> page);
+  ApiResponsePageOrderResponseData toApi(Page<OrderResponse> page);
 }

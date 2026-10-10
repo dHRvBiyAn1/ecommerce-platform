@@ -17,47 +17,57 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ProductSearchConsumer {
 
-    private final ProductSearchRepository searchRepository;
-    private final ProductRepository productRepository;
+  private final ProductSearchRepository searchRepository;
+  private final ProductRepository productRepository;
 
-    @KafkaListener(topics = Topics.PRODUCT_EVENTS, groupId = "product-search-indexer")
-    public void indexProductEvent(ProductEvent event) {
-        log.info("Async search indexing requested for product event type={} id={}", event.getType(), event.getProductId());
-        
-        switch (event.getType()) {
-            case CREATED, UPDATED, ACTIVATED, STOCK_CHANGED, PRICE_CHANGED -> {
-                productRepository.findById(event.getProductId()).ifPresentOrElse(product -> {
-                    if (product.getApprovalStatus() == ProductApprovalStatus.APPROVED && product.isActive()) {
-                        ProductDocument doc = mapToDocument(product);
-                        searchRepository.save(doc);
-                        log.info("Product search index updated: {}", product.getId());
-                    } else {
-                        searchRepository.deleteById(product.getId());
-                        log.info("Product search index removed: {} (not active/approved)", product.getId());
-                    }
-                }, () -> log.warn("Product not found in DB for indexing: {}", event.getProductId()));
-            }
-            case DELETED, DEACTIVATED -> {
-                searchRepository.deleteById(event.getProductId());
-                log.info("Product search index deleted: {}", event.getProductId());
-            }
-            default -> log.debug("Ignored index event type={} for id={}", event.getType(), event.getProductId());
-        }
-    }
+  @KafkaListener(topics = Topics.PRODUCT_EVENTS, groupId = "product-search-indexer")
+  public void indexProductEvent(ProductEvent event) {
+    log.info(
+        "Async search indexing requested for product event type={} id={}",
+        event.getType(),
+        event.getProductId());
 
-    private ProductDocument mapToDocument(Product p) {
-        ProductDocument doc = new ProductDocument();
-        doc.setId(p.getId());
-        doc.setName(p.getName());
-        doc.setDescription(p.getDescription());
-        doc.setCategoryId(p.getCategoryId());
-        doc.setPrice(p.getPrice());
-        doc.setStockQuantity(p.getStockQuantity());
-        doc.setImageUrls(p.getImageUrls());
-        doc.setSellerId(p.getSellerId());
-        doc.setActive(p.isActive());
-        doc.setApprovalStatus(p.getApprovalStatus());
-        doc.setAttributes(p.getAttributes());
-        return doc;
+    switch (event.getType()) {
+      case CREATED, UPDATED, ACTIVATED, STOCK_CHANGED, PRICE_CHANGED -> {
+        productRepository
+            .findById(event.getProductId())
+            .ifPresentOrElse(
+                product -> {
+                  if (product.getApprovalStatus() == ProductApprovalStatus.APPROVED
+                      && product.isActive()) {
+                    ProductDocument doc = mapToDocument(product);
+                    searchRepository.save(doc);
+                    log.info("Product search index updated: {}", product.getId());
+                  } else {
+                    searchRepository.deleteById(product.getId());
+                    log.info(
+                        "Product search index removed: {} (not active/approved)", product.getId());
+                  }
+                },
+                () -> log.warn("Product not found in DB for indexing: {}", event.getProductId()));
+      }
+      case DELETED, DEACTIVATED -> {
+        searchRepository.deleteById(event.getProductId());
+        log.info("Product search index deleted: {}", event.getProductId());
+      }
+      default ->
+          log.debug("Ignored index event type={} for id={}", event.getType(), event.getProductId());
     }
+  }
+
+  private ProductDocument mapToDocument(Product p) {
+    ProductDocument doc = new ProductDocument();
+    doc.setId(p.getId());
+    doc.setName(p.getName());
+    doc.setDescription(p.getDescription());
+    doc.setCategoryId(p.getCategoryId());
+    doc.setPrice(p.getPrice());
+    doc.setStockQuantity(p.getStockQuantity());
+    doc.setImageUrls(p.getImageUrls());
+    doc.setSellerId(p.getSellerId());
+    doc.setActive(p.isActive());
+    doc.setApprovalStatus(p.getApprovalStatus());
+    doc.setAttributes(p.getAttributes());
+    return doc;
+  }
 }

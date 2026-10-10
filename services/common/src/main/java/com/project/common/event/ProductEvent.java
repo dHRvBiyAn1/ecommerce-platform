@@ -1,13 +1,12 @@
 package com.project.common.event;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-
-import java.util.UUID;
 
 @Data
 @NoArgsConstructor
@@ -17,14 +16,21 @@ import java.util.UUID;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ProductEvent extends BaseEvent {
 
-    public enum Type {
-        CREATED, UPDATED, DELETED, STOCK_CHANGED, PRICE_CHANGED,
-        ACTIVATED, DEACTIVATED, VARIANT_ADDED, VARIANT_REMOVED
-    }
+  public enum Type {
+    CREATED,
+    UPDATED,
+    DELETED,
+    STOCK_CHANGED,
+    PRICE_CHANGED,
+    ACTIVATED,
+    DEACTIVATED,
+    VARIANT_ADDED,
+    VARIANT_REMOVED
+  }
 
-    private Type type;
-    private String productId;
-    private String sku;
-    private String name;
-    private UUID sellerId;
+  private Type type;
+  private String productId;
+  private String sku;
+  private String name;
+  private UUID sellerId;
 }

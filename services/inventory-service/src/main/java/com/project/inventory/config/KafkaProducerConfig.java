@@ -11,16 +11,16 @@ import org.springframework.kafka.core.ProducerFactory;
 @Configuration
 public class KafkaProducerConfig {
 
-    @Value("${spring.kafka.bootstrap-servers:kafka:9092}")
-    private String bootstrapServers;
+  @Value("${spring.kafka.bootstrap-servers:kafka:9092}")
+  private String bootstrapServers;
 
-    @Bean
-    public ProducerFactory<String, Object> producerFactory() {
-        return new DefaultKafkaProducerFactory<>(KafkaProducerProps.defaults(bootstrapServers));
-    }
+  @Bean
+  public ProducerFactory<String, Object> producerFactory() {
+    return new DefaultKafkaProducerFactory<>(KafkaProducerProps.defaults(bootstrapServers));
+  }
 
-    @Bean
-    public KafkaTemplate<String, Object> kafkaTemplate() {
-        return new KafkaTemplate<>(producerFactory());
-    }
+  @Bean
+  public KafkaTemplate<String, Object> kafkaTemplate() {
+    return new KafkaTemplate<>(producerFactory());
+  }
 }

@@ -118,6 +118,22 @@ standalone generator download is needed. The direct lint command is:
 npx --yes @stoplight/spectral-cli@6.17.0 lint swagger.yaml 'services/*/src/main/openapi/swagger.yaml' -f json --fail-severity warn
 ```
 
+Java formatting uses Spotless with Google Java Format in Google style, plus
+unused-import removal and import ordering. It also trims trailing whitespace
+and enforces a final newline in YAML resources and root-level Markdown files.
+`./mvnw compile` checks formatting as part of the Maven lifecycle, including in
+CI. Apply formatting after Java, YAML, or Markdown changes with:
+
+```bash
+./mvnw spotless:apply
+```
+
+To check formatting without compiling the project:
+
+```bash
+./mvnw spotless:check
+```
+
 The service Dockerfiles compile their own JARs in multi-stage builds, so a
 clean checkout can build images without host `target/` directories. `make
 build` remains the fast host-side reactor check; Compose builds images when

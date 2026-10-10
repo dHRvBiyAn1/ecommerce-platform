@@ -2,54 +2,52 @@ package com.project.product_service.service;
 
 import com.project.product_service.generated.model.ProductRequest;
 import com.project.product_service.generated.model.ProductResponse;
+import java.math.BigDecimal;
+import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-import java.math.BigDecimal;
-import java.util.UUID;
-
 public interface ProductService {
 
-    Page<ProductResponse> getAllActiveProducts(Pageable pageable);
+  Page<ProductResponse> getAllActiveProducts(Pageable pageable);
 
-    Page<ProductResponse> searchProducts(String keyword, Pageable pageable);
+  Page<ProductResponse> searchProducts(String keyword, Pageable pageable);
 
-    Page<ProductResponse> getProductsByCategory(String categoryId, Pageable pageable);
+  Page<ProductResponse> getProductsByCategory(String categoryId, Pageable pageable);
 
-    ProductResponse getProduct(String id);
+  ProductResponse getProduct(String id);
 
-    Page<ProductResponse> getProductsBySeller(UUID sellerId, Pageable pageable);
+  Page<ProductResponse> getProductsBySeller(UUID sellerId, Pageable pageable);
 
-    ProductResponse createProduct(ProductRequest request);
+  ProductResponse createProduct(ProductRequest request);
 
-    /** Used when an admin creates a product directly so it auto-approves. */
-    ProductResponse createProduct(ProductRequest request, boolean isAdmin);
+  /** Used when an admin creates a product directly so it auto-approves. */
+  ProductResponse createProduct(ProductRequest request, boolean isAdmin);
 
-    ProductResponse updateProduct(String id, ProductRequest request, boolean isAdmin);
+  ProductResponse updateProduct(String id, ProductRequest request, boolean isAdmin);
 
-    /** Admin moderation: APPROVE or REJECT a pending product. */
-    ProductResponse setApprovalStatus(
-            String id,
-            com.project.product_service.model.ProductApprovalStatus status,
-            UUID adminId,
-            String rejectionReason);
+  /** Admin moderation: APPROVE or REJECT a pending product. */
+  ProductResponse setApprovalStatus(
+      String id,
+      com.project.product_service.model.ProductApprovalStatus status,
+      UUID adminId,
+      String rejectionReason);
 
-    /** Admin moderation list — by approval status. */
-    Page<ProductResponse> listByApprovalStatus(
-            com.project.product_service.model.ProductApprovalStatus status,
-            Pageable pageable);
+  /** Admin moderation list — by approval status. */
+  Page<ProductResponse> listByApprovalStatus(
+      com.project.product_service.model.ProductApprovalStatus status, Pageable pageable);
 
-    void deleteProduct(String id, UUID sellerId, boolean isAdmin);
+  void deleteProduct(String id, UUID sellerId, boolean isAdmin);
 
-    ProductResponse setProductActiveStatus(String id, boolean active, UUID sellerId, boolean isAdmin);
+  ProductResponse setProductActiveStatus(String id, boolean active, UUID sellerId, boolean isAdmin);
 
-    ProductResponse updateStock(String id, Integer stockQuantity, UUID sellerId, boolean isAdmin);
+  ProductResponse updateStock(String id, Integer stockQuantity, UUID sellerId, boolean isAdmin);
 
-    Page<ProductResponse> getProductsByPriceRange(BigDecimal min, BigDecimal max, Pageable pageable);
+  Page<ProductResponse> getProductsByPriceRange(BigDecimal min, BigDecimal max, Pageable pageable);
 
-    /**
-     * Filter active, approved products by a dynamic attribute key-value pair.
-     * Example: {@code filterByAttribute("color", "red", pageable)}
-     */
-    Page<ProductResponse> filterByAttribute(String key, Object value, Pageable pageable);
+  /**
+   * Filter active, approved products by a dynamic attribute key-value pair. Example: {@code
+   * filterByAttribute("color", "red", pageable)}
+   */
+  Page<ProductResponse> filterByAttribute(String key, Object value, Pageable pageable);
 }

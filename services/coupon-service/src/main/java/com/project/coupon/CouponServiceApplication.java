@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication(scanBasePackages = {"com.project.coupon", "com.project.common"})
 public class CouponServiceApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(CouponServiceApplication.class, args);
-    }
+  public static void main(String[] args) {
+    SpringApplication.run(CouponServiceApplication.class, args);
+  }
 }

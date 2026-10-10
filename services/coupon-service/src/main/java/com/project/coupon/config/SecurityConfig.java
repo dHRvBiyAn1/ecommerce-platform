@@ -2,10 +2,12 @@ package com.project.coupon.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.common.constant.ErrorCode;
-import com.project.common.web.Responses;
 import com.project.common.security.JwtAuthenticationConverter;
+import com.project.common.web.Responses;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -15,58 +17,76 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true, proxyTargetClass = true)
 public class SecurityConfig {
 
-    @Bean
-    // Bearer-only stateless API; cookie/session identities and HTTP Basic are rejected by security tests.
-    @SuppressWarnings("java:S4502")
-    public SecurityFilterChain filterChain(HttpSecurity http, ObjectMapper objectMapper) throws Exception {
-        AuthenticationEntryPoint entryPoint = (request, response, exception) -> {
-            response.setStatus(401);
-            response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            objectMapper.writeValue(response.getWriter(), Responses.errorResponse(
-                    401, ErrorCode.UNAUTHENTICATED.value(), "Authentication required",
-                    request.getRequestURI(), null, requestId(request)));
+  @Bean
+  // Bearer-only stateless API; cookie/session identities and HTTP Basic are rejected by security
+  // tests.
+  @SuppressWarnings("java:S4502")
+  public SecurityFilterChain filterChain(HttpSecurity http, ObjectMapper objectMapper)
+      throws Exception {
+    AuthenticationEntryPoint entryPoint =
+        (request, response, exception) -> {
+          response.setStatus(401);
+          response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
+          response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+          objectMapper.writeValue(
+              response.getWriter(),
+              Responses.errorResponse(
+                  401,
+                  ErrorCode.UNAUTHENTICATED.value(),
+                  "Authentication required",
+                  request.getRequestURI(),
+                  null,
+                  requestId(request)));
         };
-        AccessDeniedHandler deniedHandler = (request, response, exception) -> {
-            response.setStatus(403);
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            objectMapper.writeValue(response.getWriter(), Responses.errorResponse(
-                    403, ErrorCode.ACCESS_DENIED.value(), "Access denied",
-                    request.getRequestURI(), null, requestId(request)));
+    AccessDeniedHandler deniedHandler =
+        (request, response, exception) -> {
+          response.setStatus(403);
+          response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+          objectMapper.writeValue(
+              response.getWriter(),
+              Responses.errorResponse(
+                  403,
+                  ErrorCode.ACCESS_DENIED.value(),
+                  "Access denied",
+                  request.getRequestURI(),
+                  null,
+                  requestId(request)));
         };
-        http
-                .csrf(AbstractHttpConfigurer::disable)
-                .cors(Customizer.withDefaults())
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/actuator/health/**",
-                                "/actuator/info",
-                                "/actuator/prometheus",
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html"
-                        ).permitAll()
-                        .anyRequest().authenticated())
-                .exceptionHandling(e -> e.authenticationEntryPoint(entryPoint).accessDeniedHandler(deniedHandler))
-                .oauth2ResourceServer(o -> o
-                        .authenticationEntryPoint(entryPoint)
-                        .accessDeniedHandler(deniedHandler)
-                        .jwt(j -> j.jwtAuthenticationConverter(new JwtAuthenticationConverter())));
-        return http.build();
-    }
+    http.csrf(AbstractHttpConfigurer::disable)
+        .cors(Customizer.withDefaults())
+        .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(
+            auth ->
+                auth.requestMatchers(
+                        "/actuator/health/**",
+                        "/actuator/info",
+                        "/actuator/prometheus",
+                        "/v3/api-docs/**",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html")
+                    .permitAll()
+                    .anyRequest()
+                    .authenticated())
+        .exceptionHandling(
+            e -> e.authenticationEntryPoint(entryPoint).accessDeniedHandler(deniedHandler))
+        .oauth2ResourceServer(
+            o ->
+                o.authenticationEntryPoint(entryPoint)
+                    .accessDeniedHandler(deniedHandler)
+                    .jwt(j -> j.jwtAuthenticationConverter(new JwtAuthenticationConverter())));
+    return http.build();
+  }
 
-    private static String requestId(jakarta.servlet.http.HttpServletRequest request) {
-        String requestId = request.getHeader("X-Request-Id");
-        return requestId == null || requestId.isBlank()
-                ? java.util.UUID.randomUUID().toString() : requestId;
-    }
+  private static String requestId(jakarta.servlet.http.HttpServletRequest request) {
+    String requestId = request.getHeader("X-Request-Id");
+    return requestId == null || requestId.isBlank()
+        ? java.util.UUID.randomUUID().toString()
+        : requestId;
+  }
 }

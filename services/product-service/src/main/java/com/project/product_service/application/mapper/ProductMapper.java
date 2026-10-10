@@ -7,6 +7,6 @@ import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
 public interface ProductMapper {
-    @Mapping(target = "categoryName", ignore = true)
-    ProductResponse toResponse(Product product);
+  @Mapping(target = "categoryName", ignore = true)
+  ProductResponse toResponse(Product product);
 }

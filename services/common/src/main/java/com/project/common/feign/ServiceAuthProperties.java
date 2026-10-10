@@ -8,8 +8,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Setter
 @ConfigurationProperties(prefix = "service.auth")
 public class ServiceAuthProperties {
-    private String tokenUri;
-    private String clientId;
-    private String clientSecret;
-    private String scope;
+  private String tokenUri;
+  private String clientId;
+  private String clientSecret;
+  private String scope;
 }

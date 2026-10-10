@@ -10,8 +10,8 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 @EnableScheduling
 public class PlatformSchedulingConfiguration {
 
-    @Bean
-    public ThreadPoolTaskScheduler taskScheduler(ThreadPoolTaskSchedulerBuilder builder) {
-        return builder.build();
-    }
+  @Bean
+  public ThreadPoolTaskScheduler taskScheduler(ThreadPoolTaskSchedulerBuilder builder) {
+    return builder.build();
+  }
 }

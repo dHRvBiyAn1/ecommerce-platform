@@ -13,9 +13,9 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableSchedulerLock(defaultLockAtMostFor = "10m")
 public class ShedLockConfig {
 
-    @Bean
-    public LockProvider lockProvider(RedisConnectionFactory connectionFactory) {
-        // Namespace locks under "shedlock" prefix in Redis
-        return new RedisLockProvider(connectionFactory, "shedlock");
-    }
+  @Bean
+  public LockProvider lockProvider(RedisConnectionFactory connectionFactory) {
+    // Namespace locks under "shedlock" prefix in Redis
+    return new RedisLockProvider(connectionFactory, "shedlock");
+  }
 }

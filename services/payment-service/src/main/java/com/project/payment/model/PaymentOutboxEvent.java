@@ -1,5 +1,6 @@
 package com.project.payment.model;
 
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -9,8 +10,6 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.time.LocalDateTime;
-
 @Document(collection = "payment_outbox")
 @Getter
 @Setter
@@ -18,18 +17,18 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class PaymentOutboxEvent {
-    @Id
-    private String id;
-    @Version
-    private Long version;
-    private String paymentId;
-    private String eventType;
-    private String payload;
-    private Long transitionSequence;
-    private int attempts;
-    private LocalDateTime nextAttemptAt;
-    private LocalDateTime leaseUntil;
-    private String leaseToken;
-    private LocalDateTime publishedAt;
-    private LocalDateTime createdAt;
+  @Id private String id;
+
+  @Version private Long version;
+
+  private String paymentId;
+  private String eventType;
+  private String payload;
+  private Long transitionSequence;
+  private int attempts;
+  private LocalDateTime nextAttemptAt;
+  private LocalDateTime leaseUntil;
+  private String leaseToken;
+  private LocalDateTime publishedAt;
+  private LocalDateTime createdAt;
 }

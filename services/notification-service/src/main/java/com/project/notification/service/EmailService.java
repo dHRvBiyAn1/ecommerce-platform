@@ -13,31 +13,31 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+  private final JavaMailSender mailSender;
 
-    @Value("${notification.email.from:noreply@ecommerce.local}")
-    private String fromAddress;
+  @Value("${notification.email.from:noreply@ecommerce.local}")
+  private String fromAddress;
 
-    public void sendEmail(String to, String subject, String body) {
-        sendEmail(to, subject, body, null);
+  public void sendEmail(String to, String subject, String body) {
+    sendEmail(to, subject, body, null);
+  }
+
+  public void sendEmail(String to, String subject, String body, String messageId) {
+    try {
+      MimeMessage message = mailSender.createMimeMessage();
+      MimeMessageHelper helper = new MimeMessageHelper(message, true);
+      helper.setFrom(fromAddress);
+      helper.setTo(to);
+      helper.setSubject(subject);
+      helper.setText(body, true);
+      if (messageId != null) {
+        message.setHeader("Message-ID", "<notification-" + messageId + "@ecommerce.local>");
+      }
+      mailSender.send(message);
+      log.info("Email sent to {} subject='{}'", to, subject);
+    } catch (Exception e) {
+      log.error("Email send failed to={} subject='{}': {}", to, subject, e.getMessage());
+      throw new RuntimeException("Failed to send email", e);
     }
-
-    public void sendEmail(String to, String subject, String body, String messageId) {
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromAddress);
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(body, true);
-            if (messageId != null) {
-                message.setHeader("Message-ID", "<notification-" + messageId + "@ecommerce.local>");
-            }
-            mailSender.send(message);
-            log.info("Email sent to {} subject='{}'", to, subject);
-        } catch (Exception e) {
-            log.error("Email send failed to={} subject='{}': {}", to, subject, e.getMessage());
-            throw new RuntimeException("Failed to send email", e);
-        }
-    }
+  }
 }

@@ -4,29 +4,30 @@ import com.project.order.generated.model.OrderRequest;
 import com.project.order.generated.model.OrderResponse;
 import com.project.order.generated.model.OrderStatusUpdateRequest;
 import com.project.order.model.OrderStatus;
+import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-import java.util.UUID;
-
 public interface OrderService {
 
-    OrderResponse createOrder(OrderRequest request, UUID userId, String userEmail, String idempotencyKey);
+  OrderResponse createOrder(
+      OrderRequest request, UUID userId, String userEmail, String idempotencyKey);
 
-    OrderResponse getOrder(String orderId);
+  OrderResponse getOrder(String orderId);
 
-    OrderResponse getOrderByNumber(String orderNumber);
+  OrderResponse getOrderByNumber(String orderNumber);
 
-    Page<OrderResponse> getUserOrders(UUID userId, Pageable pageable);
+  Page<OrderResponse> getUserOrders(UUID userId, Pageable pageable);
 
-    Page<OrderResponse> getAllOrders(Pageable pageable);
+  Page<OrderResponse> getAllOrders(Pageable pageable);
 
-    Page<OrderResponse> getOrdersByStatus(OrderStatus status, Pageable pageable);
+  Page<OrderResponse> getOrdersByStatus(OrderStatus status, Pageable pageable);
 
-    OrderResponse updateOrderStatus(String orderId, OrderStatusUpdateRequest request);
+  OrderResponse updateOrderStatus(String orderId, OrderStatusUpdateRequest request);
 
-    OrderResponse cancelOrder(String orderId, UUID userId, boolean isAdmin);
+  OrderResponse cancelOrder(String orderId, UUID userId, boolean isAdmin);
 
-    /** Called by the payment-events consumer when payment status changes. */
-    void onPaymentResult(String orderId, String paymentId, com.project.order.model.PaymentStatus paymentStatus);
+  /** Called by the payment-events consumer when payment status changes. */
+  void onPaymentResult(
+      String orderId, String paymentId, com.project.order.model.PaymentStatus paymentStatus);
 }

@@ -1,7 +1,7 @@
 package com.project.product_service.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.cache.annotation.EnableCaching;
@@ -16,28 +16,30 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @EnableCaching
 public class RedisConfig {
 
-    @Bean
-    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
-        RedisTemplate<String, Object> template = new RedisTemplate<>();
-        template.setConnectionFactory(connectionFactory);
+  @Bean
+  public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
+    RedisTemplate<String, Object> template = new RedisTemplate<>();
+    template.setConnectionFactory(connectionFactory);
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        objectMapper.enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
+    ObjectMapper objectMapper = new ObjectMapper();
+    objectMapper.registerModule(new JavaTimeModule());
+    objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    objectMapper.enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
 
-        Jackson2JsonRedisSerializer<Object> serializer = new Jackson2JsonRedisSerializer<>(objectMapper, Object.class);
-        template.setDefaultSerializer(serializer);
-        template.setKeySerializer(new StringRedisSerializer());
-        template.setHashKeySerializer(new StringRedisSerializer());
-        template.setHashValueSerializer(serializer);
+    Jackson2JsonRedisSerializer<Object> serializer =
+        new Jackson2JsonRedisSerializer<>(objectMapper, Object.class);
+    template.setDefaultSerializer(serializer);
+    template.setKeySerializer(new StringRedisSerializer());
+    template.setHashKeySerializer(new StringRedisSerializer());
+    template.setHashValueSerializer(serializer);
 
-        template.afterPropertiesSet();
-        return template;
-    }
+    template.afterPropertiesSet();
+    return template;
+  }
 
-    @Bean
-    public org.springframework.cache.CacheManager cacheManager(RedisTemplate<String, Object> redisTemplate) {
-        return new LayeredCacheManager(redisTemplate);
-    }
+  @Bean
+  public org.springframework.cache.CacheManager cacheManager(
+      RedisTemplate<String, Object> redisTemplate) {
+    return new LayeredCacheManager(redisTemplate);
+  }
 }

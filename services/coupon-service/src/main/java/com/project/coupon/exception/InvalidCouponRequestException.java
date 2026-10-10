@@ -4,7 +4,7 @@ import com.project.common.exception.ValidationException;
 
 public class InvalidCouponRequestException extends ValidationException {
 
-    public InvalidCouponRequestException(String message) {
-        super(message);
-    }
+  public InvalidCouponRequestException(String message) {
+    super(message);
+  }
 }

@@ -1,18 +1,20 @@
 package com.project.notification.service;
 
-import com.project.notification.generated.model.NotificationResponse;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.project.notification.application.mapper.NotificationMapper;
 import com.project.notification.application.validator.NotificationAccessValidator;
+import com.project.notification.generated.model.NotificationResponse;
 import com.project.notification.model.Notification;
 import com.project.notification.model.NotificationDelivery;
 import com.project.notification.repository.NotificationDeliveryRepository;
 import com.project.notification.repository.NotificationRepository;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DuplicateKeyException;
-
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -21,126 +23,143 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.atLeast;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DuplicateKeyException;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationRaceTest {
 
-    @Mock private NotificationRepository repository;
-    @Mock private NotificationDeliveryRepository deliveryRepository;
-    @Mock private EmailService emailService;
+  @Mock private NotificationRepository repository;
 
-    @Test
-    void duplicateSourceEventRereadsWinnerAndCreatesOneDelivery() {
-        UUID userId = UUID.randomUUID();
-        Notification winner = Notification.builder()
-                .id("winner")
-                .userId(userId)
-                .sourceEventId("event-1")
-                .status(Notification.Status.PENDING)
-                .build();
-        AtomicBoolean firstSave = new AtomicBoolean(true);
-        when(repository.findBySourceEventId("event-1")).thenReturn(Optional.empty(), Optional.of(winner));
-        when(repository.insert(any(Notification.class))).thenAnswer(invocation -> {
-            if (firstSave.getAndSet(false)) {
+  @Mock private NotificationDeliveryRepository deliveryRepository;
+
+  @Mock private EmailService emailService;
+
+  @Test
+  void duplicateSourceEventRereadsWinnerAndCreatesOneDelivery() {
+    UUID userId = UUID.randomUUID();
+    Notification winner =
+        Notification.builder()
+            .id("winner")
+            .userId(userId)
+            .sourceEventId("event-1")
+            .status(Notification.Status.PENDING)
+            .build();
+    AtomicBoolean firstSave = new AtomicBoolean(true);
+    when(repository.findBySourceEventId("event-1"))
+        .thenReturn(Optional.empty(), Optional.of(winner));
+    when(repository.insert(any(Notification.class)))
+        .thenAnswer(
+            invocation -> {
+              if (firstSave.getAndSet(false)) {
                 throw new DuplicateKeyException("sourceEventId");
-            }
-            return invocation.getArgument(0);
-        });
-        when(deliveryRepository.findByNotificationId("winner")).thenReturn(Optional.empty());
-        when(deliveryRepository.save(any(NotificationDelivery.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+              }
+              return invocation.getArgument(0);
+            });
+    when(deliveryRepository.findByNotificationId("winner")).thenReturn(Optional.empty());
+    when(deliveryRepository.save(any(NotificationDelivery.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
 
-        NotificationService service = new NotificationService(
-                repository, deliveryRepository, emailService,
-                new NotificationMapper(), new NotificationAccessValidator());
+    NotificationService service =
+        new NotificationService(
+            repository,
+            deliveryRepository,
+            emailService,
+            new NotificationMapper(),
+            new NotificationAccessValidator());
 
-        NotificationResponse response = service.record(
-                userId, "user@example.com", "EMAIL", "ORDER", "Subject", "Body", "event-1");
+    NotificationResponse response =
+        service.record(userId, "user@example.com", "EMAIL", "ORDER", "Subject", "Body", "event-1");
 
-        assertThat(response.getId()).isEqualTo("winner");
-        assertThat(response.getStatus()).isEqualTo(NotificationResponse.StatusEnum.PENDING);
-        verify(deliveryRepository).save(any(NotificationDelivery.class));
-        verify(repository, times(1)).insert(any(Notification.class));
-        verify(repository, times(2)).findBySourceEventId("event-1");
-        verify(emailService, never()).sendEmail(any(), any(), any());
-    }
+    assertThat(response.getId()).isEqualTo("winner");
+    assertThat(response.getStatus()).isEqualTo(NotificationResponse.StatusEnum.PENDING);
+    verify(deliveryRepository).save(any(NotificationDelivery.class));
+    verify(repository, times(1)).insert(any(Notification.class));
+    verify(repository, times(2)).findBySourceEventId("event-1");
+    verify(emailService, never()).sendEmail(any(), any(), any());
+  }
 
-    @Test
-    void concurrentDuplicateSourceEventsPersistOneNotificationAndDelivery() throws Exception {
-        UUID userId = UUID.randomUUID();
-        AtomicReference<Notification> storedNotification = new AtomicReference<>();
-        AtomicReference<NotificationDelivery> storedDelivery = new AtomicReference<>();
-        when(repository.findBySourceEventId("event-2"))
-                .thenAnswer(invocation -> Optional.ofNullable(storedNotification.get()));
-        when(repository.insert(any(Notification.class))).thenAnswer(invocation -> {
-            synchronized (storedNotification) {
+  @Test
+  void concurrentDuplicateSourceEventsPersistOneNotificationAndDelivery() throws Exception {
+    UUID userId = UUID.randomUUID();
+    AtomicReference<Notification> storedNotification = new AtomicReference<>();
+    AtomicReference<NotificationDelivery> storedDelivery = new AtomicReference<>();
+    when(repository.findBySourceEventId("event-2"))
+        .thenAnswer(invocation -> Optional.ofNullable(storedNotification.get()));
+    when(repository.insert(any(Notification.class)))
+        .thenAnswer(
+            invocation -> {
+              synchronized (storedNotification) {
                 Notification notification = invocation.getArgument(0);
                 if (storedNotification.get() != null && notification.getId() == null) {
-                    throw new DuplicateKeyException("sourceEventId");
+                  throw new DuplicateKeyException("sourceEventId");
                 }
                 if (notification.getId() == null) {
-                    notification.setId("notification-2");
+                  notification.setId("notification-2");
                 }
                 storedNotification.set(notification);
                 return notification;
-            }
-        });
-        when(deliveryRepository.findByNotificationId("notification-2"))
-                .thenAnswer(invocation -> Optional.ofNullable(storedDelivery.get()));
-        when(deliveryRepository.save(any(NotificationDelivery.class))).thenAnswer(invocation -> {
-            synchronized (storedDelivery) {
+              }
+            });
+    when(deliveryRepository.findByNotificationId("notification-2"))
+        .thenAnswer(invocation -> Optional.ofNullable(storedDelivery.get()));
+    when(deliveryRepository.save(any(NotificationDelivery.class)))
+        .thenAnswer(
+            invocation -> {
+              synchronized (storedDelivery) {
                 if (storedDelivery.get() != null) {
-                    throw new DuplicateKeyException("notificationId");
+                  throw new DuplicateKeyException("notificationId");
                 }
                 NotificationDelivery delivery = invocation.getArgument(0);
                 delivery.setId("delivery-2");
                 storedDelivery.set(delivery);
                 return delivery;
-            }
-        });
+              }
+            });
 
-        NotificationService service = new NotificationService(
-                repository, deliveryRepository, emailService,
-                new NotificationMapper(), new NotificationAccessValidator());
-        CountDownLatch start = new CountDownLatch(1);
-        ExecutorService executor = Executors.newFixedThreadPool(2);
-        try {
-            Future<NotificationResponse> first = executor.submit(() -> recordAfter(start, service, userId));
-            Future<NotificationResponse> second = executor.submit(() -> recordAfter(start, service, userId));
-            start.countDown();
+    NotificationService service =
+        new NotificationService(
+            repository,
+            deliveryRepository,
+            emailService,
+            new NotificationMapper(),
+            new NotificationAccessValidator());
+    CountDownLatch start = new CountDownLatch(1);
+    ExecutorService executor = Executors.newFixedThreadPool(2);
+    try {
+      Future<NotificationResponse> first =
+          executor.submit(() -> recordAfter(start, service, userId));
+      Future<NotificationResponse> second =
+          executor.submit(() -> recordAfter(start, service, userId));
+      start.countDown();
 
-            assertThat(first.get().getId()).isEqualTo("notification-2");
-            assertThat(second.get().getId()).isEqualTo("notification-2");
-        } finally {
-            executor.shutdownNow();
-        }
-
-        assertThat(storedNotification.get()).isNotNull();
-        assertThat(storedDelivery.get()).isNotNull();
-        verify(repository, atLeast(2)).findBySourceEventId("event-2");
-        verify(deliveryRepository, atLeast(1)).findByNotificationId("notification-2");
+      assertThat(first.get().getId()).isEqualTo("notification-2");
+      assertThat(second.get().getId()).isEqualTo("notification-2");
+    } finally {
+      executor.shutdownNow();
     }
 
-    private NotificationResponse recordAfter(
-            CountDownLatch start, NotificationService service, UUID userId) throws InterruptedException {
-        start.await();
-        return service.record(userId, "user@example.com", "EMAIL", "ORDER",
-                "Subject", "Body", "event-2");
-    }
+    assertThat(storedNotification.get()).isNotNull();
+    assertThat(storedDelivery.get()).isNotNull();
+    verify(repository, atLeast(2)).findBySourceEventId("event-2");
+    verify(deliveryRepository, atLeast(1)).findByNotificationId("notification-2");
+  }
 
-    @Test
-    void responseModelDoesNotExposeNotificationDocumentTypes() {
-        for (java.lang.reflect.Field component : NotificationResponse.class.getDeclaredFields()) {
-            assertThat(component.getType()).isNotEqualTo(Notification.class);
-            assertThat(component.getType().getName()).doesNotContain("notification.model");
-        }
+  private NotificationResponse recordAfter(
+      CountDownLatch start, NotificationService service, UUID userId) throws InterruptedException {
+    start.await();
+    return service.record(
+        userId, "user@example.com", "EMAIL", "ORDER", "Subject", "Body", "event-2");
+  }
+
+  @Test
+  void responseModelDoesNotExposeNotificationDocumentTypes() {
+    for (java.lang.reflect.Field component : NotificationResponse.class.getDeclaredFields()) {
+      assertThat(component.getType()).isNotEqualTo(Notification.class);
+      assertThat(component.getType().getName()).doesNotContain("notification.model");
     }
+  }
 }

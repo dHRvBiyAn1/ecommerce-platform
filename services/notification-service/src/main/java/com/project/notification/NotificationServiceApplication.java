@@ -9,7 +9,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @SpringBootApplication(scanBasePackages = {"com.project.notification", "com.project.common"})
 public class NotificationServiceApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(NotificationServiceApplication.class, args);
-    }
+  public static void main(String[] args) {
+    SpringApplication.run(NotificationServiceApplication.class, args);
+  }
 }
