@@ -7,11 +7,13 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.project.common.exception.DuplicateResourceException;
 import com.project.coupon.entity.Coupon;
 import com.project.coupon.entity.CouponRedemption;
 import com.project.coupon.entity.DiscountType;
 import com.project.coupon.entity.RedemptionStatus;
 import com.project.coupon.exception.CouponReservationConflictException;
+import com.project.coupon.generated.model.CouponRequest;
 import com.project.coupon.generated.model.CouponReservationRequest;
 import com.project.coupon.generated.model.CouponReservationResponse;
 import com.project.coupon.generated.model.CouponTransitionRequest;
@@ -20,15 +22,21 @@ import com.project.coupon.mapper.CouponMapper;
 import com.project.coupon.repository.CouponRedemptionRepository;
 import com.project.coupon.repository.CouponRepository;
 import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 class CouponServiceLifecycleTest {
@@ -76,6 +84,47 @@ class CouponServiceLifecycleTest {
     assertThat(result.getDiscountAmount()).isEqualByComparingTo("50.00");
     assertThat(coupon.getUsageCount()).isEqualTo(1);
     assertThat(coupon.getReservedCount()).isEqualTo(1);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"coupons_code_key", "uq_coupons_normalized_code"})
+  void translatesBothCouponUniqueConstraintsEvenWhenPrecheckLosesTheRace(String constraint) {
+    DataIntegrityViolationException failure = constraintFailure(constraint);
+    when(couponRepository.findByCode("SAVE10")).thenReturn(Optional.empty());
+    when(couponRepository.saveAndFlush(any())).thenThrow(failure);
+
+    assertThatThrownBy(() -> service.create(definition()))
+        .isInstanceOf(DuplicateResourceException.class)
+        .hasMessage("Coupon code already exists: SAVE10");
+  }
+
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(strings = {"some_other_constraint"})
+  void preservesUnrelatedDatabaseConstraintFailures(String constraint) {
+    DataIntegrityViolationException failure = constraintFailure(constraint);
+    when(couponRepository.findByCode("SAVE10")).thenReturn(Optional.empty());
+    when(couponRepository.saveAndFlush(any())).thenThrow(failure);
+
+    assertThatThrownBy(() -> service.create(definition())).isSameAs(failure);
+  }
+
+  private DataIntegrityViolationException constraintFailure(String constraint) {
+    return new DataIntegrityViolationException(
+        "insert rejected",
+        new RuntimeException(
+            "nested provider exception",
+            new ConstraintViolationException(
+                "constraint violation", new SQLException("conflict"), constraint)));
+  }
+
+  private CouponRequest definition() {
+    return new CouponRequest()
+        .code(" save10 ")
+        .discountType(CouponRequest.DiscountTypeEnum.PERCENT)
+        .discountValue(new BigDecimal("10.00"))
+        .validFrom(LocalDateTime.now().minusDays(1))
+        .validUntil(LocalDateTime.now().plusDays(1));
   }
 
   @Test

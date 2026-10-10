@@ -323,6 +323,27 @@ class OrderDurabilityTest {
     verify(inventory).reserve(any(), any());
   }
 
+  @Test
+  void recoveryAcceptsAnotherWorkersCompletedSagaWithoutDuplicatingTheOutboxEvent() {
+    RepositoryHarness persistence = new RepositoryHarness();
+    persistence.persist(recoverableOrder());
+    persistence.makeSagaDue();
+    persistence.completeSagaOnNextSave = true;
+    InventoryClient inventory = mock(InventoryClient.class);
+    OrderServiceImpl service = service(persistence.repository(), availableProduct(), inventory);
+
+    service.recoverOrders();
+    service.recoverOrders();
+
+    assertThat(persistence.completeSagaOnNextSave).isFalse();
+    assertThat(persistence.stored().getSagaState().getStage()).isEqualTo(SagaState.Stage.COMPLETED);
+    assertThat(persistence.stored().getOutboxEvents())
+        .singleElement()
+        .extracting(OutboxEvent::getEventType)
+        .isEqualTo("CREATED");
+    verify(inventory).reserve(any(), any());
+  }
+
   private void awaitInvocations(AtomicInteger invocations, int expected)
       throws InterruptedException {
     long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
@@ -982,6 +1003,7 @@ class OrderDurabilityTest {
     private boolean hideNextLookup;
     private boolean failNextSave;
     private boolean returnClaimedSaga;
+    private boolean completeSagaOnNextSave;
     private int completionConflicts;
     private int insertedOrders;
 
@@ -1049,6 +1071,16 @@ class OrderDurabilityTest {
                   }
                   if (!java.util.Objects.equals(candidate.getVersion(), stored.getVersion())) {
                     throw new OptimisticLockingFailureException("stale version");
+                  }
+                  if (completeSagaOnNextSave
+                      && candidate.getSagaState().getStage() == SagaState.Stage.COMPLETED) {
+                    // A competing worker commits this completion before our optimistic save.
+                    completeSagaOnNextSave = false;
+                    candidate.setVersion(candidate.getVersion() + 1);
+                    stored = copy(candidate);
+                    saveHistory.add(copy(stored));
+                    throw new OptimisticLockingFailureException(
+                        "another worker completed the saga");
                   }
                   candidate.setVersion(candidate.getVersion() + 1);
                   stored = candidate;
